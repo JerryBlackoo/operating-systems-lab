@@ -57,6 +57,12 @@ clone_repo "https://github.com/nanvix/nanvix.git"
 # --- Production kernel reference (shallow clone; large download) ---
 clone_repo "https://github.com/torvalds/linux.git" linux
 
+# Convenience symlink: external/os-learning/arch-x86 -> linux/arch/x86
+if [ -d linux/arch/x86 ] && [ ! -e arch-x86 ]; then
+  ln -s linux/arch/x86 arch-x86
+  echo "link  arch-x86 -> linux/arch/x86"
+fi
+
 echo ""
 echo "Done. Repositories are under: $DEST"
 ls -1 "$DEST"

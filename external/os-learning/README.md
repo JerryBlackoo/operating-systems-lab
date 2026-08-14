@@ -43,5 +43,8 @@ The closest public match to a full Chinese x86_64 teaching OS with milestone tag
 | `skift` | Skift OS (C++) |
 | `nanvix` | Nanvix research/teaching OS |
 | `linux` | Linux kernel upstream (`torvalds/linux`, shallow clone) |
+| `arch-x86` | Symlink to `linux/arch/x86` (x86 boot, mm, kvm, entry, …) |
+
+**x86 架构代码路径：** `external/os-learning/linux/arch/x86`（已随 Linux 源码一并克隆，约 17MB）。
 
 These directories are gitignored in the parent repo; only this README and the clone script are tracked.
