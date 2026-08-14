@@ -10,3 +10,7 @@
 # Go build/test artifacts
 *.test
 *.out
+
+# Cloned third-party OS learning repos (see scripts/clone-os-learning.sh)
+/external/os-learning/*/
+!/external/os-learning/README.md
