@@ -39,7 +39,9 @@ The closest public match to a full Chinese x86_64 teaching OS with milestone tag
 | `rCore-Tutorial-v3` | rCore Rust OS tutorial (v3) |
 | `blog_os` | Writing an OS in Rust (phil-opp) |
 | `rust-raspberrypi-OS-tutorials` | Rust OS on Raspberry Pi |
+| `toaruos` | ToaruOS from-scratch x86 OS |
 | `skift` | Skift OS (C++) |
 | `nanvix` | Nanvix research/teaching OS |
+| `linux` | Linux kernel upstream (`torvalds/linux`, shallow clone) |
 
 These directories are gitignored in the parent repo; only this README and the clone script are tracked.

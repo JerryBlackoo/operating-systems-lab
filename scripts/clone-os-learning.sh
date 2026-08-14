@@ -50,8 +50,12 @@ clone_repo "https://github.com/phil-opp/blog_os.git"
 clone_repo "https://github.com/rust-embedded/rust-raspberrypi-OS-tutorials.git"
 
 # --- Additional hobby / teaching kernels ---
+clone_repo "https://github.com/klange/toaruos.git"
 clone_repo "https://github.com/SkiftOS/skift.git"
 clone_repo "https://github.com/nanvix/nanvix.git"
+
+# --- Production kernel reference (shallow clone; large download) ---
+clone_repo "https://github.com/torvalds/linux.git" linux
 
 echo ""
 echo "Done. Repositories are under: $DEST"
