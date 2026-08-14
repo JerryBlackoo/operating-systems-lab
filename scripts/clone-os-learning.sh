@@ -19,6 +19,31 @@ clone_repo() {
   git clone --depth 1 "$url" "$name"
 }
 
+clone_linux() {
+  local url="https://github.com/torvalds/linux.git"
+  local name="linux"
+  local shallow="${LINUX_SHALLOW:-0}"
+
+  if [ -d "$name/.git" ]; then
+    if [ "$(git -C "$name" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ] && [ "$shallow" != "1" ]; then
+      echo "deepen $name (fetch --unshallow; this may take a while) ..."
+      git -C "$name" fetch --unshallow --tags
+      echo "done  $name (full history)"
+    else
+      echo "skip  $name (already cloned)"
+    fi
+    return 0
+  fi
+
+  if [ "$shallow" = "1" ]; then
+    echo "clone $name (shallow) ..."
+    git clone --depth 1 "$url" "$name"
+  else
+    echo "clone $name (full history; large download) ..."
+    git clone "$url" "$name"
+  fi
+}
+
 # --- Dynux (no public source found as of 2026-08-14) ---
 # If you have a private URL, add: clone_repo "https://github.com/<org>/dynux.git" dynux
 
@@ -54,8 +79,8 @@ clone_repo "https://github.com/klange/toaruos.git"
 clone_repo "https://github.com/SkiftOS/skift.git"
 clone_repo "https://github.com/nanvix/nanvix.git"
 
-# --- Production kernel reference (shallow clone; large download) ---
-clone_repo "https://github.com/torvalds/linux.git" linux
+# --- Production kernel reference (full clone by default; set LINUX_SHALLOW=1 for --depth 1) ---
+clone_linux
 
 # Convenience symlink: external/os-learning/arch-x86 -> linux/arch/x86
 if [ -d linux/arch/x86 ] && [ ! -e arch-x86 ]; then

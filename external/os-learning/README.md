@@ -42,9 +42,15 @@ The closest public match to a full Chinese x86_64 teaching OS with milestone tag
 | `toaruos` | ToaruOS from-scratch x86 OS |
 | `skift` | Skift OS (C++) |
 | `nanvix` | Nanvix research/teaching OS |
-| `linux` | Linux kernel upstream (`torvalds/linux`, shallow clone) |
+| `linux` | Linux kernel upstream (`torvalds/linux`, **full history** by default) |
 | `arch-x86` | Symlink to `linux/arch/x86` (x86 boot, mm, kvm, entry, …) |
 
-**x86 架构代码路径：** `external/os-learning/linux/arch/x86`（已随 Linux 源码一并克隆，约 17MB）。
+**Linux 深克隆：** 默认拉取完整 git 历史（数 GB，耗时较长）。若只要最新快照：
+
+```bash
+LINUX_SHALLOW=1 bash scripts/clone-os-learning.sh
+```
+
+已有浅克隆时，再次运行脚本会自动执行 `git fetch --unshallow`。
 
 These directories are gitignored in the parent repo; only this README and the clone script are tracked.
