@@ -12,17 +12,31 @@ clone_repo() {
   local url="$1"
   local name="${2:-$(basename "$url" .git)}"
   if [ -d "$name/.git" ]; then
-    echo "skip  $name (already cloned)"
+    if [ "${FULL_CLONE:-0}" = "1" ] && \
+       [ "$(git -C "$name" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+      echo "unshallow $name ..."
+      git -C "$name" fetch --unshallow
+    else
+      echo "skip  $name (already cloned)"
+    fi
     return 0
   fi
-  echo "clone $name ..."
-  git clone --depth 1 "$url" "$name"
+  if [ "${FULL_CLONE:-0}" = "1" ]; then
+    echo "clone $name (full history) ..."
+    git clone "$url" "$name"
+  else
+    echo "clone $name ..."
+    git clone --depth 1 "$url" "$name"
+  fi
 }
 
 clone_linux() {
   local url="https://github.com/torvalds/linux.git"
   local name="linux"
   local shallow="${LINUX_SHALLOW:-0}"
+  if [ "${FULL_CLONE:-0}" = "1" ]; then
+    shallow="0"
+  fi
 
   if [ -d "$name/.git" ]; then
     if [ "$(git -C "$name" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ] && [ "$shallow" != "1" ]; then
