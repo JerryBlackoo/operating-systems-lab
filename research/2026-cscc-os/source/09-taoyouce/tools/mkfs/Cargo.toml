@@ -1,0 +1,11 @@
+[package]
+name = "mkfs"
+version = "0.1.0"
+edition = "2021"
+authors = ["RustMicroOS Team"]
+description = "RustMicroOS 文件系统镜像生成工具"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+fatfs = "0.3"
+fscommon = "0.1"

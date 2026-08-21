@@ -1,0 +1,44 @@
+# RustMicroOS - Rust 微内核操作系统
+# 面向 RISC-V 架构的安全微内核
+
+[workspace]
+members = [
+    "kernel",
+    "user",
+    "tools/mkfs",
+]
+exclude = [
+    "tests/hal-property-tests",
+    "tests/ext4-property-tests",
+    "tests/runner-property-tests",
+    "tests/abi-property-tests",
+    "tests/elf-property-tests",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["OS Competition Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/your-repo/RustMicroOS"
+
+[workspace.dependencies]
+# 内核共享依赖
+bitflags = "2.4"
+spin = "0.9"
+lazy_static = { version = "1.4", features = ["spin_no_std"] }
+log = "0.4"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+lto = true
+# opt-level=2（原 "z"）：体积优化会触发 LLVM machine outliner，把热路径
+# 拆成海量 OUTLINED_FUNCTION call/ret（pchist 实测占全内核 20%+ 动态指令）；
+# 速度优化消除外联并启用内联/展开，QEMU 内存充足、体积不敏感。
+opt-level = 3
+# 行号调试信息（GDB 设源码行断点用），不增加运行体积，仅 debug section 增大 ~10MB
+debug = "line-tables-only"

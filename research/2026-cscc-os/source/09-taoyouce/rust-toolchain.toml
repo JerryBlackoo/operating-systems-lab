@@ -1,0 +1,14 @@
+# Rust 工具链配置
+# RustMicroOS 使用 nightly 版本以支持裸机开发特性
+
+[toolchain]
+channel = "nightly-2025-02-01"
+components = [
+    "rust-src",           # Rust 源码（用于构建 core/alloc）
+    "llvm-tools-preview", # LLVM 工具（objcopy 等）
+]
+targets = [
+    "riscv64gc-unknown-none-elf",  # RISC-V 64-bit 裸机目标
+    "loongarch64-unknown-none",    # LoongArch64 裸机目标
+]
+profile = "minimal"

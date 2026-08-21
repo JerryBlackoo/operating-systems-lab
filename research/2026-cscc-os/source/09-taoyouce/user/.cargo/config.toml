@@ -1,0 +1,10 @@
+# 用户程序构建配置
+# 注意：链接脚本由 build.rs 配置，使用绝对路径以支持 workspace 级别编译
+
+[build]
+target = "riscv64gc-unknown-none-elf"
+
+[target.riscv64gc-unknown-none-elf]
+rustflags = [
+    "-Cforce-frame-pointers=yes",
+]

@@ -1,0 +1,61 @@
+# RustMicroOS 内核
+
+[package]
+name = "kernel"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+bitflags.workspace = true
+spin.workspace = true
+lazy_static.workspace = true
+log.workspace = true
+
+# RISC-V 支持
+riscv = "0.11"
+
+# ext4 只读文件系统
+ext4-view = { path = "../vendor/ext4-view", default-features = false }
+
+# 路径缓存哈希表（no_std SwissTable，已 vendored）
+hashbrown = { version = "0.15", default-features = false }
+
+# VirtIO 驱动（PCI + MMIO transport）
+# 🟢 直接复用: 完整 VirtIO 协议实现 + MMIO/PCI transport + VirtIOBlk/VirtIONet
+# MIT License, https://github.com/rcore-os/virtio-drivers
+virtio-drivers = "0.7"
+
+smoltcp = { version = "0.11", default-features = false, features = ["alloc", "medium-ethernet", "proto-ipv4", "proto-igmp", "iface-max-multicast-group-count-32", "socket-tcp", "socket-udp", "socket-dns", "socket-icmp", "socket-raw"] }
+
+[features]
+default = ["qemu"]
+qemu = []
+k210 = []
+debug = []
+# 测试特性
+test = []
+# 删除法剖析实验：select/poll 跳过 readiness 虚调用，仅用于 icount 占比测量
+poll_always_ready_experiment = []
+
+[build-dependencies]
+cc = "1.0"
+
+# 开发依赖（用于属性测试）
+[dev-dependencies]
+proptest = { version = "1.4.0", default-features = false, features = ["alloc"] }
+rand = { version = "0.8", default-features = false, features = ["alloc"] }
+rand_chacha = { version = "0.3", default-features = false }
+
+# 使用自定义链接脚本
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
+# 测试配置
+[[test]]
+name = "kernel_tests"
+path = "tests/mod.rs"
+harness = false

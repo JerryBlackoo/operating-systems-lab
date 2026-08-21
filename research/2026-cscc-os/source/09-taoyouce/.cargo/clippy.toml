@@ -1,0 +1,35 @@
+# Clippy 配置文件
+# RustMicroOS 静态分析配置
+
+# 认知复杂度阈值
+cognitive-complexity-threshold = 30
+
+# 函数参数数量上限
+too-many-arguments-threshold = 10
+
+# 类型复杂度阈值
+type-complexity-threshold = 500
+
+# 允许的通配符导入
+allowed-wildcard-imports = ["crate::*"]
+
+# 禁止的方法
+disallowed-methods = [
+    # 禁止使用 panic 相关方法（除非必要）
+    # "std::panic::panic_any",
+]
+
+# 禁止的类型
+disallowed-types = [
+    # 在 no_std 环境中禁止使用 std 类型
+    # "std::collections::HashMap",
+]
+
+# 文档要求
+missing-docs-in-crate-items = true
+
+# 单元类型参数
+unit-cmp = true
+
+# 避免使用 as 转换
+as-conversions = true

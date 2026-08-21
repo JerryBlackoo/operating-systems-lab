@@ -1,0 +1,6 @@
+# mkfs 工具使用主机目标编译（不是 RISC-V）
+# 覆盖 workspace 的 RISC-V 目标配置
+
+[build]
+# 不设置 target，在 Makefile 中通过命令行参数指定
+# 或者使用 CARGO_BUILD_TARGET 环境变量

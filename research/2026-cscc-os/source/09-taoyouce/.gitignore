@@ -1,0 +1,211 @@
+# Rust 编译产物
+/target/
+**/*.rs.bk
+
+# 生成的镜像文件
+*.img
+*.img.xz
+*.bin
+
+# 调试文件
+*.pdb
+*.dSYM/
+
+# IDE 和编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+
+# QEMU 调试/输出临时文件
+qemu_debug*.txt
+qemu_stderr*.txt
+qemu_stdout*.txt
+serial_out.txt
+basic_musl_section.txt
+
+# 临时笔记
+__page*.md
+
+# 构建产物（评测系统自动生成）
+kernel-rv
+kernel-la
+kernel-rv-*
+kernel-la-*
+
+# 本地索引/缓存
+.codegraph/
+.hypothesis/
+.kiro/
+.windsurf/
+
+# Rust / QEMU 本地构建目录
+/target*/
+/kernel/target*/
+/user/target*/
+
+# Node 依赖
+node_modules/
+**/node_modules/
+
+# vendored third-party crates / generated dependency trees
+/vendor/
+
+# 非评测必需的大型目录
+showcase/
+reference-works/*
+!reference-works/autotest-for-oskernel/
+!reference-works/autotest-for-oskernel/**
+!reference-works/testsuits-for-oskernel-final-2026/
+!reference-works/testsuits-for-oskernel-final-2026/**
+demo-ui/
+/testdata/*
+!/testdata/*.img.xz
+# .kiro/
+.worktrees/
+
+# 并行回归产物（每次运行自动生成）
+artifacts/
+test_groups.txt
+
+# local-judge 生成数据与大报告
+/local-judge/archives/
+/local-judge/extracted/
+/local-judge/isolation-reports/
+/local-judge/logs/
+/local-judge/ltp-percase-reports/
+/local-judge/reports/
+/local-judge/kernels/
+/local-judge/analysis-la-elf/
+/local-judge/testcases/
+
+# test-results 运行产物
+/test-results/devin-flow-recorder/node_modules/
+/test-results/devin-flow-recorder/runs/
+/test-results/devin-flow-recorder/watch-logs/
+/test-results/devin-frontend-audit/
+/test-results/**/*.log
+/test-results/*account*
+/test-results/*Account*
+/test-results/*auth*
+/test-results/*Auth*
+/test-results/*token*
+/test-results/*Token*
+/test-results/*session*
+/test-results/*Session*
+/test-results/*cookie*
+/test-results/*Cookie*
+/test-results/*wam*
+/test-results/*WAM*
+/test-results/*windsurf*
+/test-results/*Windsurf*
+/test-results/*wf-dialog*
+/test-results/*WF_DIALOG*
+/test-results/*devin*
+/test-results/*Devin*
+/test-results/*workbench*
+/test-results/*Workbench*
+/test-results/*quota*
+/test-results/*Quota*
+/test-results/agent-gh-*
+/test-results/agent-public-*
+/test-results/agent-push-github-*
+/test-results/agent-setup-gh-*
+/test-results/agent-verify-github-*
+/test-results/agent-verify-public-github-*
+
+# 根目录临时构建/串口/GDB 输出
+/*.out
+/*.err
+/local_*.txt
+/local-*.txt
+/qemu*.txt
+/rv_*.txt
+/la_*.txt
+/os_serial_out_*.txt
+/serial_*.txt
+/fresh_*.txt
+/debug_*.gdb
+/gdb_*.gdb
+/gdb_*.txt
+/disasm_*.txt
+
+# 2026 线上决赛官方磁盘镜像（百度盘/本地缓存；分发走 GitHub Release final-2026-images）
+/2026OSImage-Pub/
+
+# 官方参考仓库（浅克隆，不跟踪）
+/third_party/
+
+# 本地下载脚本/调试辅助（不跟踪）
+/run_qemu_bg.sh
+/dl_toolchain.sh
+/extract_toolchain.sh
+/probe_*.sh
+/gdb_capture.log
+/local_la_dbg*.txt
+/x86_64-cross-tools-loongarch64-*.tar.xz
+
+# 本地 AI 助手配置（可能含个人凭据与本地路径，禁止入库）
+.codex/
+.cursor/
+.claude/
+.devin/
+
+# Python 缓存与编译产物
+__pycache__/
+*.pyc
+*.so
+*.o
+*.a
+
+# 内核二进制备份/历史副本（构建产物）
+kernel-*.base
+kernel-*.old
+kernel-*.b108*
+kernel-*-copy
+kernel-*-debug
+kernel-*-fixed
+
+# 抓取的网页与临时补丁/编码文件
+bing-*.html
+lore*.html
+qemu-monitor.html
+*.patch
+*.b64
+console.b64
+
+# 一次性调试快照
+.rbind*.txt
+.cat_*.txt
+.fan05-*.log
+.fsbind-remaining/
+.fsbind-sweep-4tuple/
+_m_*.txt
+_umount2_*.txt
+_libc*.so
+_libc.dis
+_clone04.dis
+
+# 外部项目源码片段（QEMU 调试用，非本项目代码）
+qs-*.c
+
+# 答辩材料中可再生的中间产物（PPT 逐页预览图）
+doc/presentation/final-2026/editable/preview/
+
+# 官方 pristine 镜像的 gzip 归档（单文件 2 GB，远超 GitHub 100 MB 上限）
+*.img.gz
+
+# ext4 宿主侧工具的 Rust 构建产物
+/local-judge/ext4host/

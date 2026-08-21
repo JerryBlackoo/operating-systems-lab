@@ -1,0 +1,89 @@
+
+===== D:\download\LoongArch输出 (1).txt =====
+  basic-musl          pass=  1/ 32  gained=100  possible=102
+      failed: test_brk, test_chdir, test_clone, test_close, test_dup2, test_dup ... (+25 more)
+  busybox-musl        pass= 54/ 54  gained=54  possible=54
+  lua-musl            pass=  9/  9  gained=9  possible=9
+  libctest-musl       pass=  0/220  gained=0  possible=220
+      failed: libctest static argv, libctest static basename, libctest static clocale_mbfuncs, libctest static clock_gettime, libctest static crypt, libctest static dirname ... (+214 more)
+  libcbench-musl      pass=  0/ 27  gained=0  possible=27
+      failed: libc-bench b_malloc_sparse (0) (seconds), libc-bench b_malloc_bubble (0) (seconds), libc-bench b_malloc_tiny1 (0) (seconds), libc-bench b_malloc_tiny2 (0) (seconds), libc-bench b_malloc_big1 (0) (seconds), libc-bench b_malloc_big2 (0) (seconds) ... (+21 more)
+  basic-glibc         pass=  0/ 32  gained=0  possible=102
+      failed: test_brk, test_chdir, test_clone, test_close, test_dup2, test_dup ... (+26 more)
+  busybox-glibc       pass=  0/ 53  gained=0  possible=53
+      failed: busybox echo "#### independent command test", busybox ash -c exit, busybox sh -c exit, busybox basename /aaa/bbb, busybox cal, busybox clear ... (+47 more)
+  cyclictest-glibc    pass=  0/  4  gained=0  possible=4
+      failed: cyclictest NO_STRESS_P1 (microseconds), cyclictest NO_STRESS_P8 (microseconds), cyclictest STRESS_P1 (microseconds), cyclictest STRESS_P8 (microseconds)
+  cyclictest-musl     pass=  0/  4  gained=0  possible=4
+      failed: cyclictest NO_STRESS_P1 (microseconds), cyclictest NO_STRESS_P8 (microseconds), cyclictest STRESS_P1 (microseconds), cyclictest STRESS_P8 (microseconds)
+  iozone-glibc        pass=  0/ 20  gained=0  possible=20
+      failed: iozone write/read 4 initial writers (kb/sec), iozone write/read 4 rewriters (kb/sec), iozone write/read 4 readers (kb/sec), iozone write/read 4 re-readers (kb/sec), iozone random-read 4 initial writers (kb/sec), iozone random-read 4 rewriters (kb/sec) ... (+14 more)
+  iozone-musl         pass=  0/ 20  gained=0  possible=20
+      failed: iozone write/read 4 initial writers (kb/sec), iozone write/read 4 rewriters (kb/sec), iozone write/read 4 readers (kb/sec), iozone write/read 4 re-readers (kb/sec), iozone random-read 4 initial writers (kb/sec), iozone random-read 4 rewriters (kb/sec) ... (+14 more)
+  iperf-glibc         pass=  0/  6  gained=0  possible=6
+      failed: iperf BASIC_UDP (Mbits/sec), iperf BASIC_TCP (Mbits/sec), iperf PARALLEL_UDP (Mbits/sec), iperf PARALLEL_TCP (Mbits/sec), iperf REVERSE_UDP (Mbits/sec), iperf REVERSE_TCP (Mbits/sec)
+  iperf-musl          pass=  0/  6  gained=0  possible=6
+      failed: iperf BASIC_UDP (Mbits/sec), iperf BASIC_TCP (Mbits/sec), iperf PARALLEL_UDP (Mbits/sec), iperf PARALLEL_TCP (Mbits/sec), iperf REVERSE_UDP (Mbits/sec), iperf REVERSE_TCP (Mbits/sec)
+  libcbench-glibc     pass=  0/ 27  gained=0  possible=27
+      failed: libc-bench b_malloc_sparse (0) (seconds), libc-bench b_malloc_bubble (0) (seconds), libc-bench b_malloc_tiny1 (0) (seconds), libc-bench b_malloc_tiny2 (0) (seconds), libc-bench b_malloc_big1 (0) (seconds), libc-bench b_malloc_big2 (0) (seconds) ... (+21 more)
+  libctest-glibc      pass=  0/220  gained=0  possible=220
+      failed: libctest static argv, libctest static basename, libctest static clocale_mbfuncs, libctest static clock_gettime, libctest static crypt, libctest static dirname ... (+214 more)
+  lmbench-glibc       pass=  0/ 36  gained=0  possible=36
+      failed: lmbench Simple syscall:(microseconds), lmbench Simple read:(microseconds), lmbench Simple write:(microseconds), lmbench Simple stat:(microseconds), lmbench Simple fstat:(microseconds), lmbench Simple open/close:(microseconds) ... (+30 more)
+  lmbench-musl        pass=  0/ 36  gained=0  possible=36
+      failed: lmbench Simple syscall:(microseconds), lmbench Simple read:(microseconds), lmbench Simple write:(microseconds), lmbench Simple stat:(microseconds), lmbench Simple fstat:(microseconds), lmbench Simple open/close:(microseconds) ... (+30 more)
+  ltp-glibc           pass=  0/  0  gained=0  possible=0
+  ltp-musl            pass=  0/  0  gained=0  possible=0
+  lua-glibc           pass=  0/  9  gained=0  possible=9
+      failed: lua date.lua, lua file_io.lua, lua max_min.lua, lua random.lua, lua remove.lua, lua round_num.lua ... (+3 more)
+  netperf-glibc       pass=  0/  5  gained=0  possible=5
+      failed: netperf UDP_STREAM (Trans. Rate/sec), netperf TCP_STREAM (Throughput 10^6bits/sec), netperf UDP_RR (Trans. Rate/sec), netperf TCP_RR (Trans. Rate/sec), netperf TCP_CRR (Trans. Rate/sec)
+  netperf-musl        pass=  0/  5  gained=0  possible=5
+      failed: netperf UDP_STREAM (Trans. Rate/sec), netperf TCP_STREAM (Throughput 10^6bits/sec), netperf UDP_RR (Trans. Rate/sec), netperf TCP_RR (Trans. Rate/sec), netperf TCP_CRR (Trans. Rate/sec)
+  TOTAL items scored >= 1: 163
+
+===== D:\download\Riscv输出 (1).txt =====
+  basic-musl          pass=  1/ 32  gained=100  possible=102
+      failed: test_brk, test_chdir, test_clone, test_close, test_dup2, test_dup ... (+25 more)
+  busybox-musl        pass= 54/ 55  gained=54  possible=55
+      failed: busybox kill 10
+  lua-musl            pass=  9/  9  gained=9  possible=9
+  libctest-musl       pass=107/220  gained=107  possible=220
+      failed: libctest static crypt, libctest static pleval, libctest dynamic argv, libctest dynamic basename, libctest dynamic clocale_mbfuncs, libctest dynamic clock_gettime ... (+107 more)
+  basic-glibc         pass=  0/ 32  gained=0  possible=102
+      failed: test_brk, test_chdir, test_clone, test_close, test_dup2, test_dup ... (+26 more)
+  busybox-glibc       pass=  0/ 53  gained=0  possible=53
+      failed: busybox echo "#### independent command test", busybox ash -c exit, busybox sh -c exit, busybox basename /aaa/bbb, busybox cal, busybox clear ... (+47 more)
+  cyclictest-glibc    pass=  0/  4  gained=0  possible=4
+      failed: cyclictest NO_STRESS_P1 (microseconds), cyclictest NO_STRESS_P8 (microseconds), cyclictest STRESS_P1 (microseconds), cyclictest STRESS_P8 (microseconds)
+  cyclictest-musl     pass=  0/  4  gained=0  possible=4
+      failed: cyclictest NO_STRESS_P1 (microseconds), cyclictest NO_STRESS_P8 (microseconds), cyclictest STRESS_P1 (microseconds), cyclictest STRESS_P8 (microseconds)
+  iozone-glibc        pass=  0/ 20  gained=0  possible=20
+      failed: iozone write/read 4 initial writers (kb/sec), iozone write/read 4 rewriters (kb/sec), iozone write/read 4 readers (kb/sec), iozone write/read 4 re-readers (kb/sec), iozone random-read 4 initial writers (kb/sec), iozone random-read 4 rewriters (kb/sec) ... (+14 more)
+  iozone-musl         pass=  0/ 20  gained=0  possible=20
+      failed: iozone write/read 4 initial writers (kb/sec), iozone write/read 4 rewriters (kb/sec), iozone write/read 4 readers (kb/sec), iozone write/read 4 re-readers (kb/sec), iozone random-read 4 initial writers (kb/sec), iozone random-read 4 rewriters (kb/sec) ... (+14 more)
+  iperf-glibc         pass=  0/  6  gained=0  possible=6
+      failed: iperf BASIC_UDP (Mbits/sec), iperf BASIC_TCP (Mbits/sec), iperf PARALLEL_UDP (Mbits/sec), iperf PARALLEL_TCP (Mbits/sec), iperf REVERSE_UDP (Mbits/sec), iperf REVERSE_TCP (Mbits/sec)
+  iperf-musl          pass=  0/  6  gained=0  possible=6
+      failed: iperf BASIC_UDP (Mbits/sec), iperf BASIC_TCP (Mbits/sec), iperf PARALLEL_UDP (Mbits/sec), iperf PARALLEL_TCP (Mbits/sec), iperf REVERSE_UDP (Mbits/sec), iperf REVERSE_TCP (Mbits/sec)
+  libcbench-glibc     pass=  0/ 27  gained=0  possible=27
+      failed: libc-bench b_malloc_sparse (0) (seconds), libc-bench b_malloc_bubble (0) (seconds), libc-bench b_malloc_tiny1 (0) (seconds), libc-bench b_malloc_tiny2 (0) (seconds), libc-bench b_malloc_big1 (0) (seconds), libc-bench b_malloc_big2 (0) (seconds) ... (+21 more)
+  libcbench-musl      pass=  0/ 27  gained=0  possible=27
+      failed: libc-bench b_malloc_sparse (0) (seconds), libc-bench b_malloc_bubble (0) (seconds), libc-bench b_malloc_tiny1 (0) (seconds), libc-bench b_malloc_tiny2 (0) (seconds), libc-bench b_malloc_big1 (0) (seconds), libc-bench b_malloc_big2 (0) (seconds) ... (+21 more)
+  libctest-glibc      pass=  0/220  gained=0  possible=220
+      failed: libctest static argv, libctest static basename, libctest static clocale_mbfuncs, libctest static clock_gettime, libctest static crypt, libctest static dirname ... (+214 more)
+  lmbench-glibc       pass=  0/ 36  gained=0  possible=36
+      failed: lmbench Simple syscall:(microseconds), lmbench Simple read:(microseconds), lmbench Simple write:(microseconds), lmbench Simple stat:(microseconds), lmbench Simple fstat:(microseconds), lmbench Simple open/close:(microseconds) ... (+30 more)
+  lmbench-musl        pass=  0/ 36  gained=0  possible=36
+      failed: lmbench Simple syscall:(microseconds), lmbench Simple read:(microseconds), lmbench Simple write:(microseconds), lmbench Simple stat:(microseconds), lmbench Simple fstat:(microseconds), lmbench Simple open/close:(microseconds) ... (+30 more)
+  ltp-glibc           pass=  0/  0  gained=0  possible=0
+  ltp-musl            pass=  0/  0  gained=0  possible=0
+  lua-glibc           pass=  0/  9  gained=0  possible=9
+      failed: lua date.lua, lua file_io.lua, lua max_min.lua, lua random.lua, lua remove.lua, lua round_num.lua ... (+3 more)
+  netperf-glibc       pass=  0/  5  gained=0  possible=5
+      failed: netperf UDP_STREAM (Trans. Rate/sec), netperf TCP_STREAM (Throughput 10^6bits/sec), netperf UDP_RR (Trans. Rate/sec), netperf TCP_RR (Trans. Rate/sec), netperf TCP_CRR (Trans. Rate/sec)
+  netperf-musl        pass=  0/  5  gained=0  possible=5
+      failed: netperf UDP_STREAM (Trans. Rate/sec), netperf TCP_STREAM (Throughput 10^6bits/sec), netperf UDP_RR (Trans. Rate/sec), netperf TCP_RR (Trans. Rate/sec), netperf TCP_CRR (Trans. Rate/sec)
+  TOTAL items scored >= 1: 270
+
+=== GRAND TOTAL items scored >= 1: 433
