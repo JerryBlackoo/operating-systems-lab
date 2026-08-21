@@ -1,0 +1,20 @@
+{
+  "model_id": "1.5b_pool",
+  "model_mb": 1111.0,
+  "sweep": [
+    {
+      "budget_mb": 444.4,
+      "ok": true,
+      "peak_rss_mb": 1223.3,
+      "mean_rss_mb": 771.2,
+      "total_pfaults": 22837352,
+      "ttft_mean_ms": 310.0,
+      "ttft_p95_ms": 356.2,
+      "tpot_mean_ms": 230.58,
+      "decode_tps": 4.3,
+      "budget_bytes": 465987174,
+      "locked_mb": 411.2,
+      "pct": 40
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "models": [
+    {
+      "id": "qwen2.5-1.5b",
+      "family": "dense",
+      "purpose": "主力小模型：全流程基线/集群实例",
+      "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+      "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+      "size_bytes_expected": 1070000000,
+      "enabled": true
+    },
+    {
+      "id": "qwen2.5-3b",
+      "family": "dense",
+      "purpose": "主力小模型：全流程基线/集群实例",
+      "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+      "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+      "size_bytes_expected": 2104932768,
+      "enabled": true
+    },
+    {
+      "id": "qwen2.5-7b",
+      "family": "dense",
+      "purpose": "可选：逼近 6GB 显存的 offload/显存受限演示",
+      "repo": "Qwen/Qwen2.5-7B-Instruct-GGUF",
+      "file": "qwen2.5-7b-instruct-q4_k_m.gguf",
+      "size_bytes_expected": 4900000000,
+      "enabled": false
+    },
+    {
+      "id": "minicpm-moe-2.4b",
+      "family": "moe",
+      "purpose": "备选 MoE（llama.cpp 支持验证后可用）",
+      "repo": "Xtzrv/MiniCPM-MoE-2.4B-GGUF",
+      "file": "minicpm-moe-2.4b-q4_k_m.gguf",
+      "size_bytes_expected": 1500000000,
+      "enabled": false
+    },
+    {
+      "id": "olmoe-1b-7b",
+      "family": "moe",
+      "purpose": "阶段1/3：专家激活分析（64 专家取 8，官方 GGUF，llama.cpp 原生支持）",
+      "repo": "allenai/OLMoE-1B-7B-0125-GGUF",
+      "file": "OLMoE-1B-7B-0125-Q4_K_M.gguf",
+      "size_bytes_expected": 4213512256,
+      "enabled": true
+    }
+  ]
+}

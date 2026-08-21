@@ -1,0 +1,20 @@
+{
+  "model_id": "1.5b_pf_t8",
+  "model_mb": 1111.0,
+  "sweep": [
+    {
+      "budget_mb": 444.4,
+      "ok": true,
+      "peak_rss_mb": 1216.6,
+      "mean_rss_mb": 763.1,
+      "total_pfaults": 17340361,
+      "ttft_mean_ms": 305.4,
+      "ttft_p95_ms": 357.7,
+      "tpot_mean_ms": 227.05,
+      "decode_tps": 4.4,
+      "budget_bytes": 465987174,
+      "locked_mb": 411.2,
+      "pct": 40
+    }
+  ]
+}

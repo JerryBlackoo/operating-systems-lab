@@ -1,0 +1,420 @@
+{
+  "policy": "lmetric",
+  "n_requests": 60,
+  "n_instances": 4,
+  "budget_pct": 60,
+  "concurrency": 2,
+  "ttft_mean_ms": 376.0,
+  "ttft_p50_ms": 374.0,
+  "ttft_p95_ms": 486.4,
+  "tpot_mean_ms": 228.0,
+  "prefill_mean_ms": 347.1,
+  "prefill_p50_ms": 343.6,
+  "kv_hit_mean_tokens": 84,
+  "kv_hit_rate": 0.917,
+  "load_balance_std": 15.1,
+  "n_alarms": 0,
+  "n_failures": 0,
+  "decisions": [
+    {
+      "req": 0,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 0,
+      "added": 108
+    },
+    {
+      "req": 1,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 0,
+      "added": 109
+    },
+    {
+      "req": 2,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 22,
+      "added": 111
+    },
+    {
+      "req": 3,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 22,
+      "added": 130
+    },
+    {
+      "req": 4,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 22,
+      "added": 49
+    },
+    {
+      "req": 5,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 320,
+      "added": 5
+    },
+    {
+      "req": 6,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 448,
+      "added": 12
+    },
+    {
+      "req": 7,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 475,
+      "added": 28
+    },
+    {
+      "req": 8,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 248,
+      "added": 5
+    },
+    {
+      "req": 9,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 288,
+      "added": 5
+    },
+    {
+      "req": 10,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 444,
+      "added": 7
+    },
+    {
+      "req": 11,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 334,
+      "added": 6
+    },
+    {
+      "req": 12,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 189,
+      "added": 5
+    },
+    {
+      "req": 13,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 140,
+      "added": 11
+    },
+    {
+      "req": 14,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 140,
+      "added": 10
+    },
+    {
+      "req": 15,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 283,
+      "added": 4
+    },
+    {
+      "req": 16,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 266,
+      "added": 6
+    },
+    {
+      "req": 17,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 351,
+      "added": 4
+    },
+    {
+      "req": 18,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 306,
+      "added": 6
+    },
+    {
+      "req": 19,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 298,
+      "added": 4
+    },
+    {
+      "req": 20,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 407,
+      "added": 53
+    },
+    {
+      "req": 21,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 485,
+      "added": 6
+    },
+    {
+      "req": 22,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 561,
+      "added": 16
+    },
+    {
+      "req": 23,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 374,
+      "added": 6
+    },
+    {
+      "req": 24,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 408,
+      "added": 29
+    },
+    {
+      "req": 25,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 448,
+      "added": 6
+    },
+    {
+      "req": 26,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 140,
+      "added": 10
+    },
+    {
+      "req": 27,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 503,
+      "added": 28
+    },
+    {
+      "req": 28,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 484,
+      "added": 5
+    },
+    {
+      "req": 29,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 380,
+      "added": 6
+    },
+    {
+      "req": 30,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 261,
+      "added": 4
+    },
+    {
+      "req": 31,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 575,
+      "added": 6
+    },
+    {
+      "req": 32,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 444,
+      "added": 5
+    },
+    {
+      "req": 33,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 516,
+      "added": 4
+    },
+    {
+      "req": 34,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 252,
+      "added": 5
+    },
+    {
+      "req": 35,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 521,
+      "added": 12
+    },
+    {
+      "req": 36,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 311,
+      "added": 4
+    },
+    {
+      "req": 37,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 535,
+      "added": 6
+    },
+    {
+      "req": 38,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 221,
+      "added": 4
+    },
+    {
+      "req": 39,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 416,
+      "added": 5
+    },
+    {
+      "req": 40,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 553,
+      "added": 12
+    },
+    {
+      "req": 41,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 193,
+      "added": 4
+    },
+    {
+      "req": 42,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 538,
+      "added": 3
+    },
+    {
+      "req": 43,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 230,
+      "added": 7
+    },
+    {
+      "req": 44,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 543,
+      "added": 6
+    },
+    {
+      "req": 45,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 367,
+      "added": 8
+    },
+    {
+      "req": 46,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 325,
+      "added": 5
+    },
+    {
+      "req": 47,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 280,
+      "added": 5
+    },
+    {
+      "req": 48,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t2",
+      "hit": 339,
+      "added": 8
+    },
+    {
+      "req": 49,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "t1",
+      "hit": 566,
+      "added": 3
+    }
+  ]
+}

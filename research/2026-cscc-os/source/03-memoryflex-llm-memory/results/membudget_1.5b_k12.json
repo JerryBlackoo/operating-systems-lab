@@ -1,0 +1,20 @@
+{
+  "model_id": "1.5b_k12",
+  "model_mb": 1111.0,
+  "sweep": [
+    {
+      "budget_mb": 444.4,
+      "ok": true,
+      "peak_rss_mb": 1180.3,
+      "mean_rss_mb": 783.6,
+      "total_pfaults": 34007482,
+      "ttft_mean_ms": 293.7,
+      "ttft_p95_ms": 346.3,
+      "tpot_mean_ms": 237.55,
+      "decode_tps": 4.2,
+      "budget_bytes": 465987174,
+      "locked_mb": 411.2,
+      "pct": 40
+    }
+  ]
+}

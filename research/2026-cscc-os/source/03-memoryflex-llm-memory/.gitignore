@@ -1,0 +1,24 @@
+# 嵌套仓库元数据与编译产物（其余本地文件全部纳入版本库）
+tools/llama.cpp/.git/
+tools/llama.cpp/.git_bak/
+tools/llama.cpp/build/
+tools/*.txt
+.vs/
+
+# 模型文件（GitLab 平台限制无法托管 7.1GB；清单见 docs/模型说明.md，可用 scripts/download_models.ps1 复现）
+models/
+results/push_*.txt
+
+# 本地错误自查记录（严禁入库）
+错误自查记录.txt
+
+# Python
+__pycache__/
+*.pyc
+
+# 日志与临时文件
+*.log
+*.tmp
+*.part
+results_dl*.txt
+push_log.txt

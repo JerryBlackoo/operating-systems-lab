@@ -1,0 +1,62 @@
+{
+  "model_id": "olmoe_nolock",
+  "model_mb": 4212.0,
+  "sweep": [
+    {
+      "budget_mb": 1263.6,
+      "ok": true,
+      "peak_rss_mb": 3567.7,
+      "mean_rss_mb": 764.2,
+      "total_pfaults": 13123609,
+      "ttft_mean_ms": 1323.0,
+      "ttft_p95_ms": 3234.1,
+      "tpot_mean_ms": 262.86,
+      "decode_tps": 3.8,
+      "budget_bytes": 1324980633,
+      "locked_mb": 310.8,
+      "pct": 30
+    },
+    {
+      "budget_mb": 2106.0,
+      "ok": true,
+      "peak_rss_mb": 3643.6,
+      "mean_rss_mb": 652.6,
+      "total_pfaults": 13117053,
+      "ttft_mean_ms": 591.1,
+      "ttft_p95_ms": 1263.9,
+      "tpot_mean_ms": 261.5,
+      "decode_tps": 3.8,
+      "budget_bytes": 2208301056,
+      "locked_mb": 310.8,
+      "pct": 50
+    },
+    {
+      "budget_mb": 2948.4,
+      "ok": true,
+      "peak_rss_mb": 3625.9,
+      "mean_rss_mb": 645.5,
+      "total_pfaults": 13120355,
+      "ttft_mean_ms": 593.8,
+      "ttft_p95_ms": 1253.4,
+      "tpot_mean_ms": 261.43,
+      "decode_tps": 3.8,
+      "budget_bytes": 3091621478,
+      "locked_mb": 310.8,
+      "pct": 70
+    },
+    {
+      "budget_mb": 3790.8,
+      "ok": true,
+      "peak_rss_mb": 3537.7,
+      "mean_rss_mb": 639.2,
+      "total_pfaults": 13128056,
+      "ttft_mean_ms": 566.1,
+      "ttft_p95_ms": 1184.4,
+      "tpot_mean_ms": 260.32,
+      "decode_tps": 3.8,
+      "budget_bytes": 3974941900,
+      "locked_mb": 310.8,
+      "pct": 90
+    }
+  ]
+}

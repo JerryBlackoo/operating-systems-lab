@@ -1,0 +1,14 @@
+{
+  "model": "models\\qwen2.5-1.5b-instruct-q4_k_m.gguf",
+  "budget_pct": 40,
+  "prefetch_layers": 8,
+  "requests": 16,
+  "duration_s": 95.3,
+  "rss_mean_mb": 790.6,
+  "rss_peak_mb": 1121.2,
+  "rss_growth_mb": 0.2,
+  "threads_mean": 62.9,
+  "threads_max": 65,
+  "ttft_mean_ms": 289.1,
+  "stable": false
+}
