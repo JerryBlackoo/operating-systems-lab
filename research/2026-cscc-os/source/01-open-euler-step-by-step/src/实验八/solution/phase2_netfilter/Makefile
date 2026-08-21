@@ -1,0 +1,16 @@
+obj-m += netfilter_hook.o
+
+all:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+
+clean:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+
+load:
+	sudo insmod netfilter_hook.ko
+
+unload:
+	sudo rmmod netfilter_hook
+
+logs:
+	dmesg | tail -20
