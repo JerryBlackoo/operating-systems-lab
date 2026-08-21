@@ -1,0 +1,36 @@
+# 评测可见模板位于 cargo-config/config.toml。
+# 比赛平台 clone 时会过滤隐藏目录，Makefile 会在构建前重建本文件。
+
+[build]
+target = "riscv64gc-unknown-none-elf"
+
+# 仅对内核包应用链接脚本
+[target.riscv64gc-unknown-none-elf]
+rustflags = [
+    "-C", "force-frame-pointers=yes",
+    # 允许非对齐标量访存：QEMU virt 对 misaligned ld/sd 硬件化处理（不 trap），
+    # 否则 LLVM 把每个非对齐 8B 读展开成 8×lbu+拼接（hashbrown 探测组/
+    # 短字符串比较热路径每组 ~20 条指令）。
+    # 位操作扩展：官方判题 QEMU virt 默认 CPU 的 riscv,isa 含 zba_zbb_zbc_zbs。
+    # 无 Zbb 时 LLVM 把 leading_zeros/trailing_zeros/count_ones 展开成
+    # ~40 条魔数乘法/De Bruijn 查表序列（hashbrown 探测/摘除热路径每次都付）；
+    # Zbb 后 clz/ctz/cpop 单指令，Zba 优化地址生成、Zbs 优化单比特位操作。
+    "-C", "target-feature=+unaligned-scalar-mem,+zba,+zbb,+zbs",
+]
+runner = "qemu-system-riscv64 -machine virt -nographic -bios none -kernel"
+
+[env]
+# QEMU 或 K210 平台选择
+PLATFORM = { value = "qemu", force = false }
+
+[alias]
+# 快捷命令
+kbuild = "build --package kernel --release"
+krun = "run --package kernel --release"
+ktest = "test --package kernel"
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
