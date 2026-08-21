@@ -1,0 +1,20 @@
+{
+  "model_id": "olmoe_pf_cold",
+  "model_mb": 4212.0,
+  "sweep": [
+    {
+      "budget_mb": 1263.6,
+      "ok": true,
+      "peak_rss_mb": 3699.0,
+      "mean_rss_mb": 1030.7,
+      "total_pfaults": 21307932,
+      "ttft_mean_ms": 494.8,
+      "ttft_p95_ms": 1137.8,
+      "tpot_mean_ms": 285.05,
+      "decode_tps": 3.5,
+      "budget_bytes": 1324980633,
+      "locked_mb": 615.5,
+      "pct": 30
+    }
+  ]
+}

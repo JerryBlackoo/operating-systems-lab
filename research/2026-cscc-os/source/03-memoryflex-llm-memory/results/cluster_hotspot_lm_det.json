@@ -1,0 +1,356 @@
+{
+  "policy": "lmetric",
+  "n_requests": 42,
+  "n_instances": 4,
+  "budget_pct": 60,
+  "concurrency": 2,
+  "ttft_mean_ms": 373.2,
+  "ttft_p50_ms": 349.6,
+  "ttft_p95_ms": 445.0,
+  "tpot_mean_ms": 226.2,
+  "prefill_mean_ms": 348.6,
+  "prefill_p50_ms": 323.0,
+  "kv_hit_mean_tokens": 94.4,
+  "kv_hit_rate": 0.762,
+  "load_balance_std": 8.0,
+  "n_alarms": 1,
+  "n_failures": 0,
+  "decisions": [
+    {
+      "req": 0,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 0,
+      "added": 41
+    },
+    {
+      "req": 1,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 0,
+      "added": 51
+    },
+    {
+      "req": 2,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 142,
+      "added": 25
+    },
+    {
+      "req": 3,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 175,
+      "added": 25
+    },
+    {
+      "req": 4,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 216,
+      "added": 21
+    },
+    {
+      "req": 5,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 252,
+      "added": 20
+    },
+    {
+      "req": 6,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 284,
+      "added": 20
+    },
+    {
+      "req": 7,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 311,
+      "added": 19
+    },
+    {
+      "req": 8,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 343,
+      "added": 20
+    },
+    {
+      "req": 9,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 374,
+      "added": 22
+    },
+    {
+      "req": 10,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 397,
+      "added": 25
+    },
+    {
+      "req": 11,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 430,
+      "added": 25
+    },
+    {
+      "req": 12,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 507,
+      "added": 13
+    },
+    {
+      "req": 13,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 539,
+      "added": 13
+    },
+    {
+      "req": 14,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 566,
+      "added": 13
+    },
+    {
+      "req": 15,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 598,
+      "added": 11
+    },
+    {
+      "req": 16,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 629,
+      "added": 11
+    },
+    {
+      "req": 17,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 652,
+      "added": 16
+    },
+    {
+      "req": 18,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 685,
+      "added": 17
+    },
+    {
+      "req": 19,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 726,
+      "added": 15
+    },
+    {
+      "req": 20,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 762,
+      "added": 12
+    },
+    {
+      "req": 21,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 794,
+      "added": 12
+    },
+    {
+      "req": 22,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 821,
+      "added": 13
+    },
+    {
+      "req": 23,
+      "inst": 2,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 0,
+      "added": 224
+    },
+    {
+      "req": 24,
+      "inst": 3,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 0,
+      "added": 232
+    },
+    {
+      "req": 25,
+      "inst": 2,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 884,
+      "added": 21
+    },
+    {
+      "req": 26,
+      "inst": 3,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 907,
+      "added": 25
+    },
+    {
+      "req": 27,
+      "inst": 2,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 940,
+      "added": 24
+    },
+    {
+      "req": 28,
+      "inst": 3,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 981,
+      "added": 21
+    },
+    {
+      "req": 29,
+      "inst": 2,
+      "policy": "lmetric",
+      "topic": "hot",
+      "hit": 1017,
+      "added": 20
+    },
+    {
+      "req": 30,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 21,
+      "added": 34
+    },
+    {
+      "req": 31,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 21,
+      "added": 33
+    },
+    {
+      "req": 32,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 23,
+      "added": 34
+    },
+    {
+      "req": 33,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 23,
+      "added": 34
+    },
+    {
+      "req": 34,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 23,
+      "added": 32
+    },
+    {
+      "req": 35,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 23,
+      "added": 34
+    },
+    {
+      "req": 36,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 140,
+      "added": 6
+    },
+    {
+      "req": 37,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 140,
+      "added": 5
+    },
+    {
+      "req": 38,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 140,
+      "added": 4
+    },
+    {
+      "req": 39,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 140,
+      "added": 3
+    },
+    {
+      "req": 40,
+      "inst": 0,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 140,
+      "added": 4
+    },
+    {
+      "req": 41,
+      "inst": 1,
+      "policy": "lmetric",
+      "topic": "bg",
+      "hit": 140,
+      "added": 4
+    }
+  ]
+}

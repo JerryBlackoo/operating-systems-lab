@@ -1,0 +1,140 @@
+{
+  "reps": 3,
+  "config": {
+    "trace": "results\\trace_rep.jsonl",
+    "model": "models\\qwen2.5-1.5b-instruct-q4_k_m.gguf",
+    "model_mb": 1111.0,
+    "instances": 4,
+    "budget_pct": 60,
+    "concurrency": 2,
+    "reps": 3,
+    "out": "results\\repeat_cluster.json"
+  },
+  "runs": {
+    "lb": {
+      "aggregate": {
+        "ttft_mean_ms": {
+          "mean": 376.33,
+          "std": 9.51,
+          "runs": [
+            373.6,
+            366.3,
+            389.1
+          ]
+        },
+        "kv_hit_rate": {
+          "mean": 0.8,
+          "std": 0.0,
+          "runs": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "load_balance_std": {
+          "mean": 7.5,
+          "std": 0.0,
+          "runs": [
+            7.5,
+            7.5,
+            7.5
+          ]
+        },
+        "tpot_mean_ms": {
+          "mean": 220.33,
+          "std": 1.31,
+          "runs": [
+            218.5,
+            221.5,
+            221.0
+          ]
+        }
+      },
+      "raw": [
+        {
+          "ttft_mean_ms": 373.6,
+          "kv_hit_rate": 0.8,
+          "load_balance_std": 7.5,
+          "tpot_mean_ms": 218.5
+        },
+        {
+          "ttft_mean_ms": 366.3,
+          "kv_hit_rate": 0.8,
+          "load_balance_std": 7.5,
+          "tpot_mean_ms": 221.5
+        },
+        {
+          "ttft_mean_ms": 389.1,
+          "kv_hit_rate": 0.8,
+          "load_balance_std": 7.5,
+          "tpot_mean_ms": 221.0
+        }
+      ]
+    },
+    "lmetric": {
+      "aggregate": {
+        "ttft_mean_ms": {
+          "mean": 385.53,
+          "std": 6.84,
+          "runs": [
+            376.6,
+            386.8,
+            393.2
+          ]
+        },
+        "kv_hit_rate": {
+          "mean": 0.8,
+          "std": 0.0,
+          "runs": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "load_balance_std": {
+          "mean": 7.5,
+          "std": 0.0,
+          "runs": [
+            7.5,
+            7.5,
+            7.5
+          ]
+        },
+        "tpot_mean_ms": {
+          "mean": 230.0,
+          "std": 11.89,
+          "runs": [
+            215.8,
+            229.3,
+            244.9
+          ]
+        }
+      },
+      "raw": [
+        {
+          "ttft_mean_ms": 376.6,
+          "kv_hit_rate": 0.8,
+          "load_balance_std": 7.5,
+          "tpot_mean_ms": 215.8
+        },
+        {
+          "ttft_mean_ms": 386.8,
+          "kv_hit_rate": 0.8,
+          "load_balance_std": 7.5,
+          "tpot_mean_ms": 229.3
+        },
+        {
+          "ttft_mean_ms": 393.2,
+          "kv_hit_rate": 0.8,
+          "load_balance_std": 7.5,
+          "tpot_mean_ms": 244.9
+        }
+      ]
+    }
+  },
+  "paired_ttft_diff_lb_minus_lm": {
+    "mean_ms": -9.2,
+    "all_positive": false,
+    "note": "差值符号不完全一致，收益受运行噪声影响"
+  }
+}

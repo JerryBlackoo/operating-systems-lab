@@ -1,0 +1,20 @@
+{
+  "model_id": "1.5b_k8_lo",
+  "model_mb": 1111.0,
+  "sweep": [
+    {
+      "budget_mb": 444.4,
+      "ok": true,
+      "peak_rss_mb": 1179.4,
+      "mean_rss_mb": 782.3,
+      "total_pfaults": 34018384,
+      "ttft_mean_ms": 314.1,
+      "ttft_p95_ms": 382.0,
+      "tpot_mean_ms": 233.83,
+      "decode_tps": 4.3,
+      "budget_bytes": 465987174,
+      "locked_mb": 411.2,
+      "pct": 40
+    }
+  ]
+}

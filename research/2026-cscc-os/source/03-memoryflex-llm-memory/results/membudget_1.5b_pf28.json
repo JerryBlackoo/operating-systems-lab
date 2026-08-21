@@ -1,0 +1,20 @@
+{
+  "model_id": "1.5b_pf28",
+  "model_mb": 1111.0,
+  "sweep": [
+    {
+      "budget_mb": 444.4,
+      "ok": true,
+      "peak_rss_mb": 1130.9,
+      "mean_rss_mb": 763.9,
+      "total_pfaults": 17314616,
+      "ttft_mean_ms": 298.5,
+      "ttft_p95_ms": 324.3,
+      "tpot_mean_ms": 259.83,
+      "decode_tps": 3.8,
+      "budget_bytes": 465987174,
+      "locked_mb": 411.2,
+      "pct": 40
+    }
+  ]
+}

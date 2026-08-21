@@ -1,0 +1,52 @@
+{
+  "meta": {
+    "model_id": "qwen2.5-3b",
+    "model": "D:\\proj59\\models\\qwen2.5-3b-instruct-q4_k_m.gguf",
+    "model_size_mb": 2104.9,
+    "gpu_layers": 99,
+    "ctx_size": 2048,
+    "n_requests": 8,
+    "max_tokens": 48,
+    "server_startup_s": 1.57,
+    "timestamp": "2026-08-02T06:28:18.561700+00:00"
+  },
+  "latency": {
+    "ttft_ms": {
+      "mean": 31.121,
+      "p50": 31.455,
+      "p95": 38.771,
+      "p99": 39.442
+    },
+    "tpot_ms": {
+      "mean": 13.794,
+      "p50": 12.108,
+      "p95": 24.164,
+      "p99": 24.39
+    }
+  },
+  "throughput": {
+    "decode_tokens_per_s": {
+      "mean": 72.505,
+      "p50": 72.924,
+      "p95": 73.055,
+      "p99": 73.087
+    },
+    "total_tokens_per_s": {
+      "mean": 70.407,
+      "p50": 70.786,
+      "p95": 71.842,
+      "p99": 72.22
+    },
+    "output_tokens_per_request": {
+      "mean": 41.875,
+      "p50": 42.0,
+      "p95": 42.0,
+      "p99": 42.0
+    }
+  },
+  "memory": {
+    "rss_peak_mb": 2344.8,
+    "rss_mean_mb": 2343.7,
+    "gpu_peak_mb": 2796.0
+  }
+}

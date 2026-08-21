@@ -1,0 +1,62 @@
+{
+  "model_id": "olmoe",
+  "model_mb": 4212.0,
+  "sweep": [
+    {
+      "budget_mb": 1263.6,
+      "ok": true,
+      "peak_rss_mb": 3706.9,
+      "mean_rss_mb": 999.7,
+      "total_pfaults": 12125954,
+      "ttft_mean_ms": 945.9,
+      "ttft_p95_ms": 2250.8,
+      "tpot_mean_ms": 232.1,
+      "decode_tps": 4.3,
+      "budget_bytes": 1324980633,
+      "locked_mb": 615.5,
+      "pct": 30
+    },
+    {
+      "budget_mb": 2106.0,
+      "ok": true,
+      "peak_rss_mb": 3711.9,
+      "mean_rss_mb": 1002.1,
+      "total_pfaults": 12125927,
+      "ttft_mean_ms": 952.2,
+      "ttft_p95_ms": 2248.8,
+      "tpot_mean_ms": 236.49,
+      "decode_tps": 4.2,
+      "budget_bytes": 2208301056,
+      "locked_mb": 615.5,
+      "pct": 50
+    },
+    {
+      "budget_mb": 2948.4,
+      "ok": true,
+      "peak_rss_mb": 3642.3,
+      "mean_rss_mb": 997.8,
+      "total_pfaults": 12126270,
+      "ttft_mean_ms": 969.9,
+      "ttft_p95_ms": 2276.4,
+      "tpot_mean_ms": 241.93,
+      "decode_tps": 4.1,
+      "budget_bytes": 3091621478,
+      "locked_mb": 615.5,
+      "pct": 70
+    },
+    {
+      "budget_mb": 3790.8,
+      "ok": true,
+      "peak_rss_mb": 3707.8,
+      "mean_rss_mb": 986.9,
+      "total_pfaults": 12195171,
+      "ttft_mean_ms": 954.0,
+      "ttft_p95_ms": 2261.0,
+      "tpot_mean_ms": 254.8,
+      "decode_tps": 4.0,
+      "budget_bytes": 3974941900,
+      "locked_mb": 615.5,
+      "pct": 90
+    }
+  ]
+}

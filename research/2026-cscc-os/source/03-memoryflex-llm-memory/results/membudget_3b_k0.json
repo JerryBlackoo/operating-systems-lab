@@ -1,0 +1,20 @@
+{
+  "model_id": "3b_k0",
+  "model_mb": 2099.0,
+  "sweep": [
+    {
+      "budget_mb": 839.6,
+      "ok": true,
+      "peak_rss_mb": 2166.9,
+      "mean_rss_mb": 1390.2,
+      "total_pfaults": 47491537,
+      "ttft_mean_ms": 567.4,
+      "ttft_p95_ms": 707.5,
+      "tpot_mean_ms": 466.52,
+      "decode_tps": 2.1,
+      "budget_bytes": 880384409,
+      "locked_mb": 624.4,
+      "pct": 40
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "model_id": "3b_k12",
+  "model_mb": 2099.0,
+  "sweep": [
+    {
+      "budget_mb": 839.6,
+      "ok": true,
+      "peak_rss_mb": 2178.6,
+      "mean_rss_mb": 1418.4,
+      "total_pfaults": 47569274,
+      "ttft_mean_ms": 508.4,
+      "ttft_p95_ms": 632.6,
+      "tpot_mean_ms": 424.52,
+      "decode_tps": 2.4,
+      "budget_bytes": 880384409,
+      "locked_mb": 624.4,
+      "pct": 40
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "request": "A: cold (long)",
+    "ttft_ms": 59.566497802734375
+  },
+  {
+    "request": "B: prefix hit",
+    "ttft_ms": 39.894819259643555
+  },
+  {
+    "request": "C: unrelated",
+    "ttft_ms": 34.793853759765625
+  }
+]
