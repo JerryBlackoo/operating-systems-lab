@@ -1,0 +1,48 @@
+OUTPUT_ARCH(riscv)
+ENTRY(_start)
+
+BASE_ADDRESS = 0x80400000;
+
+SECTIONS
+{
+    /* Load the kernel at this address: "." means the current address */
+    . = BASE_ADDRESS;
+    start = .;
+
+    .text : {
+        stext = .;
+        *(.text.entry)
+        *(.text .text.*)
+        . = ALIGN(4K);
+        etext = .;
+    }
+
+    .rodata : {
+        srodata = .;
+        *(.rodata .rodata.*)
+        . = ALIGN(4K);
+        erodata = .;
+    }
+
+    . = ALIGN(0x1000); /* OSKernel2026: page-align first writable RISC-V PT_LOAD */
+    .data : {
+        sdata = .;
+        *(.data .data.*)
+        *(.sdata .sdata.*)
+        edata = .;
+    }
+
+    .stack : {
+        *(.bss.stack)
+    }
+
+    .bss : {
+        sbss = .;
+        *(.bss .bss.*)
+        *(.sbss .sbss.*)
+        ebss = .;
+    }
+
+    . = ALIGN(4K);
+    PROVIDE(end = .);
+}
