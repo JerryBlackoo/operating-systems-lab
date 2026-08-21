@@ -1,0 +1,8 @@
+status=5
+RUN=2820 returned0=173 timeouts=96
+last=RUN LTP CASE zram_lib.sh
+last_fail=FAIL LTP CASE zram_lib.sh : 127
+summary=initproc ltp: attempted 2820 of 2820 cases, 173 returned 0
+end=#### OS COMP TEST GROUP END ltp-musl ####
+bad=
+recent=write03, write04, write05, write06, write_freezing.sh, writetest, writev01, writev02, writev03, writev05, writev06, writev07, zram01.sh, zram02.sh, zram03, zram_lib.sh

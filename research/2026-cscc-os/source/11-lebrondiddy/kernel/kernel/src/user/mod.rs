@@ -1,0 +1,158 @@
+use crate::tasks::UserTaskControlFlow;
+use crate::tasks::{MapTrack, MemType, UserTask};
+use alloc::sync::Arc;
+use devices::PAGE_SIZE;
+use executor::{yield_now, AsyncTask, TaskId};
+use libc_types::signal::SignalNum;
+use log::debug;
+use polyhal::timer::get_ticks;
+use polyhal::{MappingFlags, VirtAddr};
+use polyhal_trap::trap::{run_user_task, EscapeReason};
+use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
+use runtime::frame::frame_alloc;
+
+pub mod entry;
+pub mod signal;
+pub mod socket_pair;
+
+pub struct UserTaskContainer {
+    pub task: Arc<UserTask>,
+    pub tid: TaskId,
+}
+
+/// Copy on write.
+/// call this function when trigger store/instruction page fault.
+/// copy page or remap page.
+pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut TrapFrame, vaddr: VirtAddr) {
+    let mut pcb = task.pcb.lock();
+    let area = pcb.memset.iter_mut().find(|x| x.contains(vaddr.raw()));
+    if let Some(area) = area {
+        let finded = area.mtrackers.iter_mut().find(|x| x.vaddr == vaddr.floor());
+        let ppn = match finded {
+            Some(map_track) => {
+                if area.mtype == MemType::Shared {
+                    task.tcb.write().signal.insert(SignalNum::SEGV);
+                    return;
+                }
+                // tips: this finded will consume a strong count.
+                debug!("strong count: {}", Arc::strong_count(&map_track.tracker));
+                if Arc::strong_count(&map_track.tracker) > 1 {
+                    let src = map_track.tracker.0;
+                    let dst = frame_alloc().expect("can't alloc @ user page fault");
+                    unsafe {
+                        dst.0
+                            .get_mut_ptr::<u8>()
+                            .copy_from_nonoverlapping(src.get_ptr(), PAGE_SIZE);
+                    }
+                    map_track.tracker = Arc::new(dst);
+                }
+                map_track.tracker.0
+            }
+            None => {
+                let tracker = Arc::new(frame_alloc().expect("can't alloc frame in cow_fork_int"));
+                let mtracker = MapTrack {
+                    vaddr: vaddr.floor(),
+                    tracker,
+                    rwx: 0b111,
+                };
+                let offset = vaddr.floor().raw() + area.offset - area.start;
+                if let Some(file) = &area.file {
+                    file.readat(offset, mtracker.tracker.0.slice_mut_with_len(PAGE_SIZE))
+                        .expect("can't read file in cow_fork_int");
+                }
+                let ppn = mtracker.tracker.0;
+                area.mtrackers.push(mtracker);
+                ppn
+            }
+        };
+
+        drop(pcb);
+        task.map(ppn, vaddr.floor(), MappingFlags::URWX);
+    } else {
+        task.tcb.write().signal.insert(SignalNum::SEGV);
+    }
+}
+
+impl UserTaskContainer {
+    /// Handle user interrupt.
+    pub async fn handle_syscall(&self, cx_ref: &mut TrapFrame) -> UserTaskControlFlow {
+        let ustart = get_ticks();
+        #[cfg(target_arch = "loongarch64")]
+        {
+            cx_ref.prmd = (cx_ref.prmd & !0b111) | 0b111;
+        }
+        let reason = run_user_task(cx_ref);
+        self.task.check_wall_deadline();
+        if self.task.exit_code().is_some() {
+            return UserTaskControlFlow::Break;
+        }
+        if matches!(reason, EscapeReason::Timer) && self.task.wall_deadline_fired() {
+            yield_now().await;
+            return UserTaskControlFlow::Break;
+        }
+        if matches!(reason, EscapeReason::SysCall) {
+            self.task
+                .inner_map(|inner| inner.tms.utime += (get_ticks() - ustart) as u64);
+
+            let sstart = get_ticks();
+
+            cx_ref.syscall_ok();
+            self.task.check_wall_deadline();
+            if self.task.exit_code().is_some() {
+                return UserTaskControlFlow::Break;
+            }
+            let result = self
+                .syscall(cx_ref[TrapFrameArgs::SYSCALL], cx_ref.args())
+                .await
+                .map_or_else(|e| -e.into_raw() as isize, |x| x as isize)
+                as usize;
+            self.task.check_wall_deadline();
+            if self.task.exit_code().is_some() {
+                return UserTaskControlFlow::Break;
+            }
+
+            debug!(
+                "[task {}] syscall result: {}",
+                self.task.get_task_id(),
+                result as isize
+            );
+
+            cx_ref[TrapFrameArgs::RET] = result;
+            self.task
+                .inner_map(|inner| inner.tms.stime += (get_ticks() - sstart) as u64);
+        }
+
+        // let trap_type = trap_pre_handle(cx_ref);
+        // match trap_type {
+        //     arch::TrapType::Time => {
+        //         // debug!("time interrupt from user");
+        //     }
+        //     arch::TrapType::Unknown => {
+        //         debug!("unknown trap: {:#x?}", cx_ref);
+        //         panic!("");
+        //     }
+        //     arch::TrapType::SupervisorExternal => {
+        //         get_int_device().try_handle_interrupt(u32::MAX);
+        //     }
+        // }
+        UserTaskControlFlow::Continue
+    }
+}
+
+pub fn task_ilegal(task: &Arc<UserTask>, vaddr: VirtAddr, cx_ref: &mut TrapFrame) {
+    let mut pcb = task.pcb.lock();
+    let area = pcb.memset.iter_mut().find(|x| x.contains(vaddr.raw()));
+    if let Some(area) = area {
+        let finded = area.mtrackers.iter_mut().find(|x| x.vaddr == vaddr);
+        match finded {
+            Some(_) => {
+                cx_ref[TrapFrameArgs::SEPC] += 2;
+            }
+            None => {
+                task.tcb.write().signal.insert(SignalNum::ILL);
+            }
+        };
+    } else {
+        task.tcb.write().signal.insert(SignalNum::ILL);
+    }
+}

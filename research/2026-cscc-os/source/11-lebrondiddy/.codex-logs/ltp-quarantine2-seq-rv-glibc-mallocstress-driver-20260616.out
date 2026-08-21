@@ -1,0 +1,20 @@
+status=0
+RUN LTP CASE 000_mallocstress
+initproc watchdog: quarantined LTP case 000_mallocstress before known unrecoverable crash storm
+FAIL LTP CASE 000_mallocstress : 124
+RUN LTP CASE 001_mallinfo01
+mallinfo01.c:46: TPASS: mallinfo() uordblks passed
+mallinfo01.c:56: TPASS: mallinfo() ordblks passed
+FAIL LTP CASE 001_mallinfo01 : 0
+RUN LTP CASE 002_mallinfo02
+mallinfo02.c:28: TPASS: malloc() uses sbrk when size < 128k
+mallinfo02.c:41: TPASS: malloc() uses mmap when size >= 128k
+FAIL LTP CASE 002_mallinfo02 : 0
+RUN LTP CASE 003_mallinfo2_01
+mallinfo2_01.c:39: TPASS: hblkhd member of struct mallinfo2 doesn't overflow
+FAIL LTP CASE 003_mallinfo2_01 : 0
+RUN LTP CASE 004_madvise01
+FAIL LTP CASE 004_madvise01 : 2
+initproc ltp: attempted 5 of 2845 cases, 3 returned 0
+#### OS COMP TEST GROUP END ltp-glibc ####
+PASS: RISC-V ltp-glibc markers and real basic case output found

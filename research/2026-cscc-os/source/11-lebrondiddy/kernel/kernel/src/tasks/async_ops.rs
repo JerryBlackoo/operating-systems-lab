@@ -1,0 +1,154 @@
+use core::{cmp, future::Future, pin::Pin, task::Poll};
+
+use alloc::{sync::Arc, vec::Vec};
+use sync::Mutex;
+use syscalls::Errno;
+
+use super::{
+    current_user_task,
+    task::{FutexTable, UserTask},
+};
+
+pub struct WaitPid(pub Arc<UserTask>, pub isize);
+
+impl Future for WaitPid {
+    type Output = Result<Arc<UserTask>, Errno>;
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
+        if self.0.is_killed() {
+            return Poll::Ready(Err(Errno::EINTR));
+        }
+        let inner = self.0.pcb.lock();
+        let res = inner
+            .children
+            .iter()
+            .find(|x| {
+                (self.1 == -1 || x.task_id == self.1 as usize) && x.final_exit_code().is_some()
+            })
+            .cloned();
+        drop(inner);
+        match res {
+            Some(task) => Poll::Ready(Ok(task.clone())),
+            None => Poll::Pending,
+        }
+    }
+}
+
+pub struct WaitSignal(pub Arc<UserTask>);
+
+impl Future for WaitSignal {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
+        if self.0.is_killed() {
+            return Poll::Ready(());
+        }
+        match self.0.tcb.read().signal.is_empty(None) {
+            false => Poll::Ready(()),
+            true => Poll::Pending,
+        }
+    }
+}
+
+pub fn in_futex(futex_table: Arc<Mutex<FutexTable>>, task_id: usize) -> bool {
+    let futex_table = futex_table.lock();
+    futex_table
+        .values()
+        .find(|x| x.contains(&task_id))
+        .is_some()
+}
+
+fn remove_from_futex(futex_table: &Arc<Mutex<FutexTable>>, task_id: usize) {
+    let mut futex_table = futex_table.lock();
+    for queue in futex_table.values_mut() {
+        queue.retain(|queued| *queued != task_id);
+    }
+}
+
+pub struct WaitFutex(pub Arc<Mutex<FutexTable>>, pub usize);
+
+impl Future for WaitFutex {
+    type Output = Result<usize, Errno>;
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
+        let task = current_user_task();
+        if task.is_killed() {
+            remove_from_futex(&self.0, self.1);
+            return Poll::Ready(Err(Errno::EINTR));
+        }
+        let signal = task.tcb.read().signal.clone();
+        match in_futex(self.0.clone(), self.1) {
+            true => {
+                if !signal.is_empty(None) {
+                    remove_from_futex(&self.0, self.1);
+                    Poll::Ready(Err(Errno::EINTR))
+                } else {
+                    Poll::Pending
+                }
+            }
+            false => Poll::Ready(Ok(0)),
+        }
+    }
+}
+
+pub struct WaitHandleAbleSignal(pub Arc<UserTask>);
+
+impl Future for WaitHandleAbleSignal {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
+        let task = &self.0;
+        if task.is_killed() {
+            return Poll::Ready(());
+        }
+        let sig_mask = task.tcb.read().sigmask;
+        let has_signal = !task.tcb.read().signal.is_empty(Some(sig_mask));
+
+        match has_signal {
+            true => Poll::Ready(()),
+            false => Poll::Pending,
+        }
+    }
+}
+
+pub fn futex_wake(futex_table: Arc<Mutex<FutexTable>>, uaddr: usize, wake_count: usize) -> usize {
+    let mut futex_table = futex_table.lock();
+    let que_size = futex_table.get_mut(&uaddr).map(|x| x.len()).unwrap_or(0);
+    if que_size == 0 {
+        0
+    } else {
+        let que = futex_table
+            .get_mut(&uaddr)
+            .map(|x| x.drain(..cmp::min(wake_count as usize, que_size)));
+
+        que.map(|x| x.count()).unwrap_or(0)
+    }
+}
+
+pub fn futex_requeue(
+    futex_table: Arc<Mutex<FutexTable>>,
+    uaddr: usize,
+    wake_count: usize,
+    uaddr2: usize,
+    reque_count: usize,
+) -> usize {
+    let mut futex_table = futex_table.lock();
+
+    let waked_size = futex_table
+        .get_mut(&uaddr)
+        .map(|x| x.drain(..wake_count as usize).count())
+        .unwrap_or(0);
+
+    let reque: Option<Vec<_>> = futex_table
+        .get_mut(&uaddr)
+        .map(|x| x.drain(..reque_count as usize).collect());
+
+    if let Some(reque) = reque {
+        if !futex_table.contains_key(&uaddr2) {
+            futex_table.insert(uaddr2, vec![]);
+        }
+        futex_table.get_mut(&uaddr2).unwrap().extend(reque);
+    }
+
+    waked_size
+}

@@ -1,0 +1,17 @@
+status=0
+RUN LTP CASE 000_gre01.sh
+initproc watchdog: quarantined LTP case 000_gre01.sh before known unrecoverable crash storm
+FAIL LTP CASE 000_gre01.sh : 124
+RUN LTP CASE abort01
+abort01.c:51: TFAIL: Child exited with 127, expected SIGIOT
+FAIL LTP CASE abort01 : 1
+RUN LTP CASE abs01
+FAIL LTP CASE abs01 : 1
+RUN LTP CASE accept01
+accept01.c:92: TFAIL: bad file descriptor expected EBADF: EINVAL (22)
+FAIL LTP CASE accept01 : 124
+RUN LTP CASE accept02
+FAIL LTP CASE accept02 : 2
+initproc ltp: attempted 5 of 2841 cases, 0 returned 0
+#### OS COMP TEST GROUP END ltp-glibc ####
+PASS: LoongArch ltp-glibc markers and real basic case output found

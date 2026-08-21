@@ -1,0 +1,10 @@
+date,judged_commit,total,note
+2026-06-10,b3cf5a1,0.0,basic page fault
+2026-06-10,dc9f1cb,0.0,basic prologue-only / dynamic loader
+2026-06-11,37728d5,408.0,basic full 102x4
+2026-06-11,5657cca,TBD,unlock run; LA froze in ltp-glibc; awaiting judge timeout
+2026-06-12,0fad45e,712.2,basic408+busybox106+lua36+libctest43+lmbench85+iozone21+libcbench13; RV died at libctest pthread_cancel stall (lost all later RV groups); LA ltp stalled at case17
+2026-06-13,1b137b4-lineage,289.1,REGRESSION: unverified RV-cancel+af1080b loader WIP broke RV basic (RV 102->19/0; LA ok). Restored main kernel to 0fad45e (712 floor).
+2026-06-14,00:59-submit,1155.6,NEW HIGH: basic full 408 (RV fixed) + LTP scoring (acct02) + busybox/lua/iozone/libcbench/lmbench/libctest. 025 LTP infra works on judge.
+2026-06-14,3000105,1296.2,NEW HIGH +140: kernel==11ae8fd(tree 116cdcf8); basic306 busybox40 libctest219 lmbench120.7 iozone43 libcbench40.5 lua27; LTP-glibc-la pinned to 500 CAP via garbage overflow (bind06=1.36e9 etc), NOT real passes; real LTP musl/rv still 0; glibc-rv whole column still 0. WARN: main HEAD f2b8b3e kernel==712 floor(0fad45e tree 9671ee46), NOT this 1296 kernel; gains safe on wip/recovery-verified-20260614 + tag oj-1296-floor@3000105.
+2026-06-19,e206a19,1508.58,NEW HIGH honest busybox-bank: basic408 busybox214 libctest219 ltp2592 lua36; confirmed +119.44 over a0fff71/OJ1389, driven by busybox row 96->214. Candidate tag oj-busybox-bank-20260619; ae5a826 manifest runner not included.

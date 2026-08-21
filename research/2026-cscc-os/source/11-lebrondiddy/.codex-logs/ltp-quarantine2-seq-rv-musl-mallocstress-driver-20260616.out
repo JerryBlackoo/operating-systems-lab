@@ -1,0 +1,35 @@
+status=0
+RUN LTP CASE 000_mallocstress
+initproc watchdog: quarantined LTP case 000_mallocstress before known unrecoverable crash storm
+FAIL LTP CASE 000_mallocstress : 124
+RUN LTP CASE 001_mallinfo01
+FAIL LTP CASE 001_mallinfo01 : 32
+RUN LTP CASE 002_mallinfo02
+FAIL LTP CASE 002_mallinfo02 : 32
+RUN LTP CASE 003_mallinfo2_01
+FAIL LTP CASE 003_mallinfo2_01 : 32
+RUN LTP CASE 004_madvise01
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_NORMAL failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_RANDOM failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_SEQUENTIAL failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_WILLNEED failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_DONTNEED failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_REMOVE failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_DONTFORK failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_DOFORK failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_HWPOISON failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_MERGEABLE failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_UNMERGEABLE failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_HUGEPAGE failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_NOHUGEPAGE failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_DONTDUMP failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_DODUMP failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_FREE failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_WIPEONFORK failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_KEEPONFORK failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_COLD failed with return = -1, errno = 38 : ???
+madvise01.c:107: [1;31mTFAIL: [0mmadvise test for MADV_PAGEOUT failed with return = -1, errno = 38 : ???
+FAIL LTP CASE 004_madvise01 : 1
+initproc ltp: attempted 5 of 2825 cases, 0 returned 0
+#### OS COMP TEST GROUP END ltp-musl ####
+PASS: RISC-V ltp-musl markers and real basic case output found

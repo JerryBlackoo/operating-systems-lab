@@ -1,0 +1,614 @@
+use super::SysResult;
+use crate::{
+    syscall::{time::WaitUntilsec, types::signal::SignalUserContext},
+    tasks::{exec::exec_with_process, futex_requeue, futex_wake, UserTask, WaitFutex, WaitPid},
+    user::{entry::user_entry, UserTaskContainer},
+    utils::useref::UserRef,
+};
+use alloc::{string::ToString, sync::Arc, sync::Weak};
+use executor::{select, thread, tid2task, yield_now, AsyncTask};
+use fs::file::File;
+use libc_types::{
+    fcntl::{OpenFlags, AT_FDCWD},
+    futex::FutexFlags,
+    resource::Rusage,
+    sched::CloneFlags,
+    signal::SignalNum,
+    types::{Stat, StatMode, TimeSpec, TimeVal},
+};
+use log::{debug, warn};
+use polyhal::timer::{current_time, get_freq};
+use polyhal::VirtAddr;
+use polyhal_trap::trapframe::TrapFrameArgs;
+use syscalls::Errno;
+
+impl UserTaskContainer {
+    fn task_killed_result(&self) -> Option<SysResult> {
+        self.task.exit_code().is_some().then_some(Err(Errno::EINTR))
+    }
+
+    fn cwd_search_allowed(&self, directory: &File) -> Result<bool, Errno> {
+        let credentials = self.task.pcb.lock().credentials;
+        if credentials.euid == 0 {
+            return Ok(true);
+        }
+
+        let mut stat = Stat::default();
+        directory.stat(&mut stat)?;
+        let mode = stat.mode.bits();
+        Ok(if credentials.euid == stat.uid {
+            mode & StatMode::OWNER_EXEC.bits() != 0
+        } else if credentials.egid == stat.gid {
+            mode & StatMode::GROUP_EXEC.bits() != 0
+        } else {
+            mode & StatMode::OTHER_EXEC.bits() != 0
+        })
+    }
+
+    fn set_current_directory(&self, directory: File) -> SysResult {
+        match directory.file_type()? {
+            fs::FileType::Directory => {
+                if !self.cwd_search_allowed(&directory)? {
+                    return Err(Errno::EACCES);
+                }
+                self.task.pcb.lock().curr_dir = directory;
+                Ok(0)
+            }
+            _ => Err(Errno::ENOTDIR),
+        }
+    }
+
+    pub fn sys_chdir(&self, path_ptr: UserRef<i8>) -> SysResult {
+        let path = self.read_user_cstr_bounded(path_ptr)?;
+        debug!("sys_chdir @ path: {}", path);
+        let new_dir = self.task.fd_open(AT_FDCWD, &path, OpenFlags::RDONLY)?;
+        self.set_current_directory(new_dir)
+    }
+
+    pub fn sys_fchdir(&self, fd: usize) -> SysResult {
+        let new_dir = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
+        self.set_current_directory(new_dir.as_ref().clone())
+    }
+
+    pub fn sys_chroot(&self, path_ptr: UserRef<i8>) -> SysResult {
+        let path = self.read_user_cstr_bounded(path_ptr)?;
+        debug!("sys_chroot @ path: {}", path);
+        if self.task.pcb.lock().credentials.euid != 0 {
+            return Err(Errno::EPERM);
+        }
+        let new_root =
+            File::open_link(self.task.fd_resolve(AT_FDCWD, &path)?, OpenFlags::DIRECTORY)?;
+        match new_root.file_type()? {
+            fs::FileType::Directory => {
+                self.task.pcb.lock().root_dir = new_root.path_buf();
+                Ok(0)
+            }
+            _ => Err(Errno::ENOTDIR),
+        }
+    }
+
+    pub fn sys_getcwd(&self, buf_ptr: UserRef<u8>, size: usize) -> SysResult {
+        debug!("sys_getcwd @ buffer_ptr{} size: {}", buf_ptr, size);
+        let curr_path = self.task.pcb.lock().curr_dir.clone();
+        let path = curr_path.path();
+        let bytes = path.as_bytes();
+        let len_with_nul = bytes.len().checked_add(1).ok_or(Errno::ERANGE)?;
+        if size < len_with_nul {
+            return Err(Errno::ERANGE);
+        }
+        if buf_ptr.is_null() {
+            return Err(Errno::EFAULT);
+        }
+        self.write_user_bytes(buf_ptr, bytes)?;
+        self.write_user_bytes(UserRef::from(buf_ptr.addr() + bytes.len()), &[0])?;
+        Ok(buf_ptr.into())
+    }
+
+    pub fn sys_exit(&self, exit_code: isize) -> SysResult {
+        debug!("sys_exit @ exit_code: {}  task_id: {}", exit_code, self.tid);
+        // current_task().as_user_task().unwrap().exit(exit_code as _);
+        self.task.thread_exit(exit_code as _);
+        Ok(0)
+    }
+
+    pub async fn sys_execve(
+        &self,
+        filename: UserRef<i8>,      // *mut i8
+        args: UserRef<UserRef<i8>>, // *mut *mut i8
+        envp: UserRef<UserRef<i8>>, // *mut *mut i8
+    ) -> SysResult {
+        debug!(
+            "sys_execve @ filename: {} args: {:?}: envp: {:?}",
+            filename, args, envp
+        );
+        let filename = self.read_user_cstr_bounded(filename)?;
+        let args = self.read_user_cstr_array_bounded(args)?;
+        debug!("test1: envp: {:?}", envp);
+        let envp = self.read_user_cstr_array_bounded(envp)?;
+        debug!(
+            "sys_execve @ filename: {} args: {:?}: envp: {:?}",
+            filename, args, envp
+        );
+
+        // clear memory map
+        // TODO: solve memory conflict
+        // task.pcb.lock().memset.retain(|x| x.mtype == MemType::PTE);
+
+        // check exec file.
+        if filename == "/bin/true" {
+            self.task.exit(0);
+            return Ok(0);
+        }
+        let curr_dir = self.task.pcb.lock().curr_dir.clone();
+        exec_with_process(
+            self.task.clone(),
+            curr_dir.path_buf(),
+            filename.to_string(),
+            args,
+            envp,
+        )?;
+        self.task.before_run();
+        Ok(0)
+    }
+
+    pub async fn sys_clone(
+        &self,
+        flags: usize,       // 复制 标志位
+        stack: usize,       // 指定新的栈，可以为 0, 0 不处理
+        ptid: UserRef<u32>, // 父线程 id
+        tls: usize,         // TLS线程本地存储描述符
+        ctid: UserRef<u32>, // 子线程 id
+    ) -> SysResult {
+        let sig = flags & 0xff;
+        debug!(
+            "[task {}] sys_clone @ flags: {:#x}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
+            self.tid, flags, stack, ptid, tls, ctid
+        );
+        let flags = CloneFlags::from_bits_truncate(flags);
+        debug!(
+            "[task {}] sys_clone @ flags: {:?}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
+            self.tid, flags, stack, ptid, tls, ctid
+        );
+
+        let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
+            true => self.task.clone().thread_clone(),
+            // false => curr_task.clone().fork(user_entry()),
+            // use cow(Copy On Write) to save memory.
+            false => self.task.clone().cow_fork(),
+        };
+
+        let clear_child_tid = flags
+            .contains(CloneFlags::CLONE_CHILD_CLEARTID)
+            .then_some(ctid)
+            .unwrap_or(UserRef::from(0));
+
+        let mut new_tcb = new_task.tcb.write();
+        new_tcb.clear_child_tid = clear_child_tid.addr();
+
+        if stack != 0 {
+            new_tcb.cx[TrapFrameArgs::SP] = stack;
+        }
+        // set tls.
+        if flags.contains(CloneFlags::CLONE_SETTLS) {
+            new_tcb.cx[TrapFrameArgs::TLS] = tls;
+        }
+        if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
+            ptid.write(new_task.task_id as _);
+        }
+        if flags.contains(CloneFlags::CLONE_CHILD_SETTID) && ctid.is_valid() {
+            ctid.write(new_task.task_id as _);
+        }
+        new_tcb.exit_signal = sig as u8;
+        drop(new_tcb);
+        yield_now().await;
+        thread::spawn(new_task.clone(), user_entry());
+        Ok(new_task.task_id)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_fork(&self) -> SysResult {
+        warn!("transfer syscall_fork to syscall_clone");
+        self.sys_clone(0x11, 0, 0.into(), 0, 0.into()).await
+    }
+
+    pub async fn sys_wait4(
+        &self,
+        pid: isize,           // 指定进程ID，可为-1等待任何子进程；
+        status: UserRef<i32>, // 接收状态的指针；
+        options: usize,       // WNOHANG，WUNTRACED，WCONTINUED；
+    ) -> SysResult {
+        debug!(
+            "[task {}] sys_wait4 @ pid: {}, status: {}, options: {}",
+            self.tid, pid, status, options
+        );
+
+        // return LinuxError::ECHILD if there has no child process.
+        if self.task.inner_map(|inner| inner.children.len()) == 0 {
+            return Err(Errno::ECHILD);
+        }
+
+        if pid != -1 {
+            self.task
+                .inner_map(|inner| {
+                    inner
+                        .children
+                        .iter()
+                        .find(|x| x.task_id == pid as usize)
+                        .map(|x| x.clone())
+                })
+                .ok_or(Errno::ECHILD)?;
+        }
+        if options == 0 || options == 2 || options == 3 || options == 10 {
+            debug!(
+                "children:{:?}",
+                self.task.pcb.lock().children.iter().count()
+            );
+            let child_task = WaitPid(self.task.clone(), pid).await?;
+            if let Some(result) = self.task_killed_result() {
+                return result;
+            }
+
+            debug!(
+                "wait ok: {}  waiter: {}",
+                child_task.task_id, self.task.task_id
+            );
+            child_task.cleanup_resources_after_exit();
+            // release the task resources
+            self.task
+                .pcb
+                .lock()
+                .children
+                .retain(|x| x.task_id != child_task.task_id);
+            child_task.release();
+            debug!("wait pid: {}", child_task.final_exit_code().unwrap());
+
+            if status.is_valid() {
+                status.write((child_task.final_exit_code().unwrap() as i32) << 8);
+            }
+            Ok(child_task.task_id)
+        } else if options == 1 {
+            let child_task = self
+                .task
+                .pcb
+                .lock()
+                .children
+                .iter()
+                .find(|x| x.task_id == pid as usize || pid == -1)
+                .cloned();
+            let exit = child_task.clone().map_or(None, |x| x.final_exit_code());
+            match exit {
+                Some(t1) => {
+                    let child_task = child_task.unwrap();
+                    child_task.cleanup_resources_after_exit();
+                    // Release task.
+                    self.task
+                        .pcb
+                        .lock()
+                        .children
+                        .retain(|x| x.task_id != child_task.task_id);
+                    child_task.release();
+                    if status.is_valid() {
+                        status.write((t1 as i32) << 8);
+                    }
+                    // TIPS: This is a small change.
+                    Ok(child_task.task_id)
+                    // Ok(0)
+                }
+                None => Ok(0),
+            }
+        } else {
+            warn!("wait4 unsupported options: {}", options);
+            Err(Errno::EPERM)
+        }
+    }
+
+    pub async fn sys_sched_yield(&self) -> SysResult {
+        debug!("sys_sched_yield @ ");
+        yield_now().await;
+        Ok(0)
+    }
+
+    /// 对于每个线程，内核维护着两个属性(地址)，分别称为set_child_tid和clear_child_tid。默认情况下，这两个属性包含值NULL。
+
+    /// set_child_tid
+    /// 如果使用带有CLONE_CHILD_SETTID标志的clone(2)启动线程，则set_child_tid设置为该系统调用的ctid参数中传递的值。
+    /// 设置set_child_tid时，新线程要做的第一件事就是在该地址写入其线程ID。
+    /// clear_child_tid
+    /// 如果使用带有CLONE_CHILD_CLEARTID标志的clone(2)启动线程，则clear_child_tid设置为该系统调用的ctid参数中传递的值。
+    /// 系统调用set_tid_address()将调用线程的clear_child_tid值设置为tidptr。
+
+    // 当clear_child_tid不为NULL的线程终止时，如果该线程与其他线程共享内存，则将0写入clear_child_tid中指定的地址，并且内核执行以下操作：
+
+    // futex(clear_child_tid，FUTEX_WAKE，1 , NULL，NULL，0);
+
+    // 此操作的效果是唤醒正在执行内存位置上的futex等待的单个线程。来自futex唤醒操作的错误将被忽略。
+    pub fn sys_set_tid_address(&self, tid_ptr: usize) -> SysResult {
+        // information source: https://www.onitroad.com/jc/linux/man-pages/linux/man2/set_tid_address.2.html
+
+        debug!("sys_set_tid_address @ tid_ptr: {:#x}", tid_ptr);
+        self.task.tcb.write().clear_child_tid = tid_ptr;
+        Ok(self.tid)
+    }
+
+    /// sys_getpid() 获取进程 id
+    pub async fn sys_getpid(&self) -> SysResult {
+        yield_now().await;
+        Ok(self.task.process_id)
+    }
+
+    /// sys_getppid() 获取父进程 id
+    pub fn sys_getppid(&self) -> SysResult {
+        debug!("sys_getppid @ ");
+        Ok(self
+            .task
+            .parent
+            .read()
+            .upgrade()
+            .map(|x| x.task_id)
+            .unwrap_or(1))
+    }
+
+    pub fn sys_getsid(&self, pid: usize) -> SysResult {
+        let mut task = if pid == 0 {
+            self.task.clone()
+        } else {
+            tid2task(pid)
+                .and_then(|task| task.downcast_arc::<UserTask>().ok())
+                .ok_or(Errno::ESRCH)?
+        };
+
+        loop {
+            let parent = {
+                let parent = task.parent.read();
+                parent.upgrade()
+            };
+            let Some(parent) = parent else {
+                break;
+            };
+            task = parent;
+        }
+
+        Ok(task.process_id)
+    }
+
+    /// sys_gettid() 获取线程 id.
+    /// need to write correct clone and thread_clone for pthread.
+    pub fn sys_gettid(&self) -> SysResult {
+        debug!("sys_gettid @ ");
+        Ok(self.tid)
+    }
+
+    pub async fn sys_futex(
+        &self,
+        uaddr_ptr: UserRef<i32>,
+        op: usize,
+        value: usize,
+        value2: usize,
+        uaddr2: usize,
+        value3: usize,
+    ) -> SysResult {
+        let op = if op >= 0x80 { op - 0x80 } else { op };
+        debug!(
+            "[task {}] sys_futex @ uaddr: {} op: {} value: {:#x}, value2: {:#x}, uaddr2: {:#x} , value3: {:#x}",
+            self.tid, uaddr_ptr, op, value, value2, uaddr2, value3
+        );
+        let uaddr = uaddr_ptr.read();
+        let flags = FutexFlags::try_from(op).map_err(|_| Errno::EINVAL)?;
+        debug!(
+            "sys_futex @ uaddr: {:#x} flags: {:?} value: {}",
+            uaddr, flags, value
+        );
+
+        match flags {
+            FutexFlags::Wait => {
+                if let Some(result) = self.task_killed_result() {
+                    return result;
+                }
+                if uaddr == value as _ {
+                    let futex_table = self.task.pcb.lock().futex_table.clone();
+                    let mut table = futex_table.lock();
+                    match table.get_mut(&uaddr_ptr.addr()) {
+                        Some(t) => t.push(self.tid),
+                        None => {
+                            table.insert(uaddr_ptr.addr(), vec![self.tid]);
+                        }
+                    }
+                    drop(table);
+                    let wait_func = WaitFutex(futex_table.clone(), self.tid);
+                    if value2 != 0 {
+                        let timeout = UserRef::<TimeSpec>::from(value2).read().into();
+                        let res =
+                            match select(wait_func, WaitUntilsec(current_time() + timeout)).await {
+                                executor::Either::Left((res, _)) => res,
+                                executor::Either::Right(_) => Err(Errno::ETIMEDOUT),
+                            };
+                        if let Some(result) = self.task_killed_result() {
+                            return result;
+                        }
+                        res
+                    } else {
+                        let res = wait_func.await;
+                        if let Some(result) = self.task_killed_result() {
+                            return result;
+                        }
+                        res
+                    }
+                    // wait_func.await
+                } else {
+                    Err(Errno::EAGAIN)
+                }
+            }
+            FutexFlags::Wake => {
+                let futex_table = self.task.pcb.lock().futex_table.clone();
+                let count = futex_wake(futex_table, uaddr_ptr.addr(), value);
+                yield_now().await;
+                Ok(count)
+            }
+            FutexFlags::Requeue => {
+                let futex_table = self.task.pcb.lock().futex_table.clone();
+                Ok(futex_requeue(
+                    futex_table,
+                    uaddr_ptr.addr(),
+                    value,
+                    uaddr2,
+                    value2,
+                ))
+            }
+            _ => {
+                return Err(Errno::EPERM);
+            }
+        }
+    }
+
+    pub fn sys_tkill(&self, tid: usize, signum: usize) -> SysResult {
+        debug!("sys_tkill @ tid: {}, signum: {}", tid, signum);
+        let target_signal = SignalNum::from_num(signum).ok_or(Errno::EINVAL)?;
+        let mut child = self.task.inner_map(|x| {
+            x.threads
+                .iter()
+                .find(|x| match x.upgrade() {
+                    Some(thread) => thread.task_id == tid,
+                    None => false,
+                })
+                .map(|x| x.clone())
+        });
+
+        if tid == self.tid {
+            child = Some(Arc::downgrade(&self.task));
+        }
+
+        match child {
+            Some(child) => {
+                let child_task = child.upgrade().unwrap();
+                let mut child_tcb = child_task.tcb.write();
+                if !child_tcb.signal.has(target_signal) {
+                    child_tcb.signal.insert(target_signal);
+                } else {
+                    if let Some(index) = target_signal.real_time_index() {
+                        child_tcb.signal_queue[index] += 1;
+                    }
+                }
+                // let signal = child
+                //     .upgrade().unwrap()
+                //     .tcb
+                //     .write()
+                //     .signal
+                //     .add_signal(SignalFlags::from_usize(signum));
+                Ok(0)
+            }
+            None => Err(Errno::ECHILD),
+        }
+    }
+
+    pub fn sys_sigreturn(&self) -> SysResult {
+        debug!("sys_sigreturn @ ");
+        let cx_ref = self.task.force_cx_ref();
+        let sig_uctx = UserRef::<SignalUserContext>::from(cx_ref[TrapFrameArgs::SP]);
+        sig_uctx.with(|ctx| {
+            ctx.restore_ctx(cx_ref);
+            self.task.tcb.write().sigmask = ctx.sig_mask();
+        });
+        Ok(cx_ref[TrapFrameArgs::RET])
+    }
+
+    fn check_user_writable_span_for_getrusage(&self, ptr_addr: usize) -> Result<(), Errno> {
+        let len = core::mem::size_of::<TimeVal>() * 2;
+        if ptr_addr == 0 {
+            return Err(Errno::EFAULT);
+        }
+        for offset in 0..len {
+            let Some((_, flags)) = self
+                .task
+                .page_table
+                .translate(VirtAddr::from(ptr_addr.saturating_add(offset)))
+            else {
+                return Err(Errno::EFAULT);
+            };
+            super::ensure_user_mapping(flags)?;
+        }
+        Ok(())
+    }
+
+    pub fn sys_getrusage(&self, who: usize, usage_ptr: UserRef<Rusage>) -> SysResult {
+        debug!("sys_getrusgae @ who: {}, usage_ptr: {}", who, usage_ptr);
+        const RUSAGE_SELF: usize = 0;
+        const RUSAGE_CHILDREN: usize = usize::MAX;
+        const RUSAGE_THREAD: usize = 1;
+
+        if !matches!(who, RUSAGE_SELF | RUSAGE_CHILDREN | RUSAGE_THREAD) {
+            return Err(Errno::EINVAL);
+        }
+
+        let tms = self.task.inner_map(|inner| inner.tms);
+        let freq = get_freq();
+        let to_timeval = |ticks: u64| TimeVal {
+            sec: (ticks / freq) as _,
+            usec: ((ticks % freq) * 1000_000 / freq) as _,
+        };
+
+        self.check_user_writable_span_for_getrusage(usage_ptr.addr())?;
+        usage_ptr.with_mut(|rusage| {
+            rusage.utime = to_timeval(tms.utime);
+            rusage.stime = to_timeval(tms.stime);
+        });
+        Ok(0)
+    }
+
+    pub fn sys_exit_group(&self, exit_code: usize) -> SysResult {
+        debug!("sys_exit_group @ exit_code: {}", exit_code);
+        // let children = user_task.pcb.lock().children.clone();
+        // for ctask in children.iter().filter(|x| x.task_id != user_task.task_id) {
+        //     ctask.exit(exit_code);
+        // }
+        self.task.exit(exit_code);
+        Ok(0)
+        // Err(LinuxError::EPERM)
+    }
+
+    pub async fn sys_kill(&self, pid: usize, signum: usize) -> SysResult {
+        let signal = SignalNum::from_num(signum).ok_or(Errno::EINVAL)?;
+        debug!(
+            "[task {}] sys_kill @ pid: {}, signum: {:?}",
+            self.tid, pid, signal
+        );
+
+        let user_task = match tid2task(pid) {
+            Some(task) => task.downcast_arc::<UserTask>().map_err(|_| Errno::ESRCH),
+            None => Err(Errno::ESRCH),
+        }?;
+
+        if matches!(signal, SignalNum::KILL) {
+            user_task.exit_with_signal(signal.num());
+        } else {
+            user_task.tcb.write().signal.insert(signal);
+        }
+        yield_now().await;
+
+        Ok(0)
+    }
+
+    pub fn sys_setsid(&self) -> SysResult {
+        debug!("[task {}] sys_setsid", self.tid);
+        let parent = self.task.parent.read().clone();
+
+        if let Some(parent) = parent.upgrade() {
+            parent.pcb.lock().children.retain(|x| x.task_id != self.tid);
+            *self.task.parent.write() = Weak::<UserTask>::new();
+        }
+        Ok(0)
+    }
+
+    pub fn sys_sched_getaffinity(
+        &self,
+        pid: usize,
+        cpu_set_size: usize,
+        mask: UserRef<u8>,
+    ) -> SysResult {
+        debug!(
+            "[task {}] sys_sched_getaffinity @ pid: {}  cpu_set_size: {}, mask: {:#x?}",
+            self.tid, pid, cpu_set_size, mask
+        );
+        // TODO:
+        Ok(0)
+    }
+}

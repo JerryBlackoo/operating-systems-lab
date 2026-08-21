@@ -1,0 +1,8 @@
+status=5
+RUN=1230 returned0=177 timeouts=82
+last=RUN LTP CASE memcg_usage_in_bytes_test.sh
+last_fail=FAIL LTP CASE memcg_usage_in_bytes_test.sh : 127
+summary=initproc ltp: attempted 1230 of 2840 cases, 177 returned 0
+end=#### OS COMP TEST GROUP END ltp-glibc ####
+bad=
+recent=memcg_failcnt.sh, memcg_force_empty.sh, memcg_lib.sh, memcg_limit_in_bytes.sh, memcg_max_usage_in_bytes_test.sh, memcg_memsw_limit_in_bytes_test.sh, memcg_move_charge_at_immigrate_test.sh, memcg_process, memcg_process_stress, memcg_regression_test.sh, memcg_stat_rss.sh, memcg_stat_test.sh, memcg_stress_test.sh, memcg_subgroup_charge.sh, memcg_test_1, memcg_test_2, memcg_test_3, memcg_test_4, memcg_test_4.sh, memcg_usage_in_bytes_test.sh
