@@ -1,0 +1,8 @@
+status=5
+RUN=1157 returned0=162 timeouts=89
+last=RUN LTP CASE mallocstress
+last_fail=FAIL LTP CASE mallinfo2_01 : 32
+summary=
+end=
+bad=[1;31m[Core 0] panic: 'kernel error: 0xffffffe640000620'[0m
+recent=macvlan01.sh, macvtap01.sh, madvise01, madvise02, madvise03, madvise05, madvise06, madvise07, madvise08, madvise09, madvise10, madvise11, mallinfo01, mallinfo02, mallinfo2_01, mallocstress

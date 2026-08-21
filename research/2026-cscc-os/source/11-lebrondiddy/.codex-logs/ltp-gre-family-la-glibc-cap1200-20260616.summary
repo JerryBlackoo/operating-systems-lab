@@ -1,0 +1,8 @@
+status=143
+RUN=115 returned0=14 timeouts=10
+last=RUN LTP CASE cgroup_regression_6_2.sh
+last_fail=FAIL LTP CASE cgroup_regression_6_1.sh : 124
+summary=
+end=
+bad=
+recent=capget02, capset01, capset02, capset03, capset04, cfs_bandwidth01, cgroup_core01, cgroup_core02, cgroup_core03, cgroup_fj_common.sh, cgroup_fj_function.sh, cgroup_fj_proc, cgroup_fj_stress.sh, cgroup_lib.sh, cgroup_regression_3_1.sh, cgroup_regression_3_2.sh, cgroup_regression_5_1.sh, cgroup_regression_5_2.sh, cgroup_regression_6_1.sh, cgroup_regression_6_2.sh

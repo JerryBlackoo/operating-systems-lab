@@ -1,0 +1,8 @@
+status=5
+RUN=878 returned0=153 timeouts=71
+last=RUN LTP CASE gre01.sh
+last_fail=FAIL LTP CASE getxattr05 : 32
+summary=
+end=
+bad=[1;31m[Core 0] panic: 'page fault: LoadPageFault(
+recent=getsockopt01, getsockopt02, gettid01, gettid02, gettimeofday01, gettimeofday02, getuid01, getuid01_16, getuid03, getuid03_16, getxattr01, getxattr02, getxattr03, getxattr04, getxattr05, gre01.sh

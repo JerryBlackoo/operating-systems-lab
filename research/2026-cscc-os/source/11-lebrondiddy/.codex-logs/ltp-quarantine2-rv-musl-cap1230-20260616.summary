@@ -1,0 +1,8 @@
+status=5
+RUN=1230 returned0=165 timeouts=97
+last=RUN LTP CASE mincore01
+last_fail=FAIL LTP CASE mincore01 : 127
+summary=initproc ltp: attempted 1230 of 2820 cases, 165 returned 0
+end=#### OS COMP TEST GROUP END ltp-musl ####
+bad=
+recent=memcg_use_hierarchy_test.sh, memcmp01, memcontrol01, memcontrol02, memcontrol03, memcontrol04, memcpy01, memctl_test01, memfd_create01, memfd_create02, memfd_create03, memfd_create04, memset01, memtoy, mesgq_nstest, migrate_pages01, migrate_pages02, migrate_pages03, min_free_kbytes, mincore01

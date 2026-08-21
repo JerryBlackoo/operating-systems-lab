@@ -1,0 +1,37 @@
+.DS_Store
+._*
+**/._*
+.cargo-config.generated.toml
+
+# Build outputs
+kernel-rv
+kernel-la
+sdcard-rv.img
+sdcard-la.img
+disk.img
+disk-la.img
+*.o
+*.elf
+*.bin
+target/
+build/
+
+# Logs and temporary outputs
+*.log
+*.tmp
+qemu-output.txt
+
+# M0 baseline diligence clones (kept out of the contest repository)
+.m0-baselines/
+
+# Hermes automation runtime state
+.hermes/inbox/
+.hermes/outbox/
+.hermes/runs/
+.hermes/status/
+.hermes/dashboard/
+.hermes/tmp/
+
+# 退役的 Hermes 编排目录 + 回归产物(永不入库)
+.hermes/
+/regression-logs/
