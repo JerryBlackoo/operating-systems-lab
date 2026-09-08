@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# Clone curated OS-from-scratch teaching repositories into external/os-learning/.
+# Idempotent: skips repos that already exist.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEST="${ROOT}/external/os-learning"
+mkdir -p "$DEST"
+cd "$DEST"
+
+clone_repo() {
+  local url="$1"
+  local name="${2:-$(basename "$url" .git)}"
+  if [ -d "$name/.git" ]; then
+    if [ "${FULL_CLONE:-0}" = "1" ] && \
+       [ "$(git -C "$name" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+      echo "unshallow $name ..."
+      git -C "$name" fetch --unshallow
+    else
+      echo "skip  $name (already cloned)"
+    fi
+    return 0
+  fi
+  if [ "${FULL_CLONE:-0}" = "1" ]; then
+    echo "clone $name (full history) ..."
+    git clone "$url" "$name"
+  else
+    echo "clone $name ..."
+    git clone --depth 1 "$url" "$name"
+  fi
+}
+
+clone_linux() {
+  local url="https://github.com/torvalds/linux.git"
+  local name="linux"
+  local shallow="${LINUX_SHALLOW:-0}"
+  if [ "${FULL_CLONE:-0}" = "1" ]; then
+    shallow="0"
+  fi
+
+  if [ -d "$name/.git" ]; then
+    if [ "$(git -C "$name" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ] && [ "$shallow" != "1" ]; then
+      echo "deepen $name (fetch --unshallow; this may take a while) ..."
+      git -C "$name" fetch --unshallow --tags
+      echo "done  $name (full history)"
+    else
+      echo "skip  $name (already cloned)"
+    fi
+    return 0
+  fi
+
+  if [ "$shallow" = "1" ]; then
+    echo "clone $name (shallow) ..."
+    git clone --depth 1 "$url" "$name"
+  else
+    echo "clone $name (full history; large download) ..."
+    git clone "$url" "$name"
+  fi
+}
+
+# --- Dynux (no public source found as of 2026-08-14) ---
+# If you have a private URL, add: clone_repo "https://github.com/<org>/dynux.git" dynux
+
+# --- Cinux family (x86_64, modern C++, Chinese tutorial) ---
+clone_repo "https://github.com/Awesome-Embedded-Learning-Studio/Cinux-Book.git"
+clone_repo "https://github.com/Awesome-Embedded-Learning-Studio/Cinux.git"
+clone_repo "https://github.com/Awesome-Embedded-Learning-Studio/Cinux-Base.git"
+clone_repo "https://github.com/Charliechen114514/CCOperatingSystemX64.git"
+clone_repo "https://github.com/Charliechen114514/CCOperateSystem.git"
+
+# --- Classic step-by-step tutorials ---
+clone_repo "https://github.com/cfenollosa/os-tutorial.git"
+clone_repo "https://github.com/ruiers/os-tutorial-cn.git"
+clone_repo "https://github.com/yourtion/30dayMakeOS.git"
+clone_repo "https://github.com/StevenBaby/onix.git"
+
+# --- University course labs ---
+clone_repo "https://github.com/mit-pdos/xv6-riscv.git"
+clone_repo "https://github.com/mit-pdos/xv6-public.git"
+clone_repo "https://github.com/NJU-ProjectN/abstract-machine.git"
+clone_repo "https://github.com/NJU-ProjectN/nanos-lite.git"
+clone_repo "https://github.com/NJU-ProjectN/nemu.git"
+clone_repo "https://github.com/NJU-ProjectN/navy-apps.git"
+clone_repo "https://github.com/chyyuu/ucore_pub.git"
+clone_repo "https://github.com/rcore-os/rCore-Tutorial-v3.git"
+
+# --- Rust / other languages ---
+clone_repo "https://github.com/phil-opp/blog_os.git"
+clone_repo "https://github.com/rust-embedded/rust-raspberrypi-OS-tutorials.git"
+
+# --- Additional hobby / teaching kernels ---
+clone_repo "https://github.com/klange/toaruos.git"
+clone_repo "https://github.com/SkiftOS/skift.git"
+clone_repo "https://github.com/nanvix/nanvix.git"
+
+# --- Production kernel reference (full clone by default; set LINUX_SHALLOW=1 for --depth 1) ---
+clone_linux
+
+# Convenience symlink: external/os-learning/arch-x86 -> linux/arch/x86
+if [ -d linux/arch/x86 ] && [ ! -e arch-x86 ]; then
+  ln -s linux/arch/x86 arch-x86
+  echo "link  arch-x86 -> linux/arch/x86"
+fi
+
+echo ""
+echo "Done. Repositories are under: $DEST"
+ls -1 "$DEST"
