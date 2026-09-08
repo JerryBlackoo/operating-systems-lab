@@ -1,0 +1,20 @@
+# Core (required for cs336_basics / cs336_alignment / cs336_scaling and all tests)
+torch>=2.4          # CPU wheel is fine: pip install torch --index-url https://download.pytorch.org/whl/cpu
+numpy
+regex               # GPT-2 pre-tokenizer needs \p{L} classes (builtin re does not)
+einops
+pytest
+scipy
+matplotlib
+mmh3                # minhash dedup (falls back to hashlib if missing)
+
+# Optional, per-feature:
+# transformers      # A4 tokenize_data (GPT-2 tokenizer), A5 real OLMo runs
+# nltk              # A4 gopher word_tokenize (regex fallback built in)
+# resiliparse       # A4 HTML->text extraction
+# fasttext          # A4 language id / harmful content / quality classifiers
+# fastwarc          # A4 WARC/WET iteration
+# tldextract        # A4 domain filtering
+# triton            # A2 FlashAttention-2 Triton kernel (CUDA only)
+# vllm              # A5 rollout generation (GPU only)
+# wandb             # experiment logging
