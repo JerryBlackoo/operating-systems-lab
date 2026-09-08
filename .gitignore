@@ -1,0 +1,12 @@
+# Generated test rootfs (rebuilt by .cursor/install.sh / make-rootfs.sh)
+/busybox-rootfs/
+
+# Container runtime scratch/overlay layers (SPEC §6: ./.ctr-<name>/)
+/.ctr-*/
+
+# Built ctr binary
+/ctr
+
+# Go build/test artifacts
+*.test
+*.out

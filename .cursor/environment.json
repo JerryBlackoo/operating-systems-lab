@@ -1,0 +1,6 @@
+{
+  "name": "operating-systems-lab — ctr container runtime (Go)",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh"
+}
