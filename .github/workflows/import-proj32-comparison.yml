@@ -1,8 +1,9 @@
 name: Import CSCC 2026 proj32 comparison sources
 
 on:
-  issues:
-    types: [opened]
+  push:
+    branches: [main]
+    paths: ['.github/workflows/import-proj32-comparison.yml']
   workflow_dispatch:
 
 permissions:
@@ -10,7 +11,6 @@ permissions:
 
 jobs:
   import:
-    if: github.event_name == 'workflow_dispatch' || github.event.issue.title == 'RUN: import CSCC 2026 proj32 sources'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -53,7 +53,7 @@ jobs:
             done
 
             if [ "$ok" -eq 0 ]; then
-              printf -- '- ❌ `%s`: clone failed for all candidate URLs.\n' "$name" >> "$REPORT"
+              printf -- '- FAIL `%s`: clone failed for all candidate URLs.\n' "$name" >> "$REPORT"
               return 0
             fi
 
@@ -76,19 +76,19 @@ jobs:
             cat > "$dest/SOURCE_ORIGIN.md" <<EOF
           # Source origin
 
-          This directory is a source snapshot imported for comparative study of the 2026 CSCC OS `proj32` submissions.
+          This directory is a source snapshot imported for comparative study of the 2026 CSCC OS proj32 submissions.
 
           Original repository used for this snapshot: $used
 
           Git history was intentionally removed. Original LICENSE/NOTICE/README files are preserved when present. Copyright and authorship remain with the original project contributors.
           EOF
 
-            git add "$dest" "$REPORT"
+            git add "$dest"
             if ! git diff --cached --quiet; then
               git commit -m "vendor(proj32): import $name"
               git push origin HEAD:main
             fi
-            printf -- '- ✅ `%s`: `%s`\n' "$name" "$used" >> "$REPORT"
+            printf -- '- OK `%s`: `%s`\n' "$name" "$used" >> "$REPORT"
           }
 
           import_repo "01-mtagentlens" \
