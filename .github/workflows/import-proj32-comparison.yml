@@ -93,19 +93,25 @@ jobs:
 
           import_repo "01-mtagentlens" \
             "https://gitlab.eduxiji.net/educg-group-43734-3136859/T202690002999777-3686.git" \
-            "https://gitlab.eduxiji.net/educg-group-48534-3136859/T202690002999777-1109.git" \
+            "https://gitlab.eduxiji.net/educg-group-43734-3136859/T202690002999777-3356.git" \
+            "https://gitlab.eduxiji.net/educg-group-48534-3136859/T202690002999777-1476.git" \
             "https://github.com/LiuZhouKang/MtAgentLens.git"
 
           import_repo "02-guangming-weilai" \
+            "https://gitlab.eduxiji.net/educg-group-43734-3136859/T2026900029910646-3462.git" \
             "https://gitlab.eduxiji.net/educg-group-48534-3136859/T2026900029910646-1053.git"
 
           import_repo "03-sange-zhugeliang" \
+            "https://gitlab.eduxiji.net/educg-group-43734-3136859/T2026900029911547-2892.git" \
             "https://gitlab.eduxiji.net/educg-group-48534-3136859/T2026900029911547-534.git" \
-            "https://gitlab.eduxiji.net/educg-group-48534-3136859/T2026900029911547-482.git"
+            "https://gitlab.eduxiji.net/educg-group-48534-3136859/T2026900029911547-482.git" \
+            "https://github.com/neko4linux/eBPF-Multi-Agent.git"
 
           import_repo "04-danji-shuru-wenben" \
-            "https://gitlab.eduxiji.net/educg-group-48534-3136859/T2026120269910095-2286.git" \
-            "https://gitlab.eduxiji.net/T2026120269910095/project3136859-382916.git"
+            "https://gitlab.eduxiji.net/T2026120269910095/project3136859-382916.git" \
+            "https://gitlab.eduxiji.net/educg-group-43734-3136859/T2026120269910095-3080.git" \
+            "https://gitlab.eduxiji.net/educg-group-48534-3136859/T2026120269910095-534.git" \
+            "https://gitlab.eduxiji.net/educg-group-48534-3136859/T2026120269910095-1135.git"
 
           import_repo "05-yuanwei-moli" \
             "https://gitlab.eduxiji.net/educg-group-48534-3136859/T2026104869910476-2464.git" \
