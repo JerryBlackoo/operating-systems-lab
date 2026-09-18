@@ -58,16 +58,26 @@ class ProvenanceGraph:
     def add_bundle(self, bundle: ScopeBundle, kind: str | None = None) -> str:
         node_id = bundle_node_id(bundle)
         last = bundle.causal.frames[-1] if bundle.causal.frames else None
+        node_kind = kind or (last.kind if last else "scope")
+        sid = bundle.scope_id
+        if node_kind == "agent":
+            label = f"Agent={sid.agent_id}"
+        elif node_kind == "tool_call":
+            label = f"tool_call={sid.tool_call_id} Tool={sid.tool_name}"
+        elif last is not None:
+            label = last.label()
+        else:
+            label = str(sid)
         self.add_node(
             Node(
                 node_id=node_id,
-                kind=kind or (last.kind if last else "scope"),
-                label=str(bundle.scope_id),
+                kind=node_kind,
+                label=label,
                 extra={
-                    "agent_id": bundle.scope_id.agent_id,
-                    "tool_call_id": bundle.scope_id.tool_call_id,
-                    "tool_name": bundle.scope_id.tool_name,
-                    "task_id": bundle.scope_id.task_id,
+                    "agent_id": sid.agent_id,
+                    "tool_call_id": sid.tool_call_id,
+                    "tool_name": sid.tool_name,
+                    "task_id": sid.task_id,
                     "pid": bundle.pid,
                     "tid": bundle.tid,
                     "origin": str(bundle.causal.origin),
@@ -135,7 +145,7 @@ class ProvenanceGraph:
         nodes = self.reconstruct(event)
         if not nodes:
             return "<empty>"
-        return " → ".join(f"{node.kind}:{node.label}" if node.kind != "syscall" else node.label for node in nodes)
+        return " → ".join(node.label for node in nodes)
 
     def all_syscall_nodes(self) -> Iterable[Node]:
         return [n for n in self.nodes.values() if n.kind == "syscall"]

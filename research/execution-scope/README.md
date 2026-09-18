@@ -80,8 +80,8 @@ python3 -m execution_scope.demo
 execution_scope/
   scope.py        ExecutionScopeID, CausalScope, AuthorityScope, ToolPolicy
   context.py      contextvars + thread-local；spawn 时复制 Causal、可选继承/过期 Authority
-  runtime.py      agent_run / tool_call / create_task / submit_threadpool /
-                  spawn_subprocess（模拟）/ spawn_background
+  runtime.py      agent_run / tool_call（及 async 变体：工具内 await 时 Authority 仍有效）
+                  create_task / submit_threadpool / spawn_subprocess（模拟）/ spawn_background
   kernel_sim.py   open/connect/unlink/exec 门：查 Authority 策略，永远记归因边
   provenance.py   由 spawn/syscall 事件建图，还原 Agent→…→syscall
   demo.py         上述四个场景

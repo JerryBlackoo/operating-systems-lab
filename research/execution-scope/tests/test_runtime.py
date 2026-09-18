@@ -12,15 +12,17 @@ def test_asyncio_task_propagates_causal_and_authority() -> None:
             async def work():
                 return catch(rt.kernel.connect, "example.com")
 
-            def tool():
+            async def tool():
+                # Await before the tool returns so Authority is still live.
                 task = rt.create_task(work(), inherit_authority=True, name="aio-net")
-                return task
+                return await task
 
-            task = rt.agent_run(
-                "AgentA",
-                lambda: rt.tool_call("SearchTool", tool, policy=SEARCH_TOOL_POLICY),
-            )
-            event = await task
+            async def agent():
+                return await rt.tool_call_async(
+                    "SearchTool", tool, policy=SEARCH_TOOL_POLICY
+                )
+
+            event = await rt.agent_run_async("AgentA", agent)
             assert event.allowed
             assert event.causal_origin is not None
             assert event.causal_origin.tool_name == "SearchTool"

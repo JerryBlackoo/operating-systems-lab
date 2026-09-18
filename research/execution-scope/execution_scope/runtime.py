@@ -13,11 +13,13 @@ analogue of "pass ExecutionScopeID across exec".
 from __future__ import annotations
 
 import asyncio
+import inspect
 import threading
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Coroutine, TypeVar
+from typing import Any, Awaitable, Callable, Coroutine, Iterator, TypeVar
 
 from .context import ScopeBundle, copy_for_spawn, require_bundle, using_bundle
 from .kernel_sim import SimulatedKernel, SyscallEvent
@@ -78,7 +80,8 @@ class AgentRuntime:
         with self._lock:
             return self._tool_stack[-1] if self._tool_stack else None
 
-    def agent_run(self, agent_id: str, fn: Callable[[], T], *, pid: int | None = None) -> T:
+    @contextmanager
+    def _agent_scope(self, agent_id: str, *, pid: int | None = None) -> Iterator[ScopeBundle]:
         scope_id = ExecutionScopeID(agent_id=agent_id)
         origin = CausalOrigin.from_scope_id(scope_id)
         frames = (CausalFrame(kind="agent", name=agent_id, scope_id=scope_id),)
@@ -93,17 +96,17 @@ class AgentRuntime:
         )
         self.graph.add_bundle(bundle, kind="agent")
         with using_bundle(bundle):
-            return fn()
+            yield bundle
 
-    def tool_call(
+    @contextmanager
+    def _tool_scope(
         self,
         tool_name: str,
-        fn: Callable[[], T],
         *,
         policy: ToolPolicy | None = None,
         expire_on_return: bool = True,
         tool_call_id: str | None = None,
-    ) -> T:
+    ) -> Iterator[ScopeBundle]:
         parent = require_bundle()
         tool_call_id = tool_call_id or f"tc-{uuid.uuid4().hex[:8]}"
         scope_id = parent.scope_id.with_tool_call(tool_call_id, tool_name)
@@ -129,7 +132,7 @@ class AgentRuntime:
             with self._lock:
                 self._tool_stack.append(frame)
             try:
-                return fn()
+                yield bundle
             finally:
                 if expire_on_return:
                     authority.expire()
@@ -137,6 +140,55 @@ class AgentRuntime:
                 with self._lock:
                     if self._tool_stack and self._tool_stack[-1] is frame:
                         self._tool_stack.pop()
+
+    def agent_run(self, agent_id: str, fn: Callable[[], T], *, pid: int | None = None) -> T:
+        with self._agent_scope(agent_id, pid=pid):
+            return fn()
+
+    async def agent_run_async(
+        self,
+        agent_id: str,
+        fn: Callable[[], T | Awaitable[T]],
+        *,
+        pid: int | None = None,
+    ) -> T:
+        with self._agent_scope(agent_id, pid=pid):
+            return await _maybe_await(fn())
+
+    def tool_call(
+        self,
+        tool_name: str,
+        fn: Callable[[], T],
+        *,
+        policy: ToolPolicy | None = None,
+        expire_on_return: bool = True,
+        tool_call_id: str | None = None,
+    ) -> T:
+        with self._tool_scope(
+            tool_name,
+            policy=policy,
+            expire_on_return=expire_on_return,
+            tool_call_id=tool_call_id,
+        ):
+            return fn()
+
+    async def tool_call_async(
+        self,
+        tool_name: str,
+        fn: Callable[[], T | Awaitable[T]],
+        *,
+        policy: ToolPolicy | None = None,
+        expire_on_return: bool = True,
+        tool_call_id: str | None = None,
+    ) -> T:
+        """Like ``tool_call``, but Authority stays live across ``await`` inside the tool."""
+        with self._tool_scope(
+            tool_name,
+            policy=policy,
+            expire_on_return=expire_on_return,
+            tool_call_id=tool_call_id,
+        ):
+            return await _maybe_await(fn())
 
     def _child_bundle(
         self,
@@ -271,3 +323,9 @@ class AgentRuntime:
             threads = list(self._bg_threads)
         for thread in threads:
             thread.join(timeout=timeout)
+
+
+async def _maybe_await(result: T | Awaitable[T]) -> T:
+    if inspect.isawaitable(result):
+        return await result
+    return result
