@@ -187,3 +187,9 @@ eBPF → Agent observation → anomaly detection → attribution
 已经提交自动导入工作流：`.github/workflows/import-proj32-comparison.yml`。
 
 当前 GitHub Actions 的最新 job 在分配 runner 前即失败（`steps=[]`, `runner_id=0`），因此**不能把源码标记为已导入**。工作流和所有已知 GitLab clone URL 已保留；一旦 GitHub Runner 可用，可直接重新运行完成 vendor 导入。
+
+## 相关原创实验（不是 MtAgentLens）
+
+本仓库另有一份独立的宿主教学原型：[`research/execution-scope/`](../../execution-scope/)。
+
+它**不** vendor MtAgentLens 源码，也**不**声称已有真实 LSM/eBPF 强制。对比意图见该目录 README：MtAgentLens 侧重可观测与责任图；ExecutionScope 原型侧重 scope 传播、CausalOrigin ≠ AuthorityScope，以及模拟内核层的策略拒绝。

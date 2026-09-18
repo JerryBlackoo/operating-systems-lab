@@ -1,0 +1,12 @@
+[project]
+name = "execution-scope"
+version = "0.1.0"
+description = "Host teaching prototype: Agent ExecutionScope causal attribution and authority expiry"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+readme = "README.md"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
