@@ -20,6 +20,10 @@
  * 本文件只依赖已存在的 memory/ipc/syscall/sched/clock API；新增的连接是
  * 用户线程首次从 U 态启动的 trap frame、内核根页表的恒等映射，以及
  * “模块 trap 先观察、统一 glue 兜底”的 timer 分派。
+ *
+ * 另加的 svc_* 是一条有限的 U-mode sm 取证路径，不是完整 SM 服务：
+ * U-SM 在 bare satp 下运行、与内核共享映射，预置执行 register/lookup 后才
+ * RECV，grant 只是 fixture token，没有 cap_root_install 也没有再次发送。
  */
 #include "demo.h"
 #include "syscall.h"
@@ -32,6 +36,7 @@
 #include "memory.h"
 #include "sched.h"
 #include "sbi.h"
+#include "sm.h"
 #include "trap.h"
 
 extern char __kernel_start[], __kernel_end[];
@@ -39,6 +44,8 @@ extern char user_prog_start[], user_prog_end[];
 
 #define SID_CLIENT 0
 #define SID_SERVER 1
+#define SID_SVC_CLIENT 2
+#define SID_SVC_SERVER 3
 
 #define CAP_TYPE_ENDPOINT 1
 
@@ -52,9 +59,17 @@ extern char user_prog_start[], user_prog_end[];
 #define BACKEND_REFS    8
 
 enum { TAG_CALL = 0x101, TAG_REPLY = 0x102 };
+enum { TAG_SM_REQ = 0x211, TAG_SM_REPLY = 0x212 };
 
 #define MAGIC_WRITE 0x5a5a5a5a5a5a5a5aULL
 #define MAGIC_REPLY 0x5a5a5a5a5a5a5a5bULL
+
+/* sm 取证路径的名称常量：owner/client 只在该 fixture 策略里解释。 */
+#define SVC_OWNER       0x51u
+#define SVC_CLIENT_ID   1u
+#define SVC_PUB_HANDLE  0x51f5u
+#define SVC_ENDPOINT_ID 1u
+#define SVC_LOG_NR      0x10000UL
 
 struct closure_backend_ref {
     struct cap_object *obj;
@@ -83,14 +98,54 @@ struct uctx {
     bool reply_ok;
 };
 
+/*
+ * U-mode 服务取证上下文：与 uctx 不同，它不持有独立 AS。代码在 satp=0
+ * 的 U-mode 下执行，ecall/IPC/cap 检查仍走同一个正式 trap 与分发器。
+ * 这里只证明 SPP=0、一次 IPC 往返和一次 cap 越权拒绝；不证明完整匿名
+ * 服务映像，也不证明 fixture token 是可再次使用的 capability。
+ */
+struct svc_uctx {
+    _Alignas(16) uint8_t kstack[KSTACK_BYTES];
+    struct trap_frame *frame;
+    struct thread *thread;
+    struct syscall_call call;
+    cap_handle_t handle;
+    cap_handle_t wrong_handle;
+    const char *name;
+    uint32_t sid;
+    bool exited;
+    bool call_ok;
+    bool recv_ok;
+    bool reply_ok;
+    bool denied_ok;
+};
+
+/* sm 策略端口的内存替身；发放值不是内核 capability 句柄。 */
+struct svc_caps_fixture {
+    unsigned fs_refs;
+    unsigned grants;
+    bool slot_used;
+    uint32_t slot_gen;
+};
+
 /* demo.c 的 handle_trap 用它决定是否把 trap 交给本闭环。 */
 bool closure_active;
 
 static struct uctx users[2];
+static struct svc_uctx svc_users[2];
+static _Alignas(16) uint8_t svc_client_stack[8192];
+static _Alignas(16) uint8_t svc_server_stack[8192];
+static struct sm svc_sm;
+static struct svc_caps_fixture svc_caps;
+static struct endpoint *svc_endpoint;
+static cap_handle_t svc_client_cap;
+static cap_handle_t svc_client_wrong_cap;
+static cap_handle_t svc_server_cap;
 static struct thread runner;
 static struct as *kernel_as;
 static struct endpoint *endpoint;
 static struct closure_backend backend;
+static const struct syscall_backend closure_backend;
 static pfn_t code_pfn;
 static uint64_t last_satp;
 static unsigned completed;
@@ -103,6 +158,16 @@ static bool precheck_a_mapped;
 static bool precheck_b_unmapped;
 static uint64_t fault_stval;
 static uint64_t fault_satp;
+
+static bool svc_first_ecall_logged;
+static bool svc_client_exited;
+static bool svc_server_exited;
+static bool svc_denied_ok;
+static bool svc_call_ok;
+static bool svc_recv_ok;
+static bool svc_reply_ok;
+static uint64_t svc_fixture_grant;
+static uint64_t svc_reply_fixture;
 
 /* ---- 日志：只做定长数值格式化，不引入 printf ---------------------- */
 
@@ -227,6 +292,15 @@ static struct uctx *user_for(struct thread *t)
     return NULL;
 }
 
+static struct svc_uctx *svc_for(struct thread *t)
+{
+    for (unsigned i = 0; i < 2; i++) {
+        if (svc_users[i].thread == t)
+            return &svc_users[i];
+    }
+    return NULL;
+}
+
 static int64_t frame_status(const struct trap_frame *frame)
 {
     struct abi_regs regs = {{
@@ -234,6 +308,313 @@ static int64_t frame_status(const struct trap_frame *frame)
     }};
 
     return abi_decode_status(regs);
+}
+
+/* ---- 有限 U-mode SM 取证：SPP=0 + IPC 往返 + cap 越权拒绝 ---- */
+
+static enum sm_result svc_retain(void *ctx, uint32_t owner, uint32_t handle,
+                                 uint32_t *endpoint)
+{
+    struct svc_caps_fixture *caps = ctx;
+
+    if (caps == NULL || endpoint == NULL)
+        return SM_BAD_ARG;
+    if (owner != SVC_OWNER || handle != SVC_PUB_HANDLE)
+        return SM_DENIED;
+    caps->fs_refs++;
+    *endpoint = SVC_ENDPOINT_ID;
+    return SM_OK;
+}
+
+static enum sm_result svc_grant_send(void *ctx, uint32_t client,
+                                     uint32_t endpoint, uint32_t *handle)
+{
+    struct svc_caps_fixture *caps = ctx;
+
+    if (caps == NULL || handle == NULL)
+        return SM_BAD_ARG;
+    if (client != SVC_CLIENT_ID || endpoint != SVC_ENDPOINT_ID)
+        return SM_DENIED;
+    if (caps->slot_used)
+        return SM_NO_SPACE;
+
+    caps->slot_used = true;
+    caps->slot_gen++;
+    caps->fs_refs++;
+    caps->grants++;
+    *handle = (caps->slot_gen << 8) | 1u;
+    return SM_OK;
+}
+
+static void svc_release(void *ctx, uint32_t endpoint)
+{
+    struct svc_caps_fixture *caps = ctx;
+
+    if (caps != NULL && endpoint == SVC_ENDPOINT_ID && caps->fs_refs > 0)
+        caps->fs_refs--;
+}
+
+static void svc_log(const char *text)
+{
+    struct abi_regs args = {{
+        (uint64_t)(uintptr_t)text, 0, 0, 0, 0, 0,
+    }};
+
+    (void)abi_ecall(SVC_LOG_NR, args);
+}
+
+static _Noreturn void svc_exit(void)
+{
+    struct abi_regs args = {{0}};
+
+    (void)abi_ecall(ABI_THREAD_EXIT, args);
+    for (;;) {
+    }
+}
+
+static _Noreturn void svc_client_u(void *argument)
+{
+    struct svc_uctx *u = argument;
+    struct abi_regs in = {{
+        u->wrong_handle, TAG_SM_REQ, 1, 0, 0, 0,
+    }};
+    struct abi_regs out;
+
+    svc_log("[usvc] U-CLI running in U-mode");
+    out = abi_ecall(ABI_IPC_SEND, in);
+    if (abi_decode_status(out) == ABI_DENIED)
+        svc_log("[usvc] U-CLI wrong-rights send denied by cap");
+    else
+        svc_log("[usvc] U-CLI ERROR wrong-rights send not denied");
+
+    in = (struct abi_regs){{u->handle, TAG_SM_REQ, 0x51, 0, 0, 0}};
+    out = abi_ecall(ABI_IPC_CALL, in);
+    if (abi_decode_status(out) == ABI_OK &&
+        abi_meta_tag(out.a[1]) == TAG_SM_REPLY && out.a[2] != 0)
+        svc_log("[usvc] U-CLI got sm fixture token from U-SM");
+    else
+        svc_log("[usvc] U-CLI ERROR sm call failed");
+
+    svc_exit();
+}
+
+static _Noreturn void svc_server_u(void *argument)
+{
+    struct svc_uctx *u = argument;
+    struct sm_port port;
+    uint32_t granted = 0;
+    bool policy_ok;
+    struct abi_regs in;
+    struct abi_regs out;
+
+    svc_log("[usvc] U-SM probe running in U-mode");
+
+    svc_caps = (struct svc_caps_fixture){0};
+    port = (struct sm_port){
+        &svc_caps, svc_retain, svc_grant_send, svc_release,
+    };
+    svc_sm = (struct sm){.port = &port};
+
+    policy_ok =
+        sm_register(&svc_sm, SVC_OWNER, "fs", 2, SVC_PUB_HANDLE) == SM_OK &&
+        sm_lookup(&svc_sm, SVC_CLIENT_ID, "fs", 2, &granted) == SM_OK &&
+        sm_count(&svc_sm) == 1 && granted != 0;
+    if (policy_ok) {
+        svc_fixture_grant = granted;
+        svc_log("[usvc] U-SM pre-set register/lookup executed in U-mode");
+    } else {
+        svc_log("[usvc] U-SM ERROR policy failed in U-mode");
+    }
+
+    in = (struct abi_regs){{u->handle, 0, 0, 0, 0, 0}};
+    out = abi_ecall(ABI_IPC_RECV, in);
+    if (abi_decode_status(out) != ABI_OK ||
+        abi_meta_tag(out.a[1]) != TAG_SM_REQ) {
+        svc_log("[usvc] U-SM ERROR recv from U-CLI failed");
+        svc_exit();
+    }
+
+    in = (struct abi_regs){{
+        (uint64_t)abi_meta_reply(out.a[1]), TAG_SM_REPLY, granted, 0, 0, 0,
+    }};
+    out = abi_ecall(ABI_IPC_REPLY, in);
+    if (abi_decode_status(out) != ABI_OK) {
+        svc_log("[usvc] U-SM ERROR reply failed");
+        svc_exit();
+    }
+    svc_log("[usvc] U-SM replied from U-mode");
+    svc_exit();
+}
+
+static _Noreturn void svc_thread_entry(void *argument)
+{
+    struct svc_uctx *u = argument;
+    struct trap_frame *tf = u->frame;
+
+    irq_disable();
+    __asm__ volatile(
+        "mv a0, %0\n\t"
+        "mv sp, %1\n\t"
+        "j trap_return\n\t"
+        :
+        : "r"(tf), "r"(tf)
+        : "memory");
+    __builtin_unreachable();
+}
+
+static void prepare_svc_frame(struct svc_uctx *u, void (*entry)(void *),
+                              void *stack, size_t stack_size)
+{
+    uintptr_t top = (uintptr_t)u->kstack + sizeof(u->kstack);
+    struct trap_frame *tf = (void *)(top - FRAME_TOP_RSV);
+
+    tf->a0 = (uintptr_t)u;
+    tf->sp = ((uintptr_t)stack + stack_size - 16) & ~(uintptr_t)15;
+    tf->tp = (uintptr_t)hart_local_get();
+    tf->sepc = (uintptr_t)entry;
+    tf->sstatus = csr_read(CSR_SSTATUS) &
+                  ~(SSTATUS_SPP | SSTATUS_SIE | SSTATUS_SPIE);
+    u->frame = tf;
+}
+
+static void setup_svc(struct svc_uctx *u, uint32_t sid, cap_handle_t handle,
+                      cap_handle_t wrong_handle, const char *name,
+                      void (*entry)(void *), void *stack, size_t stack_size)
+{
+    *u = (struct svc_uctx){0};
+    u->sid = sid;
+    u->handle = handle;
+    u->wrong_handle = wrong_handle;
+    u->name = name;
+    prepare_svc_frame(u, entry, stack, stack_size);
+    u->thread = thread_create(NULL, svc_thread_entry, u, u->kstack,
+                              sizeof(u->kstack), name);
+    CHECK(u->thread != NULL);
+}
+
+static struct trap_frame *svc_trap(struct trap_frame *frame, struct svc_uctx *u)
+{
+    enum syscall_phase phase;
+    int64_t status;
+    uint32_t tag;
+    uint64_t word0;
+
+    if ((frame->scause & SCAUSE_IRQ) &&
+        (frame->scause & ~SCAUSE_IRQ) == IRQ_S_TIMER)
+        return NULL;
+
+    if (frame->scause != EXC_ECALL_U || (frame->sstatus & SSTATUS_SPP))
+        return NULL;
+
+    if (!svc_first_ecall_logged) {
+        svc_first_ecall_logged = true;
+        demo_log("[usvc] first U-mode ecall: scause=8 SPP=0");
+    }
+
+    if (u->call.phase == SYSCALL_COMPLETE)
+        u->call = (struct syscall_call){0};
+
+    phase = syscall_dispatch(&u->call, frame, u->sid, &closure_backend);
+    if (phase == SYSCALL_IGNORED)
+        return NULL;
+    if (phase == SYSCALL_EXITED) {
+        log_dec_field("[exit] ", u->name, "thread_exit", 0);
+        u->exited = true;
+        if (u->sid == SID_SVC_CLIENT)
+            svc_client_exited = true;
+        else
+            svc_server_exited = true;
+        thread_exit();
+    }
+    if (phase != SYSCALL_COMPLETE)
+        return frame;
+
+    status = frame_status(frame);
+    tag = abi_meta_tag(frame->a1);
+    word0 = frame->a2;
+
+    switch ((enum abi_number)frame->a7) {
+    case ABI_IPC_SEND:
+        if (u->sid == SID_SVC_CLIENT && status == ABI_DENIED) {
+            u->denied_ok = true;
+            svc_denied_ok = true;
+            log_hex_field("[usvc] ", u->name, "wrong-rights send status=",
+                          (uint64_t)status);
+        } else {
+            unexpected_errors++;
+            log_hex_field("[usvc] ", u->name, "send rejected status=",
+                          (uint64_t)status);
+        }
+        break;
+    case ABI_IPC_RECV:
+        if (u->sid == SID_SVC_SERVER && status == ABI_OK &&
+            tag == TAG_SM_REQ) {
+            u->recv_ok = true;
+            svc_recv_ok = true;
+            log_hex_field("[usvc] ", u->name, "recv woke tag=", tag);
+        } else {
+            unexpected_errors++;
+            log_hex_field("[usvc] ", u->name, "recv rejected status=",
+                          (uint64_t)status);
+        }
+        break;
+    case ABI_IPC_CALL:
+        if (u->sid == SID_SVC_CLIENT && status == ABI_OK &&
+            tag == TAG_SM_REPLY && word0 != 0) {
+            u->call_ok = true;
+            svc_call_ok = true;
+            svc_reply_fixture = word0;
+            log_hex_field("[usvc] ", u->name, "call reply fixture=", word0);
+        } else {
+            unexpected_errors++;
+            log_hex_field("[usvc] ", u->name, "call rejected status=",
+                          (uint64_t)status);
+        }
+        break;
+    case ABI_IPC_REPLY:
+        if (u->sid == SID_SVC_SERVER && status == ABI_OK) {
+            u->reply_ok = true;
+            svc_reply_ok = true;
+            log_dec_field("[usvc] ", u->name, "reply sent", 0);
+        } else {
+            unexpected_errors++;
+            log_hex_field("[usvc] ", u->name, "reply rejected status=",
+                          (uint64_t)status);
+        }
+        break;
+    default:
+        unexpected_errors++;
+        log_dec_field("[usvc] ", u->name, "unexpected ecall nr=", frame->a7);
+        break;
+    }
+    return frame;
+}
+
+static void svc_run(void)
+{
+    clock_ns_t limit;
+
+    svc_first_ecall_logged = false;
+    svc_client_exited = false;
+    svc_server_exited = false;
+    svc_denied_ok = false;
+    svc_call_ok = false;
+    svc_recv_ok = false;
+    svc_reply_ok = false;
+    svc_fixture_grant = 0;
+    svc_reply_fixture = 0;
+    svc_caps = (struct svc_caps_fixture){0};
+    svc_sm = (struct sm){0};
+
+    setup_svc(&svc_users[1], SID_SVC_SERVER, svc_server_cap, 0, "U-SM",
+              svc_server_u, svc_server_stack, sizeof(svc_server_stack));
+    setup_svc(&svc_users[0], SID_SVC_CLIENT, svc_client_cap,
+              svc_client_wrong_cap, "U-CLI", svc_client_u,
+              svc_client_stack, sizeof(svc_client_stack));
+
+    limit = clock_deadline_after(clock_now(), 1ULL * 1000 * 1000 * 1000);
+    while (!(svc_client_exited && svc_server_exited) && clock_now() < limit)
+        thread_yield();
 }
 
 /* ---- 最小 endpoint capability：只保护 SEND/RECV ------------------ */
@@ -323,7 +704,7 @@ static int64_t backend_acquire(void *ctx, uint32_t caller, uint32_t handle,
         *ref = 0;
         return ABI_OK;
     }
-    if (caller >= 2)
+    if (caller >= 4)
         return ABI_BAD_HANDLE;
 
     switch (kind) {
@@ -632,6 +1013,10 @@ struct trap_frame *closure_trap(struct trap_frame *frame)
     if (!closure_active)
         return NULL;
 
+    struct svc_uctx *svc = svc_for(sched_current());
+    if (svc != NULL)
+        return svc_trap(frame, svc);
+
     struct uctx *u = user_for(sched_current());
 
     if ((frame->scause & SCAUSE_IRQ) &&
@@ -821,6 +1206,7 @@ void closure_run(void)
     uint64_t sie_saved = csr_read(CSR_SIE);
     uint64_t sstatus_saved = csr_read(CSR_SSTATUS);
     cap_oid_t ep_oid;
+    cap_oid_t svc_oid;
     cap_handle_t client_handle = 0;
     cap_handle_t server_handle = 0;
     clock_ns_t limit;
@@ -867,6 +1253,22 @@ void closure_run(void)
                            CAP_RIGHT_READ | CAP_RIGHT_WRITE, 0,
                            &server_handle) == CAP_OK);
 
+    /*
+     * U-mode SM 取证路径的端点：客户端一支 SEND cap，另装一支只有 RECV
+     * 权限的 cap 用来验证越权发送确实在 capability 边界被拒绝；
+     * 服务端持有 RECV+SEND（reply 用 ipc token，不走该 cap）。
+     */
+    svc_endpoint = ep_create();
+    CHECK(svc_endpoint != NULL);
+    CHECK(cap_object_create(&endpoint_type, svc_endpoint, &svc_oid) == CAP_OK);
+    CHECK(cap_root_install(SID_SVC_CLIENT, 1, svc_oid, CAP_RIGHT_WRITE, 0,
+                           &svc_client_cap) == CAP_OK);
+    CHECK(cap_root_install(SID_SVC_CLIENT, 2, svc_oid, CAP_RIGHT_READ, 0,
+                           &svc_client_wrong_cap) == CAP_OK);
+    CHECK(cap_root_install(SID_SVC_SERVER, 1, svc_oid,
+                           CAP_RIGHT_READ | CAP_RIGHT_WRITE, 0,
+                           &svc_server_cap) == CAP_OK);
+
     /* A：客户端，probe VA 映射为可写用户页。 */
     setup_user(&users[0], SID_CLIENT, 1, client_handle, "U-A", true);
     /* B：服务端，故意不映射 probe VA。 */
@@ -911,6 +1313,9 @@ void closure_run(void)
     while (completed < 2 && clock_now() < limit)
         thread_yield();
 
+    /* 同一 trap/tick 窗口里再跑一段有限 U-mode sm 取证，tick 未撤防。 */
+    svc_run();
+
     irq_disable();
     sched_stop_tick();
     /*
@@ -939,6 +1344,10 @@ void closure_run(void)
     CHECK(sched_tick_count() > 0);
     CHECK(sched_switch_count() > 0);
     CHECK(sched_quantum_expiration_count() > 0);
+    CHECK(svc_client_exited && svc_server_exited);
+    CHECK(svc_denied_ok && svc_call_ok && svc_recv_ok && svc_reply_ok);
+    CHECK(svc_fixture_grant != 0 && svc_reply_fixture == svc_fixture_grant);
+    CHECK(svc_caps.grants == 1);
 
     log_dec_field("[unified] ", NULL, "completed", completed);
     log_dec_field("[unified] ", NULL, "illegal_syscalls", illegal_calls);
@@ -951,8 +1360,18 @@ void closure_run(void)
     log_hex_field("[unified] ", NULL, "U-B root_pfn=", users[1].root_pfn);
     log_hex_field("[unified] ", NULL, "fault stval=", fault_stval);
     log_hex_field("[unified] ", NULL, "fault satp=", fault_satp);
+    log_dec_field("[usvc] ", NULL, "client_exit", svc_client_exited);
+    log_dec_field("[usvc] ", NULL, "server_exit", svc_server_exited);
+    log_dec_field("[usvc] ", NULL, "denied", svc_denied_ok);
+    log_dec_field("[usvc] ", NULL, "call", svc_call_ok);
+    log_dec_field("[usvc] ", NULL, "recv", svc_recv_ok);
+    log_dec_field("[usvc] ", NULL, "reply", svc_reply_ok);
+    log_hex_field("[usvc] ", NULL, "sm_fixture=", svc_fixture_grant);
+    log_hex_field("[usvc] ", NULL, "reply_fixture=", svc_reply_fixture);
     demo_log("[unified] timer preemption + U ecall + two AS satp switch + "
              "IPC call/reply + isolation fault");
+    demo_log("[usvc] limited U-mode sm probe: SPP=0 + IPC roundtrip + "
+             "cap denial (bare satp)");
 
     /* 把调度器还给同一模块里的后续 legacy demo。 */
     sched_init();

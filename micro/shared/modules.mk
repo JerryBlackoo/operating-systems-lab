@@ -46,7 +46,8 @@ MODEL_SUPPORT_pm := $(MODEL_SUPPORT_sched) kernel/capability/capability.c kernel
 
 # syscall demo 把分发器接到真实的能力、IPC、页表和调度实现。
 MODEL_SUPPORT_syscall := $(SCHED_SUPPORT) $(CLOCK_SUPPORT) kernel/ipc/ipc.c \
-                         kernel/capability/capability.c kernel/capability/cap_arch_riscv.c
+                         kernel/capability/capability.c kernel/capability/cap_arch_riscv.c \
+                         userland/servers/sm/sm.c
 MODEL_DIR_syscall := kernel/syscall
 MODEL_FILES_syscall := syscall.c demo.c closure.c user_prog.S
 MODEL_DIR_abi := shared/abi
