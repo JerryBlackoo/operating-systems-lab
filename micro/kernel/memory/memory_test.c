@@ -97,6 +97,9 @@ static void test_map_copy_unmap(void)
         assert(as_map(as, USER_VA + 2 * PAGE_SIZE, free_pfn, MEM_R) ==
                MEM_EINVAL);
     }
+    /* 未定义的权限位必须拒绝，不能静默忽略 */
+    assert(as_map(as, USER_VA + 3 * PAGE_SIZE, data, MEM_R | 0x40) ==
+           MEM_EINVAL);
     assert(as_unmap(as, USER_VA + 0x20000000ULL) == MEM_EFAULT);
 
     /* 只读映射：写拷贝应失败，读拷贝应成功 */
@@ -112,10 +115,53 @@ static void test_map_copy_unmap(void)
         assert(as_unmap(as, USER_VA + PAGE_SIZE) == MEM_OK);
     }
 
+    /*
+     * 全量校验：第二页未映射时，跨页拷贝必须整体失败，
+     * 已校验的第一页既不能被写入也不能被读出。
+     */
+    memset(buf, 0x5a, sizeof(buf));
+    assert(as_copyin(as, USER_VA + PAGE_SIZE - 100, buf, 200) == MEM_EFAULT);
+    for (size_t i = 0; i < sizeof(buf); i++) {
+        assert(buf[i] == 0x5a);
+    }
+    {
+        uint8_t saved = data_ptr[PAGE_SIZE - 100];
+
+        assert(as_copyout(as, USER_VA + PAGE_SIZE - 100, pattern, 200) ==
+               MEM_EFAULT);
+        assert(data_ptr[PAGE_SIZE - 100] == saved);
+    }
+
     assert(as_unmap(as, USER_VA) == MEM_OK);
     assert(frame_refcount(data) == 0);
     as_unref(as);
     assert(frame_free_count() == baseline);
+
+    /*
+     * 中间层按需分配失败时必须回滚：新 VA 需要 L1 + L0 两个页表页，
+     * 只留 1 个空闲帧时 as_map 返回 MEM_ENOMEM，且空闲帧数不变。
+     */
+    {
+        struct as *fresh = as_create();
+        pfn_t hog[MEMORY_MAX_FRAMES];
+        uint32_t count = 0;
+
+        assert(fresh != 0);
+        while (frame_free_count() > 1) {
+            pfn_t page = frame_alloc();
+
+            assert(page != PFN_NONE);
+            hog[count++] = page;
+        }
+        assert(count > 0);
+        assert(as_map(fresh, 0x50000000ULL, hog[0], MEM_R) == MEM_ENOMEM);
+        assert(frame_free_count() == 1);
+        while (count > 0) {
+            assert(frame_free(hog[--count]) == MEM_OK);
+        }
+        as_unref(fresh);
+        assert(frame_free_count() == baseline);
+    }
 
     /* AS 池耗尽 */
     for (int i = 0; i < AS_MAX; i++) {
@@ -185,6 +231,7 @@ static void test_kernel_share(void)
     assert(frame_refcount(kpage) == 1);
 
     assert(as_share_kernel(user, kernel->root_pfn, 2) == MEM_OK);
+    assert(as_share_kernel(user, kernel->root_pfn, 2) == MEM_EEXIST);
     assert(as_translate(user, TEST_BASE, &rights, &translated) == MEM_OK);
     assert(translated == kpage);
     assert((rights & MEM_U) == 0);
@@ -193,6 +240,17 @@ static void test_kernel_share(void)
     /* 用户 AS 不能覆盖共享内核区间 */
     assert(as_map(user, TEST_BASE, upage, MEM_R) == MEM_EPERM);
     assert(as_unmap(user, TEST_BASE) == MEM_EPERM);
+
+    /* 目标顶层区间已有映射时，内核共享必须拒绝，不能覆盖并泄漏 frame */
+    {
+        struct as *conflict = as_create();
+
+        assert(conflict != 0);
+        assert(as_map(conflict, TEST_BASE, upage, MEM_R | MEM_U) == MEM_OK);
+        assert(as_share_kernel(conflict, kernel->root_pfn, 2) == MEM_EEXIST);
+        assert(as_unmap(conflict, TEST_BASE) == MEM_OK);
+        as_unref(conflict);
+    }
     assert(frame_free(upage) == MEM_OK);
 
     as_unref(user);

@@ -63,6 +63,8 @@ QEMU 通过 `-kernel` 把 ELF 的可加载段写入 RAM。OpenSBI 随后交出�
 | `a1` | DTB 物理地址 | OpenSBI |
 | `satp` | 0（bare） | OpenSBI |
 | `sstatus.SIE` | 0 | OpenSBI |
+| `sie` / `sip` | 0 | `boot.S` |
+| `sscratch` | 0 | `boot.S` |
 | `sp` | `__boot_stack_top` | `boot.S` |
 | `.bss` | 全零 | `boot.S` |
 | `stvec` | 未安装 | — |
@@ -71,9 +73,14 @@ QEMU 通过 `-kernel` 把 ELF 的可加载段写入 RAM。OpenSBI 随后交出�
 
 - `.bss` 里放一个 `volatile` 探针，读到的必须是 0；
 - `satp` 必须是 0；
-- `sstatus.SIE` 必须是 0。
+- `sstatus.SIE` 必须是 0；
+- `sie` 必须没有被提前使能；
+- `sscratch` 必须是 0，否则 `trap.S` 的换栈判据不成立。
 
 任一不成立就打印并关机。入口契约一旦被破坏，后面所有推断都不可信。
+
+非 boot hart（`a0 != 0`）在 `_start` 的第一条分支就停车，不会碰共享启动栈和 `.bss`；
+这让"单 hart 运行"从约定变成可执行事实。
 
 ---
 
@@ -165,11 +172,12 @@ offset 0   magic       0xd00dfeed
 offset 4   totalsize   big-endian
 ```
 
-校验三件事：
+校验四件事：
 
-1. 头部本身在 RAM 内；
-2. magic 正确；
-3. `totalsize` 在 `[40, 1 MiB]` 内，且整个 blob 在 RAM 内。
+1. 起始地址满足 FDT 规范的 8 字节对齐；
+2. 头部本身在 RAM 内；
+3. magic 正确；
+4. `totalsize` 在 `[40, 1 MiB]` 内，且整个 blob 在 RAM 内。
 
 三种结果：
 
@@ -221,7 +229,7 @@ make -C micro run BOOT_MODULES=
 
 构建时生成 `bootstrap_plan.c`，里面是按顺序排列的模块描述符指针。模块的入口函数、特权级和陷阱回调由各目录的 `DEMO_MODULE` 定义。镜像只链接所选模块及其依赖的实现。例如 `ipc` 会用到对象、内存和调度代码，清单仍只调用你点名的 demo。 [模块目录表](../../shared/modules.mk)
 
-`BootInfo` 校验通过后，`bootstrap_run` 逐条执行。内核 demo 在 S-mode 运行，用户态 demo 进入 U-mode，完成后回到启动执行流。每项输出 `[模块名] start` 和 `[模块名] PASS`。全清单完成后输出 `[bootstrap] PASS` 并关机。模块断言失败会打印失败项并以非零状态退出。
+`BootInfo` 校验通过后，`bootstrap_run` 先校验清单中每个描述符（`name` / `run` 非空），再逐条执行。内核 demo 在 S-mode 运行，用户态 demo 进入 U-mode，完成后回到启动执行流。每项输出 `[模块名] start` 和 `[模块名] PASS`。全清单完成后输出 `[bootstrap] PASS` 并关机。模块断言失败会打印失败项并以非零状态退出。
 
 默认镜像对应的 QEMU 命令如下。
 
@@ -237,13 +245,14 @@ OpenSBI 日志之后应出现：
 ```text
 [micro] boot: minimal model
 [boot] raw handoff: hartid=0 dtb=0x0000000087e00000
-[boot] entry: bss=0, satp=0, SIE=0
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
 [boot] console: SBI legacy putchar OK
 [boot] fdt: header OK
 [boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x0000000000019000
 [boot] ram: 0x0000000080000000 + 0x0000000008000000
 [boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
-[boot] reserved[1]: 0x0000000080200000 + 0x0000000000007000 kernel
+[boot] reserved[1]: 0x0000000080200000 + 0x0000000000019000 kernel
 [boot] reserved[2]: 0x0000000087e00000 + 0x0000000000001516 dtb
 [boot] arch: tp=&hart_local, stvec installed
 [boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
@@ -267,9 +276,10 @@ OpenSBI 日志之后应出现：
 | 输出 | 证明 |
 |---|---|
 | `hartid=0 dtb=0x87e00000` | `a0/a1` 穿过 `boot.S` 的清 BSS 到达 C |
-| `bss=0, satp=0, SIE=0` | 入口契约成立，不是假设 |
-| `fdt: header OK` | DTB 魔数、长度、RAM 范围都过 |
+| `bss=0, satp=0, SIE=0, sscratch=0` | 入口契约成立，不是假设 |
+| `fdt: header OK` | DTB 对齐、魔数、长度、RAM 范围都过 |
 | `bootinfo: v1 size=448` | 契约结构已被构建 |
+| `kernel: 0x80200000 + ...` | 内核起止来自链接符号，并被 kernel 保留区完全覆盖 |
 | `ram: 0x80000000 + 0x08000000` | RAM 来自平台事实，不是猜的 |
 | `reserved[0]` | OpenSBI 的 2 MiB 被显式保护 |
 | `reserved[1]` | 内核镜像 + BSS + 启动栈被显式保护 |
@@ -284,7 +294,7 @@ OpenSBI 日志之后应出现：
 
 | 限制 | 现状 | 归属 |
 |---|---|---|
-| 单 hart | 只用 hart 0，其他 hart 未启动 | 后续 SMP 切面 |
+| 单 hart | 只用 hart 0；其他 hart 在 `_start` 直接 `wfi` 停车 | 后续 SMP 切面 |
 | DTB 节点解析 | 只验头，用 `platform.h` 常量 | `kernel/platform/fdt.c` |
 | 自举模块来源 | 构建时链接进 ELF。独立的初始用户映像可用 initrd 描述 | `bootstrap_plan.c` |
 | 物理页分配器 | 未实现，只给区间 | `kernel/memory` |

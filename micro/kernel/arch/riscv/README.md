@@ -45,7 +45,7 @@ RISC-V 的一台 hart 在任意瞬间，可被本模块触碰的状态只有四�
 |---|---|---|---|---|
 | `sstatus` | 0x100 | ✅ | ✅ | `csr.h`（irq_*）、`trap.S` |
 | `sie` | 0x104 | — | ✅（只清零） | `boot.S` |
-| `stvec` | 0x105 | — | ✅ | `trap.c` |
+| `stvec` | 0x105 | ✅ | ✅ | `trap.S`（`trap_install` 写）；`boot.c` / `selftest.c` 读回 |
 | `sscratch` | 0x140 | ✅ | ✅ | `boot.S`、`trap.S` |
 | `sepc` | 0x141 | ✅ | ✅ | `trap.S` |
 | `scause` | 0x142 | ✅ | — | `trap.S` |
@@ -266,7 +266,7 @@ RISC-V 的一台 hart 在任意瞬间，可被本模块触碰的状态只有四�
 | `sie` | `boot.S`（只清零） | — | 尚未使能任何中断 |
 | `sip` | `boot.S`（只清零） | — | |
 | `sscratch` | `boot.S` / `trap.S` | `trap.S` | 双态协议 |
-| `stvec` | `trap.c` | — | 只装一次 |
+| `stvec` | `trap.S`（`trap_install`） | `boot.c` / `selftest.c` | 只装一次 |
 | `sepc` | `trap.S`（`trap_return`） | `trap.S` | 硬件在陷入时也写 |
 | `scause` | **仅硬件** | `trap.S` | 软件不写 |
 | `stval` | **仅硬件** | `trap.S` | 软件不写 |
@@ -317,7 +317,7 @@ Boot HART MISA    : rv64imafdch          ← 有 F/D，但编译期禁用
 
 | # | 不变量 |
 |---|---|
-| **I1** | `tp` 恒为 `&hart_local[hartid]`；当且仅当 U-mode 时 `sscratch` = 该线程内核栈顶；S-mode 时 `sscratch == 0` |
+| **I1** | 内核态（S-mode）`tp` 恒为 `&hart_local[hartid]`；当且仅当 U-mode 时 `sscratch` = 该线程内核栈顶，S-mode 时 `sscratch == 0`。U-mode 的 `tp` 属于用户上下文，本模型约定用户不得改写它 |
 | **I2** | trap frame 是跨特权级传递寄存器状态的**唯一**结构（288 B，31 GPR + 4 CSR + pad） |
 | **I3** | 进入 `trap_handler` 时 `sstatus.SIE = 0`（硬件保证） |
 | **I4** | 任何 `satp` 写入后必须 `sfence.vma`（**尚未实现**，MMU 未开） |
@@ -336,7 +336,7 @@ kernel/arch/riscv/
 ├── boot.S          时刻 1：_start 五步
 ├── trap.S          时刻 2：trap_entry + trap_return
 ├── context.S       时刻 3：14 字上下文切换
-├── trap.c          trap_handler 分发 + panic + stvec 安装
+├── trap.c          自检镜像的 trap_handler 分发 + panic
 ├── csr.h           6 个 CSR 原语 + irq_* + 常量
 ├── hart.h          hart_local + tp 出入口
 ├── trap.h          struct trap_frame + 偏移宏
@@ -356,6 +356,10 @@ kernel/arch/riscv/
 |---|---|
 | `micro/Makefile` | clang + ld.lld/rust-lld，`make run` |
 | `micro/kernel/boot/` | **正式的 boot 模块**：`boot_main` → `BootInfo` → `kmain`，见 [`kernel/boot/README.md`](../../boot/README.md) |
+
+正式 boot/demo 镜像**不链接 `trap.c`**：`shared/demo.c` 提供了同签名的
+`trap_handler`，负责 demo 的 ecall 协议。两者都必须遵守 `trap.S` 的 ABI
+（入参/返回值都是 `struct trap_frame *`），并由 `trap.S` 统一恢复现场。
 
 ---
 

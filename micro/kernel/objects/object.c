@@ -2,8 +2,11 @@
 
 #include <stdint.h>
 
+_Static_assert(OBJECT_MAX_SLOTS <= 0xffffu, "slot field of object id is 16 bits");
+
 static struct object *slots[OBJECT_MAX_SLOTS];
 static uint16_t generations[OBJECT_MAX_SLOTS];
+static uint32_t live_objects;
 
 static object_lock_fn lock_hook;
 static object_unlock_fn unlock_hook;
@@ -27,16 +30,34 @@ static uint32_t make_id(uint16_t slot, uint16_t gen)
 
 void object_system_init(void)
 {
+    uintptr_t flags = registry_lock();
+
     for (uint32_t i = 0; i < OBJECT_MAX_SLOTS; i++) {
         slots[i] = 0;
-        generations[i] = 0;
     }
+    live_objects = 0;
+    registry_unlock(flags);
+
+    /*
+     * 代际计数器故意不在重置时清零：拿旧 id 的调用者可能在 init 之后
+     * 才来查找，继续递增才能保证这些陈旧 id 永远不会命中新对象。
+     */
 }
 
 void object_set_lock(object_lock_fn lock, object_unlock_fn unlock)
 {
     lock_hook = lock;
     unlock_hook = unlock;
+}
+
+uintptr_t object_lock(void)
+{
+    return registry_lock();
+}
+
+void object_unlock(uintptr_t flags)
+{
+    registry_unlock(flags);
 }
 
 int object_register(struct object *obj, enum object_type type,
@@ -53,6 +74,13 @@ int object_register(struct object *obj, enum object_type type,
     }
 
     flags = registry_lock();
+
+    /* 同一个对象头不能同时占据两个槽位：那会让旧 id 与析构都指向同一块内存。 */
+    if (obj->slot < OBJECT_MAX_SLOTS && slots[obj->slot] == obj) {
+        registry_unlock(flags);
+        return -1;
+    }
+
     for (int i = 0; i < OBJECT_MAX_SLOTS; i++) {
         if (slots[i] == 0) {
             slot = i;
@@ -77,17 +105,18 @@ int object_register(struct object *obj, enum object_type type,
     obj->id = make_id(obj->slot, obj->gen);
     obj->destroy = destroy;
     slots[slot] = obj;
+    live_objects++;
 
     registry_unlock(flags);
     return 0;
 }
 
-void object_ref(struct object *obj)
+bool object_ref(struct object *obj)
 {
     uint32_t old;
 
     if (obj == 0) {
-        return;
+        return false;
     }
 
     /*
@@ -97,20 +126,30 @@ void object_ref(struct object *obj)
     do {
         old = __atomic_load_n(&obj->refcnt, __ATOMIC_RELAXED);
         if (old == 0) {
-            return;
+            return false;
         }
     } while (!__atomic_compare_exchange_n(&obj->refcnt, &old, old + 1, false,
                                           __ATOMIC_ACQ_REL,
                                           __ATOMIC_RELAXED));
+    return true;
 }
 
 static void object_release(struct object *obj)
 {
     uintptr_t flags;
 
+    /*
+     * 末引用在 CAS 中降为 0 之后、真正摘除槽位之前，lookup 可能看到
+     * 一个仍然挂在表里但已无引用的对象。object_lookup 在锁内调用
+     * object_ref，refcnt 为 0 就直接失败，因此这里只需保证摘除动作
+     * 与 lookup 的“查表 + 加引用”互斥。
+     */
     flags = registry_lock();
     if (obj->slot < OBJECT_MAX_SLOTS && slots[obj->slot] == obj) {
         slots[obj->slot] = 0;
+        if (live_objects > 0) {
+            live_objects--;
+        }
     }
     registry_unlock(flags);
 
@@ -154,15 +193,11 @@ struct object *object_lookup(uint32_t id, enum object_type type)
 
     flags = registry_lock();
     obj = slots[slot];
-    if (obj == 0 || obj->id != id) {
+    if (obj == 0 || obj->id != id ||
+        (type != OBJ_NONE && obj->type != type) || !object_ref(obj)) {
         registry_unlock(flags);
         return 0;
     }
-    if (type != OBJ_NONE && obj->type != type) {
-        registry_unlock(flags);
-        return 0;
-    }
-    object_ref(obj);
     registry_unlock(flags);
     return obj;
 }
@@ -170,6 +205,18 @@ struct object *object_lookup(uint32_t id, enum object_type type)
 enum object_type object_get_type(const struct object *obj)
 {
     return obj ? obj->type : OBJ_NONE;
+}
+
+const char *object_type_name(enum object_type type)
+{
+    switch (type) {
+    case OBJ_NONE:     return "none";
+    case OBJ_THREAD:   return "thread";
+    case OBJ_AS:       return "as";
+    case OBJ_ENDPOINT: return "endpoint";
+    case OBJ_REPLY:    return "reply";
+    default:           return "unknown";
+    }
 }
 
 uint32_t object_get_id(const struct object *obj)
@@ -185,4 +232,9 @@ uint32_t object_refcount(const struct object *obj)
 bool object_alive(const struct object *obj)
 {
     return object_refcount(obj) != 0;
+}
+
+uint32_t object_live_count(void)
+{
+    return __atomic_load_n(&live_objects, __ATOMIC_RELAXED);
 }

@@ -24,10 +24,36 @@ static bool port_valid(const struct irq_port *port)
            port->intr_save != NULL && port->intr_restore != NULL;
 }
 
+/*
+ * 拆除线表：先 mask 再 complete。
+ *
+ * 顺序与 irq_unbind() 相同：complete 是解闸，如果设备线仍为高，
+ * 先 complete 再 mask 会让 source 在屏蔽前重新 pending。先 mask 后
+ * complete 才能保证拆除后控制器侧确实安静。
+ */
+static void lines_teardown(const struct irq_port *port)
+{
+    for (int line = 0; line < IRQ_LINE_MAX; line++) {
+        port->mask(line);
+        if (g_lines[line].state == IRQ_ACTIVE) {
+            port->complete(line);
+        }
+        g_lines[line] = (struct irq_line){.state = IRQ_DISARMED};
+    }
+}
+
 int irq_init(const struct irq_port *port)
 {
     if (!port_valid(port)) {
         return IRQ_EINVAL;
+    }
+
+    /* 重入：旧端口的 ACTIVE claim 必须先归还，再换端口。 */
+    if (g_ready) {
+        unsigned long flags = g_port->intr_save();
+
+        lines_teardown(g_port);
+        g_port->intr_restore(flags);
     }
 
     g_port = port;
@@ -38,6 +64,24 @@ int irq_init(const struct irq_port *port)
     }
 
     g_ready = true;
+    return IRQ_OK;
+}
+
+int irq_reset(void)
+{
+    const struct irq_port *port;
+    unsigned long flags;
+
+    if (!g_ready) {
+        return IRQ_EINVAL;
+    }
+
+    port = g_port;
+    flags = port->intr_save();
+    lines_teardown(port);
+    g_port = NULL;
+    g_ready = false;
+    port->intr_restore(flags);
     return IRQ_OK;
 }
 
@@ -143,6 +187,11 @@ int irq_fire(int line)
         return 0;
     }
 
+    /*
+     * 先置 ACTIVE 再 notify：notify 期间同一线的重复事件只能合并。
+     * notify 允许同步调用 irq_ack()（内核内驱动线程模型），返回后
+     * 状态可能已经是 ARMED；这里不再读写 l，避免假设为 ACTIVE。
+     */
     l->state = IRQ_ACTIVE;
     l->stats.fires++;
     l->sink->notify(l->sink, line);
@@ -158,7 +207,14 @@ int irq_dispatch(void)
     int handled = 0;
 
     for (int budget = IRQ_DRAIN_BUDGET; budget > 0; budget--) {
-        int line = g_port->claim();
+        int line;
+
+        /* notify 可能调用 irq_reset()；端口注销后不再 claim。 */
+        if (!g_ready) {
+            break;
+        }
+
+        line = g_port->claim();
 
         if (line == IRQ_NONE) {
             break;

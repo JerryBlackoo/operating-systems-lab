@@ -5,12 +5,26 @@
 
 #include "memory.h"
 
+#ifndef SCHED_HOST_TEST
+#include "clock/clock.h"
+#endif
+
+/*
+ * 新线程第一次被调度时，sched() 在关中断状态下把控制权交给
+ * thread_bootstrap；由它恢复中断再进入线程入口。这样定时器可以
+ * 从第一条 C 语句开始抢占内核线程。
+ */
+#define SCHED_SIE_BIT (1ULL << 1)
+
 static struct thread threads[SCHED_MAX_THREADS];
 
 static struct thread *ready_head;
 static struct thread *ready_tail;
 static struct thread *current_thread;
 static struct thread *idle_thread;
+
+/* 当前 satp 指向的用户地址空间；NULL 表示仍是内核初始映射。 */
+static struct as *active_as;
 
 static bool need_resched;
 
@@ -177,6 +191,14 @@ static void thread_destroy(struct object *obj)
     t->reaped = true;
 }
 
+/*
+ * 死线程的回收点。调用者可能处于关中断状态，因此这里只做
+ * “摘除 + 记录”，真正的引用释放放到锁外。
+ *
+ * 页表安全：如果死线程持有的正是 satp 当前指向的地址空间，
+ * 必须先退回内核 bare 映射，否则 as_unref() 释放页表后，
+ * 下一次 TLB miss 会走进已经归还的物理页。
+ */
 static void reap_dead(void)
 {
     struct thread *dead[SCHED_MAX_THREADS];
@@ -188,20 +210,29 @@ static void reap_dead(void)
     for (int i = 0; i < SCHED_MAX_THREADS; i++) {
         struct thread *t = &threads[i];
 
-        if (t->used && t->state == THREAD_DEAD && !t->reaped &&
-            t != current_thread && t != idle_thread) {
-            dead[count] = t;
-            dead_as[count] = t->as;
-            t->as = 0;
-            t->reaped = true;
-            count++;
+        if (!t->used || t->state != THREAD_DEAD || t->reaped ||
+            t == current_thread || t == idle_thread) {
+            continue;
         }
+
+        if (t->as != 0 && t->as == active_as &&
+            (current_thread == 0 || current_thread->as != active_as)) {
+            /* 当前执行流不再依赖该用户地址空间，可以安全切回 bare。 */
+            as_activate(0);
+            active_as = 0;
+        }
+
+        dead[count] = t;
+        dead_as[count] = t->as;
+        t->as = 0;
+        t->reaped = true;
+        count++;
     }
     sched_unlock(flags);
 
     /*
-     * 切换完成后再释放 AS/对象：死线程的页表可能直到下一次 satp 切换前
-     * 仍被使用，这里由调度器在安全点统一回收。
+     * 切换完成后再释放 AS/对象：死线程的页表可能直到下一次 satp
+     * 切换前仍被使用，这里由调度器在安全点统一回收。
      */
     for (int i = 0; i < count; i++) {
         if (dead_as[i] != 0) {
@@ -218,6 +249,7 @@ void sched_init(void)
     ready_tail = 0;
     current_thread = 0;
     idle_thread = 0;
+    active_as = 0;
     need_resched = false;
 
     /* 对象注册表与调度器共享同一把单核锁。 */
@@ -233,6 +265,9 @@ struct thread *thread_create(struct as *as, void (*entry)(void *), void *arg,
     uint64_t flags;
 
     if (entry == 0 || stack_base == 0 || stack_size < 256) {
+        return 0;
+    }
+    if ((uintptr_t)stack_base + stack_size < (uintptr_t)stack_base) {
         return 0;
     }
 
@@ -284,6 +319,12 @@ static void thread_bootstrap(void)
 {
     struct thread *t = current_thread;
 
+    /*
+     * 第一次被调度时中断仍是关的（sched() 在切换期间不恢复 SIE）。
+     * 内核线程从这里开始允许定时器抢占。
+     */
+    sched_unlock(SCHED_SIE_BIT);
+
     if (t != 0 && t->entry != 0) {
         t->entry(t->arg);
     }
@@ -298,43 +339,64 @@ void sched(void)
 
     reap_dead();
 
+    /*
+     * 从挑选 next 到 cpu_switch 完成，全程保持关中断。解锁留给
+     * 恢复运行的线程：它从自己的 cpu_switch 返回后，用自己栈上的
+     * flags 恢复 SIE。这样不会出现“已改 current 但还没换栈”的窗口。
+     */
     flags = sched_lock();
     prev = current_thread;
 
     if (prev != 0 && prev->state == THREAD_RUNNING) {
         prev->state = THREAD_READY;
-        ready_enqueue(prev);
+        if (prev != idle_thread) {
+            /*
+             * idle 是兜底线程，不参与 FIFO：只要还有普通线程可跑，
+             * 就不应把 idle 插到队尾。
+             */
+            ready_enqueue(prev);
+        }
     }
 
     next = ready_dequeue();
     if (next == 0) {
         next = idle_thread;
-        if (next != 0) {
-            /* 如果 current 就是 idle，它刚被重新入队，这里摘掉。 */
-            ready_remove(next);
-        }
     }
     if (next == 0) {
+        /*
+         * 没有就绪线程也没有 idle：正式内核必须创建 idle。
+         * 教学模型里保留当前线程继续运行，避免在无任务可切时
+         * 把控制流丢进空指针。
+         */
+        if (prev != 0 && prev->state == THREAD_READY) {
+            prev->state = THREAD_RUNNING;
+        }
         sched_unlock(flags);
         return;
     }
 
     next->state = THREAD_RUNNING;
     current_thread = next;
-    sched_unlock(flags);
+
+    if (next->as != 0) {
+        /* 用户线程：切页表并刷 TLB；内核线程沿用当前映射。 */
+        as_activate(next->as);
+        active_as = next->as;
+    }
 
     if (prev == next) {
+        sched_unlock(flags);
         return;
     }
-    if (next->as != 0) {
-        /* 用户线程：切页表并刷 TLB；内核线程沿用当前内核映射。 */
-        as_activate(next->as);
-    }
+
     if (prev != 0) {
         cpu_switch(&prev->ctx, &next->ctx);
     } else {
         cpu_switch_to(&next->ctx);
     }
+
+    /* 只有“本线程重新被调度”的路径会回到这里。 */
+    sched_unlock(flags);
 }
 
 void thread_block_locked(struct waitq *wq)
@@ -361,15 +423,27 @@ void thread_wake_locked(struct thread *t)
     }
     t->state = THREAD_READY;
     ready_enqueue(t);
+
+    /*
+     * 唤醒意味着可能有更值得运行的就绪线程。trap 返回前调用
+     * sched_check() 就能把“被唤醒”变成一次实际的上下文切换，
+     * 不需要额外的周期 tick。
+     */
+    need_resched = true;
 }
 
+/*
+ * 阻塞与调度必须在同一个关中断区间内完成：如果先释放锁、
+ * 再调用 sched()，定时器可能在两步之间插入一次调度，导致
+ * 线程在“已阻塞但还没让出 CPU”的状态下被恢复。
+ */
 void thread_block(struct waitq *wq)
 {
     uint64_t flags = sched_lock();
 
     thread_block_locked(wq);
-    sched_unlock(flags);
     sched();
+    sched_unlock(flags);
 }
 
 void thread_wake(struct thread *t)
@@ -382,7 +456,10 @@ void thread_wake(struct thread *t)
 
 void thread_yield(void)
 {
+    uint64_t flags = sched_lock();
+
     sched();
+    sched_unlock(flags);
 }
 
 void thread_exit(void)
@@ -392,12 +469,14 @@ void thread_exit(void)
     if (current_thread != 0) {
         current_thread->state = THREAD_DEAD;
     }
+    sched();
     sched_unlock(flags);
 
-    sched();
-
-    /* 正常情况下 sched 不会再回到这里。 */
+    /* 没有 idle 兜底时，至少不要回到已经死亡的线程入口。 */
     for (;;) {
+#if defined(__riscv) && !defined(SCHED_HOST_TEST)
+        __asm__ volatile("wfi");
+#endif
     }
 }
 
@@ -424,11 +503,10 @@ void sched_check(void)
 
     resched = need_resched;
     need_resched = false;
-    sched_unlock(flags);
-
     if (resched) {
         sched();
     }
+    sched_unlock(flags);
 }
 
 void sched_bootstrap(struct thread *t)
@@ -448,11 +526,11 @@ void sched_bootstrap(struct thread *t)
     ready_remove(t);
     t->state = THREAD_RUNNING;
     current_thread = t;
-    sched_unlock(flags);
-
     if (t->as != 0) {
         as_activate(t->as);
+        active_as = t->as;
     }
+    sched_unlock(flags);
 }
 
 void sched_set_idle(struct thread *t)
@@ -482,12 +560,15 @@ struct thread *sched_idle(void)
 int sched_ready_count(void)
 {
     int count = 0;
-    struct thread *t = ready_head;
+    struct thread *t;
+    uint64_t flags = sched_lock();
 
+    t = ready_head;
     while (t != 0) {
         count++;
         t = t->ready_next;
     }
+    sched_unlock(flags);
     return count;
 }
 
@@ -517,3 +598,82 @@ void sched_unlock(uint64_t flags)
     (void)flags;
 #endif
 }
+
+#ifndef SCHED_HOST_TEST
+/*
+ * 睡眠等待者完全在调用者栈上：线程被唤醒前不会返回，timer 回调也只
+ * 在阻塞期间访问它。单 hart 上回调与调用者不会并发。
+ */
+struct sleep_waiter {
+    struct thread *thread;
+    struct waitq queue;
+    struct clock_timer timer;
+};
+
+static void sleep_timeout(struct clock_timer *timer)
+{
+    struct sleep_waiter *waiter = timer->arg;
+    uint64_t flags = sched_lock();
+
+    thread_wake_locked(waiter->thread);
+    sched_unlock(flags);
+}
+
+void thread_sleep_until(uint64_t deadline)
+{
+    struct thread *self = current_thread;
+    struct sleep_waiter waiter;
+    uint64_t flags;
+
+    if (self == 0)
+        return;
+    if (clock_now() >= (clock_ns_t)deadline)
+        return;
+
+    waiter.thread = self;
+    waitq_init(&waiter.queue);
+    clock_timer_init(&waiter.timer, sleep_timeout, &waiter);
+
+    flags = sched_lock();
+    clock_timer_arm(&waiter.timer, deadline);
+    thread_block_locked(&waiter.queue);
+
+    for (;;) {
+        if (self->state != THREAD_BLOCKED) {
+            sched_unlock(flags);
+            break;
+        }
+        if (clock_now() >= (clock_ns_t)deadline) {
+            /* 没有可运行线程时 timer 回调可能还没到，自己唤醒。 */
+            if (self->waitq == &waiter.queue)
+                waitq_remove(&waiter.queue, self);
+            self->state = THREAD_RUNNING;
+            sched_unlock(flags);
+            break;
+        }
+
+        /*
+         * 在关中断区间内进入 sched：timer 不可能在“已阻塞但还没让出”
+         * 的窗口里把线程唤醒后又立刻被本线程重新调度。
+         */
+        sched();
+
+        /*
+         * sched() 只有在本线程重新被调度时才会回到这里；若它因为
+         * 没有 next/idle 而直接返回，状态仍是 BLOCKED，需要放开锁
+         * 让 deadline 中断能够到达。
+         */
+        if (self->state == THREAD_BLOCKED) {
+            sched_unlock(flags);
+            flags = sched_lock();
+        }
+    }
+
+    clock_timer_cancel(&waiter.timer);
+}
+
+void thread_sleep_ns(uint64_t ns)
+{
+    thread_sleep_until(clock_deadline_after(clock_now(), ns));
+}
+#endif

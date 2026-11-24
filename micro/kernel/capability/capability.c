@@ -595,6 +595,54 @@ int cap_invoke(cap_sid_t sid, cap_handle_t h, uint32_t op, void *args)
     return rc;
 }
 
+/*
+ * 借用缝：只做「解析 + 权限包含 + pin」，不执行任何对象语义。
+ * 复合操作（例如同时需要 AS cap 与 frame cap 的 map）由对象层在 pin 住
+ * 两个对象后完成；这样既保持 cap_invoke 的单一入口语义，又避免在
+ * 能力模块里硬编码对象之间的关系。
+ */
+int cap_acquire(cap_sid_t sid, cap_handle_t h, cap_rights_t rights,
+                struct cap_object **out)
+{
+    if (!out)
+        return CAP_E_BAD_ARG;
+
+    uint64_t flags = cap_arch_intr_save();
+    struct cap_entry e;
+    int rc = cap_lookup_locked(sid, h, &e);
+    if (rc != CAP_OK) {
+        cap_arch_intr_restore(flags);
+        return rc;
+    }
+
+    struct cap_object *obj = cap_object_get(e.oid);
+    if (!obj) {
+        cap_arch_intr_restore(flags);
+        return CAP_E_BAD_OBJECT;
+    }
+    if ((e.rights & rights) != rights) {
+        cap_arch_intr_restore(flags);
+        return CAP_E_RIGHTS;
+    }
+
+    obj->pins++;
+    *out = obj;
+    cap_arch_intr_restore(flags);
+    return CAP_OK;
+}
+
+void cap_release(struct cap_object *obj)
+{
+    if (!obj)
+        return;
+
+    uint64_t flags = cap_arch_intr_save();
+    if (obj->pins > 0)
+        obj->pins--;
+    cap_object_maybe_finalize_locked(obj);
+    cap_arch_intr_restore(flags);
+}
+
 int cap_info(cap_sid_t sid, cap_handle_t h, struct cap_info *out)
 {
     if (!out)
@@ -660,6 +708,9 @@ int cap_check_invariants(void)
     uint32_t refs[CAP_MAX_OBJECTS];
     uint8_t node_seen[CAP_MAX_NODES];
     uint8_t node_owner[CAP_MAX_NODES];
+    /* W3 需要沿父边比较 (oid, rights)；放在静态区，避免吃掉内核栈。 */
+    static cap_oid_t node_oid[CAP_MAX_NODES];
+    static cap_rights_t node_rights[CAP_MAX_NODES];
     uint32_t cap_count = 0;
     uint32_t obj_count = 0;
     int bad = 0;
@@ -668,6 +719,8 @@ int cap_check_invariants(void)
     cap_memzero(refs, sizeof(refs));
     cap_memzero(node_seen, sizeof(node_seen));
     cap_memzero(node_owner, sizeof(node_owner));
+    cap_memzero(node_oid, sizeof(node_oid));
+    cap_memzero(node_rights, sizeof(node_rights));
 
     for (uint32_t s = 0; s < CAP_MAX_TASKS && !bad; s++) {
         for (uint32_t i = 0; i < CAP_MAX_SLOTS; i++) {
@@ -698,6 +751,8 @@ int cap_check_invariants(void)
             }
             node_seen[e->node] = 1;
             node_owner[e->node]++;
+            node_oid[e->node] = e->oid;
+            node_rights[e->node] = e->rights;
             refs[e->oid - 1]++;
             cap_count++;
         }
@@ -739,6 +794,22 @@ int cap_check_invariants(void)
                 break;
             }
         }
+    }
+
+    /* W3：父边两侧必须指向同一对象，且子 cap 的权限是父权限的子集。 */
+    for (uint32_t i = 0; i < CAP_MAX_NODES && !bad; i++) {
+        if (!g_nodes[i].used)
+            continue;
+        int parent = g_nodes[i].parent;
+        if (parent < 0)
+            continue;
+        if (parent >= CAP_MAX_NODES || !g_nodes[parent].used) {
+            bad = 1;
+            break;
+        }
+        if (node_oid[i] != node_oid[parent] ||
+            (node_rights[i] & ~node_rights[parent]) != 0)
+            bad = 1;
     }
 
     if (cap_count != g_live_caps)

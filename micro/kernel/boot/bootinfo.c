@@ -50,6 +50,9 @@ static int fdt_probe(const struct boot_platform *p, u64 dtb, u64 *size)
     const u8 *hdr = (const u8 *)dtb;
     u32 total;
 
+    /* FDT 规范要求 blob 起始地址 8 字节对齐；不对齐就不猜。 */
+    if ((dtb & 7UL) != 0)
+        return 0;
     if (!range_in_ram(p, dtb, FDT_HEADER_SIZE))
         return 0;
     if (be32(hdr) != FDT_MAGIC)
@@ -122,12 +125,28 @@ static int overlaps(const struct boot_region *a, const struct boot_region *b)
 
 static int region_in_ram(const struct bootinfo *bi, u64 base, u64 size)
 {
+    if (!range_ok(base, size))
+        return 0;
+
     for (u32 i = 0; i < bi->ram_count; i++) {
         if (base >= bi->ram[i].base &&
             base + size <= bi->ram[i].base + bi->ram[i].size)
             return 1;
     }
     return 0;
+}
+
+static int reserved_type_valid(u32 type)
+{
+    switch (type) {
+    case BOOT_REGION_FIRMWARE:
+    case BOOT_REGION_KERNEL:
+    case BOOT_REGION_DTB:
+    case BOOT_REGION_INITRD:
+        return 1;
+    default:
+        return 0;
+    }
 }
 
 static int reserved_has(const struct bootinfo *bi, u32 type,
@@ -169,7 +188,7 @@ int bootinfo_validate(const struct bootinfo *bi)
     for (u32 i = 0; i < bi->reserved_count; i++) {
         const struct boot_region *r = &bi->reserved[i];
 
-        if (r->type == BOOT_REGION_RAM)
+        if (!reserved_type_valid(r->type))
             return BOOTINFO_EBADREGION;
         if (!range_ok(r->base, r->size))
             return BOOTINFO_EBADREGION;

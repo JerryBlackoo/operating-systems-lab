@@ -1,0 +1,24 @@
+Z7-Lite 实板启动证据（基线内核）
+================================
+
+来源：docs/Z7-Lite-SD卡经U-Boot启动内核实录.md
+日期：2026-11-19
+状态：基线内核（无进程/调度/FS/shell）；当前多 Goal 内核尚未重新实板验证
+
+U-Boot 命令：
+  fatload mmc 0:1 0x00100000 kernel.bin
+  dcache flush
+  icache flush
+  go 0x00100020
+
+串口摘录：
+  [mem] physical memory: 0x100000 - 0x20000000 (511 MiB)
+  [clock] private timer armed: 333333333 ticks
+  [boot] hello from the kernel
+  [clock] tick 1
+  [clock] tick 2
+  [clock] tick 3
+
+备注：
+- 这段日志来自 G1 之前的基线内核，不能证明当前 MMU/FS/shell 版本已在实板运行。
+- 当前版本的重新实板验证清单见 docs/design/G14-z7-lite.md。

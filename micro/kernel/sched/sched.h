@@ -42,6 +42,30 @@ struct cpu_context {
     uint64_t s11;
 };
 
+/* switch_rv64.S 里的偏移是硬编码的；结构一改必须在这里编译失败。 */
+#define CPU_CTX_ASSERT(field, offset)                                        \
+    _Static_assert(offsetof(struct cpu_context, field) == (offset),          \
+                   "cpu_context." #field " offset mismatch")
+
+CPU_CTX_ASSERT(ra, 0);
+CPU_CTX_ASSERT(sp, 8);
+CPU_CTX_ASSERT(s0, 16);
+CPU_CTX_ASSERT(s1, 24);
+CPU_CTX_ASSERT(s2, 32);
+CPU_CTX_ASSERT(s3, 40);
+CPU_CTX_ASSERT(s4, 48);
+CPU_CTX_ASSERT(s5, 56);
+CPU_CTX_ASSERT(s6, 64);
+CPU_CTX_ASSERT(s7, 72);
+CPU_CTX_ASSERT(s8, 80);
+CPU_CTX_ASSERT(s9, 88);
+CPU_CTX_ASSERT(s10, 96);
+CPU_CTX_ASSERT(s11, 104);
+_Static_assert(sizeof(struct cpu_context) == 112,
+               "cpu_context must be 14 words");
+
+#undef CPU_CTX_ASSERT
+
 /* TCB 中的消息寄存器；IPC 模块负责解释内容。 */
 struct thread_msg {
     uint32_t tag;
@@ -86,6 +110,17 @@ struct thread *thread_create(struct as *as, void (*entry)(void *), void *arg,
 
 void thread_exit(void) __attribute__((noreturn));
 void thread_yield(void);
+
+/*
+ * 单调时间睡眠：deadline 是 clock 模块的绝对 ns 时间轴。
+ * 由 clock 的 one-shot deadline 驱动；仅内核构建提供实现（主机自测不含
+ * clock）。sleep 期间线程进入 BLOCKED 并挂在一个内部等待队列上。
+ *
+ * 没有其它就绪线程也没有 idle 时，函数会在内核里忙等到 deadline；
+ * 正常启动流程应提供 idle 线程。
+ */
+void thread_sleep_ns(uint64_t ns);
+void thread_sleep_until(uint64_t deadline_ns);
 
 /* 阻塞会原子地改状态、入等待队列，然后调度；唤醒把线程放回就绪队列。 */
 void thread_block(struct waitq *wq);

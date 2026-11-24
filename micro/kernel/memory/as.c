@@ -20,6 +20,9 @@
 
 #define PTE_PERMS (PTE_R | PTE_W | PTE_X)
 
+/* 对外权限位全集；as_map 拒绝未定义的位，避免拼写错误静默生效。 */
+#define MEM_RIGHTS (MEM_R | MEM_W | MEM_X | MEM_U | MEM_KERNEL)
+
 struct walk_result {
     uint64_t *pte;
     pfn_t pfn; /* PFN_NONE 表示叶子槽位为空 */
@@ -299,7 +302,15 @@ int as_share_kernel(struct as *as, pfn_t kernel_root, int first_index)
     /*
      * 共享内核顶层表项：不增加页表页引用，as_destroy 只回收
      * [0, kernel_start) 的用户部分。
+     *
+     * 目标区间必须尚未映射，否则复制会静默覆盖用户 PTE 并泄漏其 frame。
+     * 因此要求调用者先 as_share_kernel，再映射用户页。
      */
+    for (int i = first_index; i < 512; i++) {
+        if (dst[i] != 0) {
+            return MEM_EEXIST;
+        }
+    }
     for (int i = first_index; i < 512; i++) {
         dst[i] = src[i];
     }
@@ -325,7 +336,8 @@ int as_map(struct as *as, vaddr_t va, pfn_t pfn, int rights)
     if (pfn == PFN_NONE || frame_refcount(pfn) == 0) {
         return MEM_EINVAL;
     }
-    if ((rights & (MEM_R | MEM_W | MEM_X)) == 0) {
+    if ((rights & ~MEM_RIGHTS) != 0 ||
+        (rights & (MEM_R | MEM_W | MEM_X)) == 0) {
         return MEM_EINVAL;
     }
 

@@ -1,6 +1,6 @@
 #include "vfs.h"
 
-static enum vfs_result lookup(struct vfs *vfs, const char *name, struct vfs_node *node)
+static enum vfs_result resolve(struct vfs *vfs, const char *name, struct vfs_node *node)
 {
     *node = (struct vfs_node){.inode = vfs->root, .type = VFS_DIRECTORY};
     for (;;) {
@@ -22,53 +22,91 @@ static enum vfs_result lookup(struct vfs *vfs, const char *name, struct vfs_node
     }
 }
 
+static struct vfs_client *find_client(struct vfs *vfs, uint32_t client)
+{
+    for (unsigned i = 0; i < VFS_CLIENTS; i++) {
+        if (vfs->clients[i].id == client)
+            return &vfs->clients[i];
+    }
+    return NULL;
+}
+
+static struct vfs_client *find_free_client(struct vfs *vfs)
+{
+    for (unsigned i = 0; i < VFS_CLIENTS; i++) {
+        if (!vfs->clients[i].id)
+            return &vfs->clients[i];
+    }
+    return NULL;
+}
+
+static bool port_ready(const struct vfs_port *port)
+{
+    return port && port->lookup && port->retain && port->release && port->read_at;
+}
+
 enum vfs_result vfs_open(struct vfs *vfs, uint32_t client, const char *path, unsigned *fd)
 {
-    if (!client || !fd)
+    if (!vfs || !port_ready(vfs->port) || !client || !fd)
         return VFS_BAD_ARG;
     if (!path || path[0] != '/')
         return VFS_BAD_PATH;
     if (!path[1])
         return VFS_NOT_FILE;
+
     struct vfs_node node;
-    enum vfs_result result = lookup(vfs, path + 1, &node);
+    enum vfs_result result = resolve(vfs, path + 1, &node);
     if (result != VFS_OK)
         return result;
+
+    struct vfs_client *owner = find_client(vfs, client);
+    if (!owner)
+        owner = find_free_client(vfs);
+    if (!owner)
+        return VFS_NO_SPACE;
+
+    unsigned slot = VFS_FILES;
     for (unsigned i = 0; i < VFS_FILES; i++) {
-        if (!vfs->files[i].client) {
-            result = vfs->port->retain(vfs->port->ctx, node.inode);
-            if (result != VFS_OK)
-                return result;
-            vfs->files[i] = (struct vfs_file){.client = client, .inode = node.inode};
-            *fd = i;
-            return VFS_OK;
+        if (!owner->files[i].used) {
+            slot = i;
+            break;
         }
     }
-    return VFS_NO_SPACE;
-}
+    if (slot == VFS_FILES)
+        return VFS_NO_SPACE;
 
-static struct vfs_file *get_file(struct vfs *vfs, uint32_t client, unsigned fd)
-{
-    if (!client || fd >= VFS_FILES || vfs->files[fd].client != client)
-        return NULL;
-    return &vfs->files[fd];
+    result = vfs->port->retain(vfs->port->ctx, node.inode);
+    if (result != VFS_OK)
+        return result;
+
+    owner->id = client;
+    owner->files[slot] = (struct vfs_file){.inode = node.inode, .used = true};
+    owner->open++;
+    *fd = slot;
+    return VFS_OK;
 }
 
 enum vfs_result vfs_read(struct vfs *vfs, uint32_t client, unsigned fd, void *buffer,
                          size_t count, size_t *actual)
 {
-    struct vfs_file *file = get_file(vfs, client, fd);
-    if (!file)
-        return VFS_BAD_FD;
-    if (!actual || (count && !buffer))
+    if (!vfs || !vfs->port || !vfs->port->read_at || !actual)
         return VFS_BAD_ARG;
-    if (!count) {
-        *actual = 0;
+    *actual = 0;
+    if (!client)
+        return VFS_BAD_FD;
+
+    struct vfs_client *owner = find_client(vfs, client);
+    if (!owner || fd >= VFS_FILES || !owner->files[fd].used)
+        return VFS_BAD_FD;
+    if (count && !buffer)
+        return VFS_BAD_ARG;
+    if (!count)
         return VFS_OK;
-    }
-    size_t n;
+
+    struct vfs_file *file = &owner->files[fd];
+    size_t n = 0;
     enum vfs_result result = vfs->port->read_at(vfs->port->ctx, file->inode, file->offset,
-                                               buffer, count, &n);
+                                                buffer, count, &n);
     if (result != VFS_OK)
         return result;
     if (n > count || n > UINT64_MAX - file->offset)
@@ -80,11 +118,20 @@ enum vfs_result vfs_read(struct vfs *vfs, uint32_t client, unsigned fd, void *bu
 
 enum vfs_result vfs_close(struct vfs *vfs, uint32_t client, unsigned fd)
 {
-    struct vfs_file *file = get_file(vfs, client, fd);
-    if (!file)
+    if (!vfs || !vfs->port || !vfs->port->release)
+        return VFS_BAD_ARG;
+    if (!client)
         return VFS_BAD_FD;
-    uint32_t inode = file->inode;
-    *file = (struct vfs_file){0};
+
+    struct vfs_client *owner = find_client(vfs, client);
+    if (!owner || fd >= VFS_FILES || !owner->files[fd].used)
+        return VFS_BAD_FD;
+
+    uint32_t inode = owner->files[fd].inode;
+    owner->files[fd] = (struct vfs_file){0};
+    owner->open--;
     vfs->port->release(vfs->port->ctx, inode);
+    if (!owner->open)
+        *owner = (struct vfs_client){0};
     return VFS_OK;
 }

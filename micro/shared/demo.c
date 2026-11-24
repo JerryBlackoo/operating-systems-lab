@@ -204,12 +204,21 @@ void demo_run(const struct demo_module *module)
 }
 
 #ifdef DEMO_SYMBOL
+/* 单模块镜像不经过 kernel/boot，所以在这里建立同一套 tp 不变量。 */
+static struct hart_local demo_hart;
+
 extern const struct demo_module DEMO_SYMBOL;
 
 void boot_main(uint64_t hart, uint64_t dtb)
 {
-    (void)hart;
     (void)dtb;
+
+    demo_hart.hartid = hart;
+    demo_hart.kernel_sp_top = 0;
+    demo_hart.current = NULL;
+    hart_set(&demo_hart);
+    CHECK(hart_local_get() == &demo_hart);
+
     trap_install();
     demo_run(&DEMO_SYMBOL);
     sbi_shutdown();

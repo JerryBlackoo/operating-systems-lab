@@ -3,11 +3,12 @@
 
 bool echo_on_reply(struct echo_app *app, int64_t status, const struct abi_message *reply)
 {
-    if (app->state != ECHO_WAITING)
+    if (!app || app->state != ECHO_WAITING)
         return false;
 
     bool matches = status == ABI_OK && reply && reply->tag == ECHO_REPLY &&
-                   reply->reply == 0 && reply->words[0] == app->value;
+                   reply->reply == 0 && reply->words[0] == app->value &&
+                   reply->words[1] == 0 && reply->words[2] == 0 && reply->words[3] == 0;
     app->state = matches ? ECHO_DONE : ECHO_FAILED;
     app->port->report(app->port->ctx, app->state);
     app->port->release(app->port->ctx, app->endpoint);
@@ -17,12 +18,16 @@ bool echo_on_reply(struct echo_app *app, int64_t status, const struct abi_messag
 
 bool echo_start(struct echo_app *app)
 {
-    if (app->state != ECHO_READY || !app->endpoint)
+    if (!app || !app->port || app->state != ECHO_READY || !app->endpoint)
         return false;
-    const struct abi_message request = {.tag = ECHO_REQUEST, .words = {app->value}};
+
+    const struct abi_message request = {
+        .tag = ECHO_REQUEST, .reply = 0, .words = {app->value, 0, 0, 0},
+    };
+    struct abi_message reply = {0};
+
     app->state = ECHO_WAITING;
-    int64_t status = app->port->call(app->port->ctx, app->endpoint, &request);
-    if (status != ABI_OK)
-        echo_on_reply(app, status, NULL);
+    int64_t status = app->port->call(app->port->ctx, app->endpoint, &request, &reply);
+    echo_on_reply(app, status, status == ABI_OK ? &reply : NULL);
     return true;
 }

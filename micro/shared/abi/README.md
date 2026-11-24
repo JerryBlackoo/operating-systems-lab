@@ -14,6 +14,21 @@
 | `a1` | 第二个参数 | 消息元数据 `meta` |
 | `a2..a5` | 第三至第六个参数 | 四个 64 位消息字 `w0..w3` |
 
+### 共享编解码
+
+`abi.h` 把位布局和形状校验做成两侧共用的内联函数，避免分发层和包装层各写一份位运算：
+
+| 接口 | 作用 |
+| --- | --- |
+| `abi_meta` / `abi_meta_tag` / `abi_meta_reply` | 打包和解包 `meta[63:32]=reply, meta[31:0]=tag` |
+| `abi_message_args` / `abi_decode_message` | 输入向量与消息之间的转换 |
+| `abi_result` / `abi_decode_result` | 内核侧构造结果向量 / 用户侧只解码成功结果 |
+| `abi_decode_status` | 把 `a0` 解成有符号状态 |
+| `abi_tail_zero` / `abi_arg_u32` | 未用参数置零、32 位字段零扩展检查 |
+| `abi_page_aligned` / `abi_rights_valid` | 映射地址对齐、R/W/X 权限形状 |
+
+内核的分发层（[`syscall.c`](../../kernel/syscall/syscall.c)）和用户态包装层（[`runtime.c`](../../userland/libs/runtime.c)）使用同一组函数。具体每个调用号的参数个数仍由分发层决定，ABI 层不解释调用语义。
+
 ### 操作
 
 | 调用号 | 操作 | `a0..a5` 输入 | 成功结果 |
@@ -55,9 +70,11 @@
 
 输入 `a7=3, a0=0x10002, a1=7, a2=11`，其余参数为零，应解出发送操作和 `Message(7, [11, 0, 0, 0])`。接收方看到 `a0=0, a1=0x0000000900000007` 时，应解出 `tag=7, reply=9`。用 `a0=0xffffffffffffffff` 检查负状态 `BAD_NR` 的解码。
 
+demo 还检查：`meta` 两端边界（`0` 与 `0xffffffff`）、四个消息字的顺序、全部状态码往返、错误结果 `a1..a5` 清零、32 位字段高位非零被拒绝、页对齐和 R/W/X 权限形状。
+
 ## QEMU demo
 
-`abi.h` 定义调用号、状态码、消息编解码和 RV64 `ecall`。demo 在 U-mode 发起发送和接收，S-mode 替身核对寄存器向量。
+`abi.h` 定义调用号、状态码、消息编解码、共享校验和 RV64 `ecall`。demo 在 U-mode 发起发送、接收和非法调用号，S-mode 替身用同一组 `abi_*` 函数核对寄存器向量。
 
 ```sh
 make -C micro/shared/abi run

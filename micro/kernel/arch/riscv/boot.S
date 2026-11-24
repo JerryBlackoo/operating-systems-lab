@@ -15,6 +15,11 @@
     .globl _start
 
 _start:
+    /* 0. 非 boot hart 不得碰共享启动栈和 .bss。
+     *    有的固件会让所有 hart 从入口开始执行；这里直接停车，
+     *    把单 hart 假设变成可执行事实（a0 = hartid，boot hart 为 0）。 */
+    bnez    a0, 3f
+
     /* 1. 静默三个会立刻咬人的中断源。
      *    OpenSBI 已关 sstatus.SIE，但 sie/sip 的位还可能是脏的。 */
     csrw    sie, zero

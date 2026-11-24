@@ -36,6 +36,10 @@ FREE --frame_alloc--> ALLOCATED --as_map--> MAPPED --as_unmap--> ALLOCATED
 9. 用户拷贝额外要求 `PTE_U`；不带 `U` 的内核映射不能被 `copyin/copyout` 访问。
 10. `as_share_kernel` 共享的顶层表项不参与用户 AS 的引用计数，`as_destroy`
     只回收 `[0, kernel_start)` 的用户部分。
+11. `as_share_kernel` 要求目标顶层区间 `[first_index, 512)` 尚未映射；否则返回
+    `MEM_EEXIST`，避免覆盖已有 PTE 并泄漏其 frame。
+12. `as_map` 只接受 `MEM_R/W/X/U/KERNEL` 这些权限位，未定义的位一律
+    `MEM_EINVAL`；至少需要 `R/W/X` 之一。
 
 ## Sv39 页表
 
@@ -44,8 +48,7 @@ FREE --frame_alloc--> ALLOCATED --as_map--> MAPPED --as_unmap--> ALLOCATED
 - PTE 位：`V/R/W/X/U/G/A/D`；PPN 从 bit 10 开始。
 - `as_map` 总是设置 `A`；用户映射设置 `U`，`MEM_KERNEL` 映射不设置 `U`；
   写权限自动补 `R` 和 `D`。
-- `as_share_kernel` 应在映射用户页之前调用；它只允许安装一次。
-- `as_fault` 的 `access` 如果包含 `MEM_U`，共享内核映射会返回 `MEM_EPERM`。
+- `as_share_kernel` 应在映射用户页之前调用；它只允许安装一次。- `as_fault` 的 `access` 如果包含 `MEM_U`，共享内核映射会返回 `MEM_EPERM`。
 - `as_activate()` 写 `satp = (8 << 60) | root_pfn`，ASID 固定 0。
 
 ## 代码

@@ -9,11 +9,19 @@
  */
 static clock_ticks_t epoch_ticks;
 static clock_ns_t epoch_ns;
+static bool timebase_ready;
 
 void clock_timebase_init(void)
 {
-    epoch_ticks = clock_arch_read_ticks();
-    epoch_ns = 0;
+    /*
+     * epoch 是全局时间原点，只有第一个 hart 能建立它。
+     * 后续 hart 或后续 clock_init() 只撤防自己的比较器。
+     */
+    if (!timebase_ready) {
+        epoch_ticks = clock_arch_read_ticks();
+        epoch_ns = 0;
+        timebase_ready = true;
+    }
     clock_arch_set_compare(CLOCK_DISARM);
 }
 
@@ -38,6 +46,9 @@ uint64_t clock_ticks_to_ns(uint64_t ticks)
     uint64_t secs = delta / CLOCK_TIMEBASE_HZ;
     uint64_t rem = delta % CLOCK_TIMEBASE_HZ;
 
+    if (secs > (UINT64_MAX - epoch_ns) / NSEC_PER_SEC)
+        return UINT64_MAX;
+
     return epoch_ns + secs * NSEC_PER_SEC +
            (rem * NSEC_PER_SEC) / CLOCK_TIMEBASE_HZ;
 }
@@ -54,12 +65,29 @@ clock_ns_t clock_now(void)
  */
 uint64_t clock_ns_to_ticks_ceil(uint64_t ns)
 {
-    uint64_t delta = ns - epoch_ns;
-    uint64_t secs = delta / NSEC_PER_SEC;
-    uint64_t rem = delta % NSEC_PER_SEC;
-    uint64_t ticks = secs * CLOCK_TIMEBASE_HZ +
-                     (rem * CLOCK_TIMEBASE_HZ + NSEC_PER_SEC - 1) /
-                         NSEC_PER_SEC;
+    uint64_t delta;
+    uint64_t secs;
+    uint64_t rem;
+    uint64_t ticks;
+
+    /* 早于 epoch 的 deadline 立即到期。 */
+    if (ns <= epoch_ns)
+        return epoch_ticks;
+
+    delta = ns - epoch_ns;
+    secs = delta / NSEC_PER_SEC;
+    rem = delta % NSEC_PER_SEC;
+
+    /* 换算结果装不下 64 位 ticks 时饱和到撤防值，语义是“永不触发”。 */
+    if (secs > (UINT64_MAX - epoch_ticks) / CLOCK_TIMEBASE_HZ)
+        return CLOCK_DISARM;
+
+    ticks = secs * CLOCK_TIMEBASE_HZ +
+            (rem * CLOCK_TIMEBASE_HZ + NSEC_PER_SEC - 1) /
+                NSEC_PER_SEC;
+
+    if (ticks > UINT64_MAX - epoch_ticks)
+        return CLOCK_DISARM;
 
     return epoch_ticks + ticks;
 }

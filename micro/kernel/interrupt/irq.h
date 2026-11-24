@@ -69,10 +69,18 @@ struct irq_stats {
 
 /*
  * 初始化：清空所有线、屏蔽所有线。
- * 只用于启动期；不得在存在 ACTIVE 线时重入（它不会替调用者 complete 旧 claim）。
- * 必须在本地中断关闭时调用；之后再用 irq_bind() 逐条解闸。
+ * 可重复调用：若旧端口仍有 ACTIVE 线，先 mask 再 complete，再切换端口，
+ * 因此不会把旧 claim 永久留在控制器里。调用后所有线回到 DISARMED，
+ * 需要再用 irq_bind() 逐条解闸。
  */
 int irq_init(const struct irq_port *port);
+
+/*
+ * 撤销当前端口：mask 所有线、complete 所有 ACTIVE 线、清空 sink 与统计，
+ * 然后注销端口。之后所有入口（bind/fire/ack/query）返回 IRQ_EINVAL，
+ * 直到再次 irq_init()。
+ */
+int irq_reset(void);
 
 /* 绑定/解绑：状态迁移期间会在本地关中断。 */
 int irq_bind(int line, struct irq_sink *sink);

@@ -66,7 +66,7 @@ PLIC 的 ID 0 表示“没有中断”，正好留给 timer；因此 line 与 PL
 | `ACTIVE` | `fire` | 只增加 `coalesced`，不再 notify | `ACTIVE` |
 | `ACTIVE` | `ack` | `complete(l)` → 解闸 | `ARMED` |
 | `ARMED` / `ACTIVE` | `unbind` | `mask(l)` → 若 ACTIVE 再 `complete(l)` → 清 sink | `DISARMED` |
-| 任意 | `reset` | 全局关中断 → mask all → complete 所有 ACTIVE | `DISARMED` |
+| 任意 | `reset` | mask all → complete 所有 ACTIVE → 清空线表并注销端口 | 未初始化 |
 
 `fire` 里的“claim 已持有”是因为外部中断在 trap 入口先 claim 得到 line；
 timer 由 `scause=5` 直接给出，不存在 PLIC claim。
@@ -77,7 +77,8 @@ timer 由 `scause=5` 直接给出，不存在 PLIC claim。
 
 | 函数 | 作用 | 调用上下文 |
 |---|---|---|
-| `irq_init(port)` | 清空线表、屏蔽所有线、登记端口 | 启动期，本地中断关闭 |
+| `irq_init(port)` | 清空线表、屏蔽所有线、登记端口；重入时先归还旧端口的 ACTIVE claim | 启动期，本地中断关闭 |
+| `irq_reset()` | mask 所有线、complete 所有 ACTIVE、清空统计并注销端口 | 关闭/重启期；内部关中断 |
 | `irq_bind(line, sink)` | 绑定 sink 并解闸；重复绑定返回 `IRQ_EBUSY` | 进程上下文；内部关中断 |
 | `irq_unbind(line)` | 屏蔽、必要时 complete、清 sink；未绑定返回 `IRQ_ENOENT` | 进程上下文；内部关中断 |
 | `irq_ack(line)` | `complete` 并回到 `ARMED`；非 ACTIVE 返回 `IRQ_EINVAL` 并计数 | 进程上下文 / 系统调用；内部关中断 |
@@ -123,6 +124,8 @@ struct irq_port {
 示意（不在本目录编译，接入 `arch/riscv` 时使用）：
 
 ```c
+static bool timer_masked = true;
+
 static int port_claim(void)
 {
     int id = plic_claim();          /* 读 0x0c201004 */
@@ -132,7 +135,9 @@ static int port_claim(void)
 static void port_complete(int line)
 {
     if (line == IRQ_TIMER) {
-        sbi_set_timer(csr_read(time) + TICK_INTERVAL);
+        /* 已 mask 时不得重新 pending；否则 ack 才重装下一次。 */
+        sbi_set_timer(timer_masked ? UINT64_MAX
+                                   : csr_read(time) + TICK_INTERVAL);
     } else {
         plic_complete(line);        /* 写 0x0c201004 */
     }
@@ -143,7 +148,9 @@ static void port_mask(int line)
     if (line != IRQ_TIMER) {
         plic_enable_clear(line);    /* 写 0x0c002080 位图 */
     } else {
+        timer_masked = true;
         csr_clear(sie, SIE_STIE);
+        sbi_set_timer(UINT64_MAX);  /* SBI timer 是电平式，必须撤防 */
     }
 }
 
@@ -153,10 +160,16 @@ static void port_unmask(int line)
         plic_set_priority(line, 1); /* priority 0 永远不会触发 */
         plic_enable_set(line);
     } else {
+        timer_masked = false;
+        sbi_set_timer(csr_read(time) + TICK_INTERVAL);
         csr_set(sie, SIE_STIE);
     }
 }
 ```
+
+timer 是电平式的：trap 入口在调用 `irq_fire(IRQ_TIMER)` 之前必须先
+`sbi_set_timer(UINT64_MAX)` 撤防，否则 ACTIVE 期间比较值仍在过去，
+会形成中断风暴，而不是“被闸门合并”。
 
 `intr_save/restore` 对应 `sstatus.SIE`：
 
@@ -215,12 +228,27 @@ ALL TESTS PASSED
 | 文件 | 说明 |
 |---|---|
 | `irq.h` | 对外 API、三态、统计、`irq_port` 契约 |
-| `irq.c` | 三态机、bind/unbind/ack、`irq_fire`、`irq_dispatch` |
+| `irq.c` | 三态机、bind/unbind/ack/reset、`irq_fire`、`irq_dispatch` |
 | `test_irq.c` | 主机测试 + PLIC 语义 Mock（claim 闸门、电平重采样、伪中断） |
-| `Makefile` | 构建测试 |
+| `demo.c` | QEMU 集成：模拟控制器 + 真实 S-mode timer + IPC 驱动线程 |
+| `Makefile` | 构建主机测试 |
 | `.gitignore` | 忽略测试二进制 |
 
 测试使用 Mock，不访问真实 MMIO；因此可以在普通 Linux 主机上 `make test`。
+
+QEMU 集成 demo 分两段：
+
+1. **模拟控制器**：验证 claim 闸门、单次通知、ack 解闸与 unbind。
+2. **真实链路**：S-mode timer 中断 → trap 识别并撤防 → `irq_fire()` →
+   sink 在中断上下文向已阻塞的驱动线程投递 IPC 消息 → 驱动线程
+   `irq_ack()` 解闸（`complete` 重装 timer）。
+
+```sh
+make -C micro run BOOT_MODULES=interrupt
+```
+
+`MODEL_SUPPORT_interrupt` 因此链接 `objects/memory/sched/ipc`，但 `irq.c`
+本身仍然只依赖 `irq_port`。
 
 ---
 
@@ -232,15 +260,20 @@ ALL TESTS PASSED
 | `test_init_and_bind` | 初始化屏蔽全部线；绑定/解绑/重复绑定/重复解绑 |
 | `test_spurious` | 无主线事件计数并 complete，不 notify |
 | `test_one_shot_level` | ACTIVE 期间不二次通知；ack 后电平重采样；先清设备再 ack |
+| `test_sync_ack` | notify 内同步“清设备 → ack”可行；再次到达证明已解闸 |
+| `test_reset` | reset 归还 ACTIVE claim、mask 全部线并注销端口 |
+| `test_reinit_active` | 直接重入 init 会先 complete 旧 claim，再全量 mask |
+| `test_reset_from_notify` | notify 内 reset：dispatch 立即停止 claim，不解引用已注销端口 |
 | `test_unbind_active` | ACTIVE 中解绑会 complete；重绑时补 pending |
 | `test_timer` | timer 独立于 PLIC；ack 重装；未绑定事件也会重装 |
 | `test_multi_source_budget` | 40 条线分两次 drain；预算用完后由下一次 trap 继续 |
 | `test_invalid` | 越界线号、空 sink、错误状态 ack、状态名 |
 
-其中 `test_one_shot_level` 覆盖了最容易写错的两条顺序：
+其中三组顺序最容易写错：
 
 - ACTIVE 期间的新事件只能合并，不能再次 notify，也不能提前 complete。
 - 未清设备就 ack，会立刻重新 pending；这是电平中断的正确行为，不是 bug。
+- reset/重入 init 必须先 mask 再 complete，否则仍为高的电平线会在拆除窗口重新 pending。
 
 ---
 
@@ -254,6 +287,8 @@ ALL TESTS PASSED
 - **I6 帧完整**：trap 入口在进入 C 之前保存完整 trap frame；top half 全程 `SIE=0`。
 - **I7 顺序**：驱动先清设备源，再 ack/complete；unbind 先 mask 再 complete。
 - **I8 可观测**：`fires / acks / spurious / coalesced / bad_acks` 计数，但不改变控制流。
+- **I9 上半部非阻塞**：`notify` 在 `SIE=0` 的 trap 上下文运行；可以 `thread_wake()`
+  或向“已经阻塞的接收者”投递 IPC，但绝不能进入会阻塞的路径。
 
 ---
 
@@ -264,19 +299,25 @@ ALL TESTS PASSED
 - SMP / 多 hart、IPI、TLB shootdown；
 - 边沿触发（ACTIVE 期间的脉冲需要设备锁存或软件 pending 位）；
 - 中断共享、优先级抢占、affinity、MSI；
-- capability 授权、IPC/调度器、真实 PLIC MMIO 后端；
+- capability 授权、真实 PLIC MMIO 后端；
 - 设备寄存器语义（驱动负责）。
+
+`demo.c` 的真实链路只接 S-mode timer：它验证 trap → `irq_fire` → sink →
+IPC/线程 → `irq_ack` → `complete` 的完整对象协议。PLIC 的 claim/complete
+语义由主机 Mock 覆盖；真实 PLIC 端口属于 `arch/riscv` 的机器服务层
+（`platform.h` 已给出 `PLIC_BASE`），不应塞进 `irq.c`。
 
 接入顺序建议：
 
 1. **M0**：timer only，假 sink，验证 trap 帧与 one-shot。
 2. **M1**：PLIC + UART0 IRQ 10 + 伪中断，验证 claim/complete 与电平重采样。
-3. **M2**：把 `notify` 接到用户线程；再加边沿、共享、优先级、SMP。
+3. **M2**：把 `notify` 接到阻塞线程/endpoint；再加边沿、共享、优先级、SMP。
 
 关键约束：
 
 - `irq_fire()` / `irq_dispatch()` 必须在本地中断关闭的 trap 上下文调用；
-- `irq_init()` 只用于启动期，不得在存在 ACTIVE 线时重入；它不会替调用者 complete 旧 claim；
+- `irq_init()` 可重入：旧端口存在 ACTIVE 线时会先 mask 再 complete，再切换端口；
+- `irq_reset()` 是拆除操作，成功后端口注销，必须重新 `irq_init()`；
 - `irq_bind()` / `irq_unbind()` / `irq_ack()` 会在状态迁移期间自行关中断；
 - `sink->notify()` 必须非阻塞，模块不负责唤醒或切换线程。
 

@@ -140,6 +140,18 @@ int cap_revoke(cap_sid_t sid, cap_handle_t h);
 /* 唯一调用入口：查表 → 查类型 → required ⊆ rights → 对象 ops。 */
 int cap_invoke(cap_sid_t sid, cap_handle_t h, uint32_t op, void *args);
 
+/*
+ * 内核内的「借用」缝：按 rights 解析并 pin 住对象，成功返回对象指针。
+ * 用于需要同时持有两个 cap 的复合操作（例如 AS_MAP 要同时检查 AS cap 与
+ * frame cap），以及 syscall 后端的 acquire/release 契约。
+ *
+ * 这不是用户 ABI：调用者必须持有 pin 直到 cap_release()，期间对象不会被
+ * 最后一个 cap 的删除终结。cap_release() 与 cap_acquire() 必须严格配对。
+ */
+int cap_acquire(cap_sid_t sid, cap_handle_t h, cap_rights_t rights,
+                struct cap_object **out);
+void cap_release(struct cap_object *obj);
+
 int cap_info(cap_sid_t sid, cap_handle_t h, struct cap_info *out);
 
 /* 自检/观测接口；不是用户 ABI。 */

@@ -1,6 +1,23 @@
 #ifndef MICRO_MODEL_ABI_H
 #define MICRO_MODEL_ABI_H
 
+/*
+ * shared/abi/abi.h — RV64 ecall 二进制约定
+ *
+ * 【v0 模型草案】
+ *
+ * 本文件只约定一次 ecall 的寄存器向量和消息位布局：
+ *   - a7      调用号
+ *   - a0..a5  输入参数；返回时 a0 为状态，a1 为 meta，a2..a5 为消息字
+ *   - a6      保留
+ *
+ * 同时提供内核分发层与用户态包装层共用的编解码和形状校验。具体调用号的
+ * 参数个数、句柄类型、对象权限和阻塞语义由 kernel/syscall 与各对象模块定义。
+ *
+ * 位宽或编号变更会同时破坏内核与用户态，必须重建两侧。
+ */
+
+#include <stdbool.h>
 #include <stdint.h>
 
 enum abi_number {
@@ -31,9 +48,15 @@ enum {
     ABI_READ = 1,
     ABI_WRITE = 2,
     ABI_EXEC = 4,
+    ABI_RIGHTS_MASK = ABI_READ | ABI_WRITE | ABI_EXEC,
+    ABI_PAGE_SIZE = 4096,
     ABI_WORDS = 4,
-    ABI_REGS = 6,
+    ABI_REGS = 6, /* a0..a5；a6 保留，a7 单独承载调用号 */
 };
+
+/* meta[31:0] = tag，meta[63:32] = reply。 */
+#define ABI_META_TAG_SHIFT 0
+#define ABI_META_REPLY_SHIFT 32
 
 struct abi_regs { uint64_t a[ABI_REGS]; };
 
@@ -43,6 +66,37 @@ struct abi_message {
     uint64_t words[ABI_WORDS];
 };
 
+_Static_assert(ABI_REGS == 6, "ecall vector carries a0..a5");
+_Static_assert(ABI_WORDS == 4, "message carries four words");
+_Static_assert(sizeof(struct abi_regs) == ABI_REGS * sizeof(uint64_t),
+               "abi_regs must stay a plain 6-word vector");
+_Static_assert(sizeof(struct abi_message) == 8 + ABI_WORDS * sizeof(uint64_t),
+               "abi_message layout changed");
+_Static_assert(__builtin_offsetof(struct abi_message, reply) == 4,
+               "reply must be the high half of meta");
+_Static_assert(__builtin_offsetof(struct abi_message, words) == 8,
+               "words must follow tag/reply");
+
+static inline uint64_t abi_meta(uint32_t tag, uint32_t reply)
+{
+    return ((uint64_t)reply << ABI_META_REPLY_SHIFT) |
+           ((uint64_t)tag << ABI_META_TAG_SHIFT);
+}
+
+static inline uint32_t abi_meta_tag(uint64_t meta)
+{
+    return (uint32_t)(meta >> ABI_META_TAG_SHIFT);
+}
+
+static inline uint32_t abi_meta_reply(uint64_t meta)
+{
+    return (uint32_t)(meta >> ABI_META_REPLY_SHIFT);
+}
+
+/*
+ * 输入向量：a0 = 句柄/首参，a1 = 32 位 tag（零扩展），a2..a5 = 四个字。
+ * 发送方向 a1 不是完整 meta；reply 只出现在接收结果的 meta 高 32 位。
+ */
 static inline struct abi_regs abi_message_args(uint32_t handle, const struct abi_message *msg)
 {
     return (struct abi_regs){{
@@ -53,12 +107,13 @@ static inline struct abi_regs abi_message_args(uint32_t handle, const struct abi
 static inline struct abi_message abi_decode_message(struct abi_regs regs)
 {
     return (struct abi_message){
-        .tag = (uint32_t)regs.a[1],
-        .reply = (uint32_t)(regs.a[1] >> 32),
+        .tag = abi_meta_tag(regs.a[1]),
+        .reply = abi_meta_reply(regs.a[1]),
         .words = {regs.a[2], regs.a[3], regs.a[4], regs.a[5]},
     };
 }
 
+/* a0 是符号扩展的 64 位状态；避开实现定义的 uint64 -> int64 转换。 */
 static inline int64_t abi_decode_status(struct abi_regs regs)
 {
     uint64_t word = regs.a[0];
@@ -68,16 +123,67 @@ static inline int64_t abi_decode_status(struct abi_regs regs)
     return -1 - (int64_t)(UINT64_MAX - word);
 }
 
+/*
+ * 结果向量：成功且带消息时填 meta 和四个字；错误或无消息时 a1..a5 全零。
+ * 内核分发层只通过这里产生返回向量。
+ */
 static inline struct abi_regs abi_result(int64_t status, const struct abi_message *msg)
 {
     struct abi_regs regs = {{(uint64_t)status}};
 
     if (status == ABI_OK && msg) {
-        regs.a[1] = ((uint64_t)msg->reply << 32) | msg->tag;
+        regs.a[1] = abi_meta(msg->tag, msg->reply);
         for (unsigned i = 0; i < ABI_WORDS; i++)
             regs.a[i + 2] = msg->words[i];
     }
     return regs;
+}
+
+/*
+ * 用户侧结果解码：只有成功状态才把向量解释为消息。
+ * 错误时保持调用者原有的输出内容不变。
+ */
+static inline int64_t abi_decode_result(struct abi_regs regs, struct abi_message *message)
+{
+    int64_t status = abi_decode_status(regs);
+
+    if (status == ABI_OK && message)
+        *message = abi_decode_message(regs);
+    return status;
+}
+
+/* ---- 两侧共用的向量形状校验（不理解具体调用语义） ---- */
+
+/* 从 first 起的所有参数必须为零。 */
+static inline bool abi_tail_zero(struct abi_regs regs, unsigned first)
+{
+    for (unsigned i = first; i < ABI_REGS; i++) {
+        if (regs.a[i])
+            return false;
+    }
+    return true;
+}
+
+/* 32 位句柄/标签/帧号按零扩展传入；高位非零即形状错误。 */
+static inline bool abi_arg_u32(struct abi_regs regs, unsigned index, uint32_t *out)
+{
+    if (index >= ABI_REGS || regs.a[index] > UINT32_MAX)
+        return false;
+    if (out)
+        *out = (uint32_t)regs.a[index];
+    return true;
+}
+
+static inline bool abi_page_aligned(uint64_t va)
+{
+    return (va & (ABI_PAGE_SIZE - 1)) == 0;
+}
+
+/* 低三位是 R/W/X；至少一位，且可写映射必须同时可读。 */
+static inline bool abi_rights_valid(uint64_t rights)
+{
+    return rights != 0 && rights <= ABI_RIGHTS_MASK &&
+           (!(rights & ABI_WRITE) || (rights & ABI_READ));
 }
 
 #if defined(__riscv)

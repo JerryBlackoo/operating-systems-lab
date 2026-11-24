@@ -52,7 +52,8 @@ COMMON_CFLAGS := $(CC_TARGET) $(ARCH_CFLAGS) \
                  -mno-relax -msmall-data-limit=0 \
                  -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP \
                  -Ikernel -Ikernel/boot -Ishared \
-                 -Ikernel/objects -Ikernel/memory -Ikernel/sched \
+                 -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc \
+                 -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm \
                  -isystem kernel/arch/$(ARCH)
 
 MODEL_SRCS := $(sort $(foreach module,$(BOOT_SELECTED), \

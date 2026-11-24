@@ -1,6 +1,11 @@
 #include <stddef.h>
 #include "pm.h"
 
+void pm_init(struct pm *pm, const struct pm_port *port)
+{
+    *pm = (struct pm){.port = port};
+}
+
 enum pm_result pm_spawn(struct pm *pm, uint64_t parent, uint32_t image, uint32_t grants,
                         uint64_t *pid)
 {
@@ -16,6 +21,7 @@ enum pm_result pm_spawn(struct pm *pm, uint64_t parent, uint32_t image, uint32_t
     if (!slot || pm->last_pid == UINT64_MAX)
         return PM_NO_SPACE;
 
+    /* 三个资源全部就绪后才发布记录；中途失败按创建逆序回滚。 */
     const struct pm_port *port = pm->port;
     uint32_t as = port->create_as(port->ctx, image);
     if (!as)
@@ -32,6 +38,8 @@ enum pm_result pm_spawn(struct pm *pm, uint64_t parent, uint32_t image, uint32_t
         .as = as, .caps = caps, .thread = thread,
     };
     *pid = slot->pid;
+
+    /* 记录已对 on_exit/wait 可见，此后线程才允许运行。 */
     port->start(port->ctx, thread);
     return PM_OK;
 
@@ -48,6 +56,7 @@ bool pm_on_exit(struct pm *pm, uint32_t thread, int exit_code)
         struct pm_process *p = &pm->processes[i];
         if (p->state != PM_LIVE || p->thread != thread)
             continue;
+        /* 执行资源立即交还，ZOMBIE 只保留退出码等待父进程取走。 */
         const struct pm_port *port = pm->port;
         port->release(port->ctx, TASK_THREAD, p->thread);
         port->release(port->ctx, TASK_CAPS, p->caps);

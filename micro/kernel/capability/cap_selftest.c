@@ -229,6 +229,39 @@ int cap_selftest(void)
     rc = cap_delete(0, root2);
     check("delete root2", rc == CAP_OK);
 
+    /*
+     * cap_acquire/cap_release：复合操作在 pin 期间持有对象。
+     * 删除最后一个 cap 时若仍有 pin，finalize 必须推迟到 release。
+     */
+    uint32_t p5 = 0;
+    cap_oid_t o5 = 0;
+    cap_handle_t pinned = 0;
+    struct cap_object *borrowed = NULL;
+    struct cap_object *stale = NULL;
+
+    rc = cap_object_create(&g_test_type, &p5, &o5);
+    if (rc == CAP_OK)
+        g_created_count++;
+    check("borrow object create", rc == CAP_OK);
+    check("borrow root install",
+          cap_root_install(0, 7, o5, CAP_RIGHT_READ, 0, &pinned) == CAP_OK);
+    check("acquire rejects missing right",
+          cap_acquire(0, pinned, CAP_RIGHT_WRITE, &borrowed) == CAP_E_RIGHTS);
+    check("acquire pins object",
+          cap_acquire(0, pinned, CAP_RIGHT_READ, &borrowed) == CAP_OK &&
+          borrowed != NULL && borrowed->type == &g_test_type &&
+          cap_object_pins(o5) == 1);
+    check("delete defers finalize",
+          cap_delete(0, pinned) == CAP_OK && cap_live_objects() == 1 &&
+          cap_object_refs(o5) == 0 && g_finalize_count == g_created_count - 1);
+    check("deleted borrow handle stale",
+          cap_info(0, pinned, &info) == CAP_E_BAD_HANDLE &&
+          cap_acquire(0, pinned, CAP_RIGHT_READ, &stale) == CAP_E_BAD_HANDLE);
+    cap_release(borrowed);
+    check("release finalizes",
+          cap_object_pins(o5) == 0 && cap_live_objects() == 0 &&
+          g_finalize_count == g_created_count);
+
     check("all objects finalized", g_finalize_count == g_created_count);
     check("no live caps", cap_live_caps() == 0);
     check("no live objects", cap_live_objects() == 0);

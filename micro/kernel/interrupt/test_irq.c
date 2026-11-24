@@ -145,6 +145,8 @@ static const struct irq_port g_mock_port = {
 
 static void mock_reset(void)
 {
+    /* 首次调用时模块尚未初始化，返回 IRQ_EINVAL 属正常。 */
+    (void)irq_reset();
     memset(&g_mock, 0, sizeof(g_mock));
     g_mock.ints_on = true;
     CHECK(irq_init(&g_mock_port) == IRQ_OK);
@@ -245,6 +247,7 @@ static void test_uninitialized(void)
     fake_sink_reset();
 
     CHECK(irq_init(NULL) == IRQ_EINVAL);
+    CHECK(irq_reset() == IRQ_EINVAL);
     CHECK(irq_bind(10, &g_sink_base) == IRQ_EINVAL);
     CHECK(irq_unbind(10) == IRQ_EINVAL);
     CHECK(irq_ack(10) == IRQ_EINVAL);
@@ -340,6 +343,119 @@ static void test_one_shot_level(void)
     /* ARMED 状态的 ack 是错误，必须计数。 */
     CHECK(irq_ack(10) == IRQ_EINVAL);
     CHECK(stats_of(10).bad_acks == 1);
+}
+
+static unsigned ack_notifies;
+static struct irq_sink g_acking_sink;
+
+static void ack_notify(struct irq_sink *self, int line)
+{
+    CHECK(self == &g_acking_sink);
+    /* 同步驱动模型：先清设备源，再 ack 解闸。 */
+    mock_clear_device(line);
+    ack_notifies++;
+    CHECK(irq_ack(line) == IRQ_OK);
+}
+
+static void test_sync_ack(void)
+{
+    struct irq_stats stats;
+
+    mock_reset();
+    ack_notifies = 0;
+    g_acking_sink.notify = ack_notify;
+    g_acking_sink.ctx = NULL;
+
+    CHECK(irq_bind(10, &g_acking_sink) == IRQ_OK);
+    mock_set_level(10, true);
+    CHECK(irq_dispatch() == 1);
+    CHECK(ack_notifies == 1);
+    CHECK(state_of(10) == IRQ_ARMED);
+    stats = stats_of(10);
+    CHECK(stats.fires == 1 && stats.acks == 1 && stats.bad_acks == 0);
+    CHECK(!mock_pending(10));
+    CHECK(irq_dispatch() == 0);
+
+    /* 再次到达，证明 notify 内的 ack 已经解闸。 */
+    mock_set_level(10, true);
+    CHECK(irq_dispatch() == 1 && ack_notifies == 2);
+    CHECK(g_mock.save_calls == g_mock.restore_calls);
+}
+
+static void test_reset(void)
+{
+    enum irq_state state;
+
+    mock_reset();
+    fake_sink_reset();
+    CHECK(irq_bind(10, &g_sink_base) == IRQ_OK);
+    mock_set_level(10, true);
+    CHECK(irq_dispatch() == 1);
+    CHECK(state_of(10) == IRQ_ACTIVE);
+    CHECK(g_mock.complete_calls == 0);
+
+    /* reset 必须 mask 全部线并归还 ACTIVE claim，然后注销端口。 */
+    CHECK(irq_reset() == IRQ_OK);
+    CHECK(g_mock.complete_calls == 1);
+    CHECK(!mock_enabled(10) && !mock_claimed(10) && !mock_pending(10));
+    CHECK(irq_get_state(10, &state) == IRQ_EINVAL);
+    CHECK(irq_bind(10, &g_sink_base) == IRQ_EINVAL);
+    CHECK(irq_reset() == IRQ_EINVAL);
+    CHECK(g_mock.save_calls == g_mock.restore_calls);
+}
+
+static void test_reinit_active(void)
+{
+    enum irq_state state;
+    struct irq_stats stats;
+    unsigned mask_before;
+
+    mock_reset();
+    fake_sink_reset();
+    CHECK(irq_bind(10, &g_sink_base) == IRQ_OK);
+    mock_set_level(10, true);
+    CHECK(irq_dispatch() == 1);
+    CHECK(state_of(10) == IRQ_ACTIVE);
+    CHECK(g_sink.notifies == 1);
+
+    /* 直接重新 init 同一端口：旧 claim 必须先 complete，再全量 mask。 */
+    mask_before = g_mock.mask_calls;
+    CHECK(irq_init(&g_mock_port) == IRQ_OK);
+    CHECK(g_mock.mask_calls == mask_before + 2 * IRQ_LINE_MAX);
+    CHECK(g_mock.complete_calls == 1);
+    CHECK(!mock_enabled(10) && !mock_claimed(10) && !mock_pending(10));
+    CHECK(irq_get_state(10, &state) == IRQ_OK && state == IRQ_DISARMED);
+    stats = stats_of(10);
+    CHECK(stats.fires == 0 && stats.acks == 0);
+    CHECK(g_sink.notifies == 1);
+    CHECK(g_mock.save_calls == g_mock.restore_calls);
+}
+
+static unsigned reset_notifies;
+static struct irq_sink g_reset_sink;
+
+static void reset_notify(struct irq_sink *self, int line)
+{
+    CHECK(self == &g_reset_sink && line == 10);
+    reset_notifies++;
+    /* notify 内拆除模块：dispatch 必须停止 claim，而不是解引用空端口。 */
+    CHECK(irq_reset() == IRQ_OK);
+}
+
+static void test_reset_from_notify(void)
+{
+    mock_reset();
+    reset_notifies = 0;
+    g_reset_sink.notify = reset_notify;
+    g_reset_sink.ctx = NULL;
+
+    CHECK(irq_bind(10, &g_reset_sink) == IRQ_OK);
+    mock_set_level(10, true);
+    CHECK(irq_dispatch() == 1);
+    CHECK(reset_notifies == 1);
+    CHECK(g_mock.complete_calls == 1);
+    CHECK(!mock_enabled(10) && !mock_claimed(10));
+    CHECK(irq_dispatch() == IRQ_EINVAL);
 }
 
 static void test_unbind_active(void)
@@ -466,6 +582,10 @@ int main(void)
     test_init_and_bind();
     test_spurious();
     test_one_shot_level();
+    test_sync_ack();
+    test_reset();
+    test_reinit_active();
+    test_reset_from_notify();
     test_unbind_active();
     test_timer();
     test_multi_source_budget();

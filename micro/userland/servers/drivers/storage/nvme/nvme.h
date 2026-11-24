@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { NVME_PAGE = 4096 };
+enum { NVME_PAGE = 4096, NVME_MAX_BLOCKS = 65536 };
 enum nvme_op { NVME_WRITE = 1, NVME_READ = 2 };
 enum nvme_state { NVME_IDLE, NVME_IN_FLIGHT, NVME_FAULTED };
 enum nvme_result { NVME_OK, NVME_BAD_ARG, NVME_BUSY, NVME_EMPTY, NVME_PROTOCOL_ERROR };
@@ -24,14 +24,17 @@ struct nvme_cqe {
 };
 
 _Static_assert(sizeof(struct nvme_sqe) == 64 && offsetof(struct nvme_sqe, prp1) == 24, "NVMe SQE");
+_Static_assert(offsetof(struct nvme_sqe, cid) == 2 && offsetof(struct nvme_sqe, nsid) == 4, "NVMe SQE header");
 _Static_assert(sizeof(struct nvme_cqe) == 16 && offsetof(struct nvme_cqe, status) == 14, "NVMe CQE");
+_Static_assert(offsetof(struct nvme_cqe, sq_head) == 8 && offsetof(struct nvme_cqe, cid) == 12,
+               "NVMe CQE result");
 
 struct nvme_dma {
     uintptr_t address;
     size_t capacity;
     bool device_read, device_write, borrowed;
 };
-struct nvme_namespace { uint32_t id; uint64_t blocks; size_t lba_bytes; };
+struct nvme_namespace { uint32_t nsid; uint64_t lba_count; size_t lba_bytes; };
 struct nvme_port {
     void *ctx;
     volatile struct nvme_sqe *sq;
@@ -41,6 +44,11 @@ struct nvme_port {
     void (*cq_doorbell)(void *, uint16_t head);
 };
 struct nvme_done { uint16_t cid, device_status; size_t bytes; bool protocol_error; };
+struct nvme_request {
+    struct nvme_dma *dma;
+    size_t bytes;
+    uint16_t cid;
+};
 
 struct nvme {
     const struct nvme_port *port;
@@ -48,11 +56,7 @@ struct nvme {
     enum nvme_state state;
     uint16_t sq_tail, cq_head, next_cid;
     unsigned cq_phase;
-    struct {
-        struct nvme_dma *dma;
-        size_t bytes;
-        uint16_t cid;
-    } pending;
+    struct nvme_request in_flight;
 };
 
 bool nvme_init(struct nvme *, const struct nvme_port *, struct nvme_namespace);

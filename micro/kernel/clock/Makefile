@@ -7,7 +7,7 @@ CFLAGS := -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie \
           -fno-asynchronous-unwind-tables -fno-unwind-tables -nostdlib \
           -O2 -g -Wall -Wextra \
           -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany
-CPPFLAGS := -I.
+CPPFLAGS := -I. -isystem ../arch/riscv
 
 OBJS := $(addprefix $(BUILD_DIR)/,timebase.o timer.o event.o)
 

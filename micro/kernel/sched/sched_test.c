@@ -166,11 +166,153 @@ static void test_idle_fallback_and_reap(void)
     printf("sched: idle/reap ok\n");
 }
 
+static void test_idle_only(void)
+{
+    struct thread *idle;
+
+    object_system_init();
+    sched_init();
+    switch_calls = 0;
+
+    idle = thread_create(0, idle_worker, 0, stack_idle, sizeof(stack_idle),
+                         "idle");
+    assert(idle != 0);
+    sched_set_idle(idle);
+    assert(sched_ready_count() == 0);
+
+    sched();
+    assert(sched_current() == idle && idle->state == THREAD_RUNNING);
+    assert(switch_calls == 1);
+
+    /* idle 再次进入调度时既不入队，也不重复切换。 */
+    sched();
+    assert(sched_current() == idle && sched_ready_count() == 0);
+    assert(switch_calls == 1);
+    assert(sched_idle() == idle);
+
+    printf("sched: idle-only fallback ok\n");
+}
+
+static void test_create_limits(void)
+{
+    struct thread *created[SCHED_MAX_THREADS];
+    struct thread *extra;
+
+    object_system_init();
+    sched_init();
+
+    assert(thread_create(0, 0, 0, stack_a, sizeof(stack_a), "no-entry") == 0);
+    assert(thread_create(0, worker, 0, 0, 4096, "no-stack") == 0);
+    assert(thread_create(0, worker, 0, stack_a, 16, "tiny") == 0);
+
+    /*
+     * 主机自测不会真正切栈，可以复用同一块栈验证槽位上限。
+     */
+    for (int i = 0; i < SCHED_MAX_THREADS; i++) {
+        created[i] = thread_create(0, worker, 0, stack_a, sizeof(stack_a),
+                                   "full");
+        assert(created[i] != 0);
+    }
+    extra = thread_create(0, worker, 0, stack_a, sizeof(stack_a), "extra");
+    assert(extra == 0);
+    assert(sched_ready_count() == SCHED_MAX_THREADS);
+
+    printf("sched: create validation/capacity ok\n");
+}
+
+static void test_waitq_order(void)
+{
+    struct waitq wq;
+    struct thread *a;
+    struct thread *b;
+    struct thread *c;
+
+    object_system_init();
+    sched_init();
+    waitq_init(&wq);
+
+    a = thread_create(0, worker, 0, stack_a, sizeof(stack_a), "a");
+    b = thread_create(0, worker, 0, stack_b, sizeof(stack_b), "b");
+    c = thread_create(0, worker, 0, stack_c, sizeof(stack_c), "c");
+    assert(a != 0 && b != 0 && c != 0);
+
+    waitq_push(&wq, a);
+    waitq_push(&wq, b);
+    waitq_push(&wq, c);
+    assert(waitq_pop(&wq) == a);
+    assert(waitq_pop(&wq) == b);
+    assert(waitq_pop(&wq) == c);
+    assert(waitq_empty(&wq));
+
+    waitq_push(&wq, a);
+    waitq_push(&wq, b);
+    waitq_push(&wq, c);
+    waitq_remove(&wq, b);
+    assert(waitq_pop(&wq) == a);
+    assert(waitq_pop(&wq) == c);
+    assert(waitq_empty(&wq));
+
+    /* 重复入队不能制造环。 */
+    waitq_push(&wq, a);
+    waitq_push(&wq, a);
+    assert(waitq_pop(&wq) == a);
+    assert(waitq_empty(&wq));
+
+    printf("sched: waitq FIFO/remove ok\n");
+}
+
+static void test_quantum_carry(void)
+{
+    struct thread *a;
+    struct thread *b;
+
+    object_system_init();
+    sched_init();
+    switch_calls = 0;
+
+    a = thread_create(0, worker, 0, stack_a, sizeof(stack_a), "a");
+    b = thread_create(0, worker, 0, stack_b, sizeof(stack_b), "b");
+    assert(a != 0 && b != 0);
+
+    sched();
+    assert(sched_current() == a);
+
+    /* 主动让出后，剩余时间片应保留到下次运行。 */
+    for (int i = 0; i < 2; i++) {
+        sched_tick();
+    }
+    assert(a->time_left == SCHED_QUANTUM_TICKS - 2);
+    thread_yield();
+    assert(sched_current() == b);
+
+    thread_yield();
+    assert(sched_current() == a);
+    assert(a->time_left == SCHED_QUANTUM_TICKS - 2);
+
+    for (int i = 0; i < 2; i++) {
+        sched_tick();
+    }
+    sched_check();
+    assert(sched_current() == a);
+    assert(a->time_left == 1);
+
+    sched_tick();
+    sched_check();
+    assert(sched_current() == b);
+    assert(a->state == THREAD_READY);
+
+    printf("sched: quantum carry ok\n");
+}
+
 int main(void)
 {
     test_round_robin();
     test_block_wake();
     test_idle_fallback_and_reap();
+    test_idle_only();
+    test_create_limits();
+    test_waitq_order();
+    test_quantum_carry();
     printf("sched: all tests passed\n");
     return 0;
 }

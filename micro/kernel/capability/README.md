@@ -23,6 +23,7 @@
 | `cap_platform.h` | 能力模块与机器层的唯一内部契约（关/开中断） |
 | `cap_arch_riscv.c` | RISC-V `sstatus.SIE` 保存/恢复 |
 | `cap_selftest.c` | 内核内自检：测试对象 + 断言 + SBI 输出（正式镜像可去掉） |
+| `demo.c` | 组合运行示例：把 cap 接到 objects / ipc / memory / sched / syscall |
 | `Makefile` | 只做核心文件的 RISC-V 交叉编译检查 |
 
 ## 边界
@@ -196,6 +197,63 @@ P3 成立的前提是 `MOVE` 保留 node。若把 `MOVE` 实现成 `DELETE + MIN
 用户 ABI。真实系统里对象创建属于 `objects/untyped`，能力模块只接收“新对象”
 和“初始 root cap”。用户态入口只应看到 `mint/copy/move/delete/revoke/invoke/info`。
 
+### 与其他模块的组合
+
+`demo.c` 是组合根，不把对象语义搬进能力模块。它做三件事：
+
+1. 用 `struct cap_type` 给 endpoint / AS / frame / reply 注入类型、权限上限
+   和操作要求；
+2. 用 `cap_root_install` / `mint` / `move` 把权限分给两个主体；
+3. 实现 `struct syscall_backend`，让一次 U-mode 形状的 `ecall` 先经过
+   句柄解析与权限检查，再落到 ipc / memory 的对象原语。
+
+| 对象 | `cap_type` | `rights_mask` | 单对象操作 | 语义归属 |
+| --- | --- | --- | --- | --- |
+| endpoint | `CAP_TYPE_ENDPOINT` | R / W / Grant | `SEND`、`RECV` | `kernel/ipc` |
+| address space | `CAP_TYPE_AS` | `MAP` | 复合 map/unmap | `kernel/memory` |
+| frame | `CAP_TYPE_FRAME` | R / W / X / `MAP` | 复合 map | `kernel/memory` |
+| reply | `CAP_TYPE_REPLY` | W | `SEND`（单次） | `kernel/ipc` |
+
+```text
+client CSpace                         server CSpace
+slot 0  ep root (R/W/Grant)           slot 0  ep recv (R/Grant)
+slot 2  ep send (W)  ──┐                   ▲
+slot 3  as (MAP)       ├─ endpoint ────────┘   (mint + move，节点不换)
+slot 4  frame (R/W/MAP)│
+                       └─ cap_acquire → syscall 后端 → ipc / as_map
+```
+
+- **单对象操作**走 `cap_invoke`：查表 → 类型支持 → `required ⊆ rights` →
+  `ops->invoke`。endpoint 的 `SEND/RECV` 就是这条路。
+- **跨两个 cap 的复合操作**走 `cap_acquire`：syscall 后端按 `SYSCALL_AS` /
+  `SYSCALL_FRAME` 分别借出 AS 与 frame，两者都 pin 住后再调用 `as_map` /
+  `as_unmap`，最后 `cap_release`。这保持了“能力模块不硬编码对象关系”。
+- **reply 权限不是 bearer token**：服务端 `RECV` 到带 `reply_id` 的请求时，
+  后端为该 token 创建一把 `CAP_TYPE_REPLY` cap 并装进服务端 CSpace；服务端
+  用这把 cap 应答。应答成功后后端 `cap_delete` 收回它，第二次使用得到
+  `CAP_E_BAD_HANDLE`。`reply_holder.consumed` 再兜底 `CAP_E_BUSY`。
+- **撤销跨 CSpace**：服务端的 recv cap 是客户端根 cap 的后代（`mint` 后
+  `move`，节点不动），所以 `cap_revoke` 根 cap 会同时摘掉客户端的 send cap
+  和服务端的 recv cap。
+- **寿命**：endpoint / AS / frame 的 cap 对象在 `finalize` 里分别
+  `ep_unref` / `as_unref` / `frame_unref`。最后一个 cap 删除前对象一直存活；
+  正在 `cap_invoke` 或 `cap_acquire` 中的对象由 `pins` 保护。
+
+调用链：
+
+```text
+trap frame (scause=8)
+  -> syscall_dispatch          参数形状、句柄位宽、地址对齐
+  -> cap_backend.acquire       按 kind 解析 cap、检查 rights、pin 对象
+  -> cap_backend.invoke        ipc / memory 原语（CALL 会阻塞到 reply）
+  -> cap_backend.release      unpin；最后一个 cap 已删除时在此 finalize
+```
+
+这条链在 QEMU 中由两个内核线程跑通：客户端 `IPC_CALL`，服务端 `RECV` 后
+用 reply cap 应答；客户端随后 `AS_MAP` / `AS_UNMAP`。它验证了锁序：
+`cap_arch_intr_save` 只覆盖表操作，`cap_invoke` / `cap_acquire` 在调用对象
+原语前放锁，因此 IPC 阻塞不会占着能力锁。
+
 ## API
 
 | API | 作用 | 关键错误 |
@@ -209,9 +267,11 @@ P3 成立的前提是 `MOVE` 保留 node。若把 `MOVE` 实现成 `DELETE + MIN
 | `cap_move(from,src,to,dst,&out)` | 转移 cap；保留节点 | `CAP_E_RIGHTS`（缺 `GRANT`） |
 | `cap_delete(sid,h)` | 删自己 + 后代 | `CAP_E_BAD_HANDLE` |
 | `cap_revoke(sid,h)` | 只删后代 | `CAP_E_BAD_HANDLE` |
-| `cap_invoke(sid,h,op,args)` | 唯一调用入口 | `CAP_E_RIGHTS`、`CAP_E_TYPE` |
+| `cap_invoke(sid,h,op,args)` | 单对象操作的唯一调用入口 | `CAP_E_RIGHTS`、`CAP_E_TYPE` |
+| `cap_acquire(sid,h,rights,&obj)` | 内核内借用：检查权限并 pin 对象 | `CAP_E_RIGHTS`、`CAP_E_BAD_OBJECT` |
+| `cap_release(obj)` | 与 `cap_acquire` 配对；最后一个引用消失时 finalize | — |
 | `cap_info(sid,h,&info)` | 只读元数据，不暴露对象指针 | `CAP_E_BAD_HANDLE` |
-| `cap_check_invariants()` | 检查 W1–W6 与计数一致性 | `CAP_E_INVARIANTS` |
+| `cap_check_invariants()` | 检查 W1–W6（含 W3 父边同对象且不减权）与计数一致性 | `CAP_E_INVARIANTS` |
 | `cap_live_caps()` / `cap_live_objects()` / `cap_object_refs()` / `cap_object_pins()` | 自检观测，不改变状态 | — |
 
 `CAP_E_BAD_HANDLE` 统一表示“槽位不存在、generation 不匹配、或主体不匹配”；
@@ -226,6 +286,9 @@ P3 成立的前提是 `MOVE` 保留 node。若把 `MOVE` 实现成 `DELETE + MIN
 | 对象表 | 64 个静态 `g_objects[]`，`oid = index + 1` |
 | CDT | 512 个静态节点，`parent / first_child / next_sibling` |
 | 对象终结 | `cap_refs == 0 && pins == 0` 时调 `ops->finalize` |
+| 对象语义注入 | `demo.c` 的 `endpoint_type` / `as_type` / `frame_type` / `reply_type` |
+| 句柄解析 | `cap_backend.acquire`：`cap_acquire` + 类型 + rights，返回 pin |
+| 复合操作 | `AS_MAP` 同时借出 AS cap 与 frame cap，再调 `as_map` |
 | 能力语义 | 与 MMU/页表无关；MMU 只负责把内核表挡在用户态之外 |
 
 单 hart、`-smp 1` 起步。SMP 时把 `cap_arch_intr_save/restore` 换成
@@ -248,7 +311,8 @@ cd micro
 make run BOOT_MODULES=capability
 ```
 
-自举清单执行 `capability` 时调用 `cap_selftest()`，并检查其返回值。QEMU 输出摘要如下。
+自举清单执行 `capability` 时先跑 `cap_selftest()`，再跑与 other modules 的
+组合用例。QEMU 输出摘要如下。
 
 ```text
 [capability] start
@@ -273,13 +337,17 @@ make run BOOT_MODULES=capability
 [cap] delete root  OK
 [cap] finalized once  OK
 ...
+[cap] acquire pins object  OK
+[cap] delete defers finalize  OK
+[cap] release finalizes  OK
 [cap] 100 mint/delete cycles  OK
 [cap] all objects finalized  OK
 [cap] no live caps  OK
 [cap] no live objects  OK
 [cap] invariants  OK
-[cap] live caps=0 objects=0 finalized=4/4
+[cap] live caps=0 objects=0 finalized=5/5
 [cap] selftest ok
+capability: caps gate IPC call/reply, AS map and cross-CSpace revoke
 [capability] PASS
 [bootstrap] PASS
 [kmain] shutting down
@@ -306,9 +374,13 @@ make run BOOT_MODULES=capability
 | `invoke with read right` | 合法调用到达对象 ops |
 | `unsupported op rejected` | 类型不支持的操作返回 `CAP_E_TYPE` |
 | `occupied slot rejected` / `unchanged` | 目标槽占用时失败是原子的 |
+| `acquire rejects missing right` | `cap_acquire` 在借出对象前检查权限 |
+| `acquire pins object` / `release finalizes` | `pins` 保护 check-use 窗口 |
+| `delete defers finalize` | 最后一个 cap 删除时，在途对象不析构 |
 | `100 mint/delete cycles` | 无槽位/节点泄漏 |
 | `live caps=0 objects=0` | 清理后所有引用与对象归零 |
-| `invariants OK` | W1–W6 与计数一致 |
+| `invariants OK` | W1–W6（含 W3 父边）与计数一致 |
+| `capability: caps gate IPC ...` | syscall / IPC / AS map / 跨 CSpace 撤销贯通 |
 
 ## 已知限制
 
@@ -320,9 +392,13 @@ make run BOOT_MODULES=capability
 - **`cap_system_init` 是全量重置**：只允许启动/测试时调用。
 - **generation 16 位**：同一槽位释放 65536 次后可能回绕；真实系统应扩大或加随机基址。
 - **没有 untyped/retype**：`cap_object_create` 只是 bootstrap 替身，对象创建归 `objects/untyped`。
-- **没有 IPC 传递封装**：`move` 是原语；endpoint 的 badge 传递、reply cap 归 `ipc`。
-- **没有用户态 syscall 封装**：当前 `cap_selftest` 在 S-mode 直接调用；用户 ABI 待 `syscall` 模块。
-- **未验证**：SMP、U-mode 隔离、MMU 开启后的表保护、并发 `invoke`/`revoke`。
+- **syscall 后端在 S-mode 自测**：`demo.c` 用 `scause=8` 的陷阱帧驱动真实
+  `syscall_dispatch`，但没有真的进入 U-mode；U-mode 隔离需要 MMU 打开后的
+  用户页表，属于后续镜像。
+- **IPC 语义仍由 ipc 模块实现**：能力层只决定“谁可以把消息交给哪个
+  endpoint”；消息缓冲、阻塞队列、reply 对象寿命仍在 `kernel/ipc`。
+- **未验证**：SMP、U-mode 隔离、MMU 开启后的表保护、并发 `invoke`/`revoke`、
+  `cap_acquire` 期间被 `revoke` 的语义（当前实现下已借出的 pin 仍然有效）。
 
 ## 参考
 

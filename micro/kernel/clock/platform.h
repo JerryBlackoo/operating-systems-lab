@@ -11,8 +11,11 @@
 /* 读取自由运行计数器（QEMU/RISC-V：rdtime）。 */
 uint64_t clock_arch_read_ticks(void);
 
-/* 写入绝对比较值；CLOCK_DISARM 表示撤防。 */
+/* 写入当前 hart 的绝对比较值；CLOCK_DISARM 表示撤防。 */
 void clock_arch_set_compare(uint64_t ticks);
+
+/* 当前 hart 的 id（QEMU/RISC-V：tp 指向的 hart_local）。 */
+uint32_t clock_arch_hart_id(void);
 
 /* 关中断并返回原 sstatus 中与恢复相关的位。 */
 uint64_t clock_arch_intr_save(void);

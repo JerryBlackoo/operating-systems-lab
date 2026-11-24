@@ -40,15 +40,23 @@ Sched  = (ready_queue, current, idle)
 5. 无丢失唤醒：状态检查、入等待队列、唤醒摘链都在 `sched_lock()` 内完成。
 6. 上下文切换只保存 callee-saved：`ra, sp, s0-s11`；caller-saved 由 trap 入口保存。
 7. 就绪队列和 `need_resched` 的修改都受 `sched_lock()` 保护。
+8. 从“改状态/选 next”到 `cpu_switch` 完成全程关中断；恢复 SIE 的责任交给
+   被恢复的线程（它从自己的 `cpu_switch` 返回后恢复自己栈上的 flags）。
+   新线程第一次运行由 `thread_bootstrap` 打开中断。
+9. `reap_dead()` 只有在当前执行流不再依赖该 AS 时才释放页表；如果死线程的
+   AS 仍挂在 `satp` 上，先切回 bare 映射再 `as_unref()`。
+10. `thread_block()/thread_yield()/sched_check()` 把“状态迁移 + sched()”放在
+    同一个关中断区间内，避免定时器在两步之间插入一次调度。
+
 
 ## 代码
 
 | 文件 | 内容 |
 |---|---|
 | `sched.h` | Thread/CPU 上下文/等待队列/API |
-| `sched.c` | 就绪队列、RR 时间片、block/wake、idle、死线程回收 |
+| `sched.c` | 就绪队列、RR 时间片、block/wake、idle、死线程回收、定时睡眠 |
 | `switch_rv64.S` | RISC-V 64 的 `cpu_switch` / `cpu_switch_to` |
-| `sched_test.c` | RR、时间片、block/wake、idle 回退、回收自测 |
+| `sched_test.c` | RR、时间片、block/wake、idle 回退、回收、容量/等待队列自测 |
 | `Makefile` | 主机自测构建（`-DSCHED_HOST_TEST`，fake `cpu_switch`） |
 
 ## API
@@ -65,6 +73,10 @@ void thread_block(struct waitq *wq);
 void thread_wake(struct thread *t);
 void thread_block_locked(struct waitq *wq); /* 调用者持 sched_lock */
 void thread_wake_locked(struct thread *t);  /* 调用者持 sched_lock */
+
+/* 单调时间睡眠，deadline 来自 clock 的 ns 时间轴；仅内核构建提供。 */
+void thread_sleep_ns(uint64_t ns);
+void thread_sleep_until(uint64_t deadline_ns);
 
 void sched(void);
 void sched_tick(void);
@@ -91,6 +103,10 @@ make -C micro/kernel/sched test
 sched: round robin ok
 sched: block/wake ok
 sched: idle/reap ok
+sched: idle-only fallback ok
+sched: create validation/capacity ok
+sched: waitq FIFO/remove ok
+sched: quantum carry ok
 sched: all tests passed
 ```
 
@@ -103,24 +119,35 @@ sched: all tests passed
 make -C micro run BOOT_MODULES=sched
 ```
 
-自举 demo 用两条线程和真实 RV64 上下文切换验证阻塞、唤醒和就绪队列顺序。
+这个 demo 不再是纯状态机演示，而是把时间层接进真实内核路径：
+
+```text
+clock 定时器中断 → clock_handle_interrupt() → sched_tick()
+trap 返回前       → sched_check()             → sched() → cpu_switch()
+```
+
+工作负载：
+
+- `worker-a` / `worker-b`：纯计算、不主动让出，验证 5 tick 时间片抢占；
+- `client` / `server`：一次同步 `ep_call/ep_reply`，验证阻塞/唤醒与调度器协同；
+- `idle`：所有普通线程阻塞或死亡后兜底 `wfi`。
+
+构建时 `MODEL_SUPPORT_sched` 会链接 `clock` 与 `ipc` 的非 demo 源文件，因此
+`BOOT_MODULES=sched` 得到的是一个可运行的最小内核工作负载，而不是孤立的单元测试。
 
 ```c
 object_system_init();
 sched_init();
+ipc_init();
 
-/* 用 memory 模块的页作为内核栈 */
 struct thread *main = thread_create(0, kmain_thread, 0, stack, stack_size, "main");
 struct thread *idle = thread_create(0, idle_loop, 0, idle_stack, idle_stack_size,
                                     "idle");
 sched_set_idle(idle);
 sched_bootstrap(main);
 
-/* 10 ms 定时器中断： */
-sched_tick();
-
-/* trap 返回用户/内核前： */
-sched_check();
+/* 10 ms 定时器中断：clock_handle_interrupt() -> sched_tick() */
+/* trap 返回用户/内核前：sched_check() */
 ```
 
 RISC-V 细节：
@@ -129,15 +156,20 @@ RISC-V 细节：
 - `cpu_switch` 的偏移必须与 `struct cpu_context` 一致：`ra=0, sp=8, s0=16, ...,
   s11=104`。
 - 新线程的 `ra` 指向 `thread_bootstrap`，`sp` 指向栈顶（16 字节对齐）；
-  `thread_bootstrap` 读取 `current`，调用 `entry(arg)`，然后 `thread_exit()`。
+  `thread_bootstrap` 打开 `sstatus.SIE`，读取 `current`，调用 `entry(arg)`，
+  然后 `thread_exit()`。
 - `sched()` 在切换前对 `next->as != NULL` 的线程调用 `as_activate(next->as)`；
-  `next->as == NULL` 的内核线程沿用当前内核映射。
+  激活与 `cpu_switch` 都在关中断状态下完成。`next->as == NULL` 的内核线程
+  沿用当前内核映射。
+- 回收死线程时若其 AS 仍是 `satp` 的当前目标，先 `as_activate(NULL)` 退回
+  bare 映射再释放页表，避免释放后仍被 TLB 走页。
 - 用户 AS 必须通过 `as_share_kernel()` 安装内核顶层映射，否则切到用户页表后
   内核栈/代码不可访问。见 `memory/README.md`。
 
 ## 已知边界
 
 - 单核、无优先级、无 CFS/EEVDF、无实时调度、无 SMP。
-- 无线程超时；等待队列的 timeout 需要额外定时器队列。
+- 等待队列本身不带 timeout；`thread_sleep_until()` 用一个临时的
+  `clock_timer` 实现线程睡眠，不改变 `waitq` 的阻塞/唤醒语义。
 - 不做进程对象；`waitpid`、信号、fd 表等属于用户态 PM/VFS。
 - `thread_exit()` 依赖 idle 线程兜底；启动代码必须创建 idle。

@@ -1,1 +1,3 @@
-build/
+mono/build/
+micro/build/
+.codeartsdoer/

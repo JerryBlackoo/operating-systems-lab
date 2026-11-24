@@ -21,7 +21,7 @@
 #include "types.h"
 
 struct trap_frame {
-    /* 通用寄存器。x0 不存；x2(sp) 单独处理；x4(tp) 也不存——tp 是 per-hart 常量。 */
+    /* 通用寄存器。x0 不存；x2(sp) 与 x4(tp) 单独处理。 */
     u64 ra;    /* x1  */
     u64 gp;    /* x3  */
     u64 t0;    /* x5  */
@@ -52,7 +52,7 @@ struct trap_frame {
     u64 t5;    /* x30 */
     u64 t6;    /* x31 */
     u64 sp;    /* x2  —— 最后存，因为它就是 frame 基址 */
-    u64 tp;    /* x4  —— 存但恢复时忽略（tp 恒为 hart_local） */
+    u64 tp;    /* x4  —— 与其它 GPR 一样保存/恢复 */
 
     /* 硬件写、软件抄进来的四个 CSR */
     u64 sepc;
@@ -74,6 +74,14 @@ _Static_assert(sizeof(struct trap_frame) == 288, "trap_frame must be 288 bytes")
 #define TF_SSTATUS  256
 #define TF_SCAUSE   264
 #define TF_STVAL    272
+
+/* 汇编写死的偏移；结构体一错位就在这里编译失败，而不是运行时静默踩内存。 */
+_Static_assert(__builtin_offsetof(struct trap_frame, sp) == TF_SP, "TF_SP mismatch");
+_Static_assert(__builtin_offsetof(struct trap_frame, tp) == TF_TP, "TF_TP mismatch");
+_Static_assert(__builtin_offsetof(struct trap_frame, sepc) == TF_SEPC, "TF_SEPC mismatch");
+_Static_assert(__builtin_offsetof(struct trap_frame, sstatus) == TF_SSTATUS, "TF_SSTATUS mismatch");
+_Static_assert(__builtin_offsetof(struct trap_frame, scause) == TF_SCAUSE, "TF_SCAUSE mismatch");
+_Static_assert(__builtin_offsetof(struct trap_frame, stval) == TF_STVAL, "TF_STVAL mismatch");
 
 /*
  * 安装 trap 入口（写 stvec，Direct 模式）。

@@ -1,0 +1,115 @@
+# 采集时间: 2026-11-23T18:26:42+08:00  主机: jerry-XiaoXinPro-14-IRH8  内核: 6.14.0-37-generic
+
+## stat -f /
+  文件："/"
+    ID: b72c6ac92c91d2e3 文件名长度：255     类型：ext2/ext3
+块大小：4096       基本块大小：4096
+    块：总计：28392757   空闲：6436414    可用：4982603
+Inodes: 总计：7249920    空闲：6151445
+
+## findmnt 根分区
+/dev/nvme0n1p7 ext4   rw,relatime
+
+## df -h /
+文件系统        大小  已用  可用 已用% 挂载点
+/dev/nvme0n1p7  109G   84G   20G   82% /
+
+## 所有挂载的块设备文件系统
+/                                                                                                                           /dev/nvme0n1p7                                                                                                                            ext4
+├─/boot/efi                                                                                                                 /dev/nvme0n1p1                                                                                                                            vfat
+├─/media/jerry/Data                                                                                                         /dev/nvme0n1p5                                                                                                                            ntfs3
+├─/home/jerry/Data50G                                                                                                       /dev/loop15                                                                                                                               ext4
+├─/home/jerry/Downloads                                                                                                     /dev/loop15[/Downloads]                                                                                                                   ext4
+├─/home/jerry/Projects/暂放                                                                                                 /dev/loop15[/暂放]                                                                                                                        ext4
+│ ├─/home/jerry/Projects/暂放/book-catalog-multi-agent/.git/config                                                          /dev/loop15[/暂放/book-catalog-multi-agent/.git/config]                                                                                   ext4
+│ ├─/home/jerry/Projects/暂放/book-catalog-multi-agent/.git/hooks                                                           /dev/loop15[/暂放/book-catalog-multi-agent/.git/hooks]                                                                                    ext4
+│ ├─/home/jerry/Projects/暂放/数学交付/.vscode                                                                              /dev/loop15[/暂放/数学交付/.vscode]                                                                                                       ext4
+│ ├─/home/jerry/Projects/暂放/网络排查/sing-box-google-hkredirect-20261030/.git/config                                      /dev/loop15[/暂放/网络排查/sing-box-google-hkredirect-20261030/.git/config]                                                               ext4
+│ └─/home/jerry/Projects/暂放/网络排查/sing-box-google-hkredirect-20261030/.git/hooks                                       /dev/loop15[/暂放/网络排查/sing-box-google-hkredirect-20261030/.git/hooks]                                                                ext4
+├─/home/jerry/Projects/learn-computer-networks/books                                                                        /dev/loop15[/learn-computer-networks/books]                                                                                               ext4
+│ └─/home/jerry/Projects/learn-computer-networks/books/rag/.venv                                                            /dev/loop15[/learn-computer-networks/books/rag/.venv]                                                                                     ext4
+├─/home/jerry/Projects/learn-computer-organization/books                                                                    /dev/loop15[/learn-computer-organization/books]                                                                                           ext4
+│ └─/home/jerry/Projects/learn-computer-organization/books/rag/.venv                                                        /dev/loop15[/learn-computer-organization/books/rag/.venv]                                                                                 ext4
+├─/home/jerry/Projects/learn-english/books                                                                                  /dev/loop15[/learn-english/books]                                                                                                         ext4
+├─/home/jerry/Projects/learn-math/books                                                                                     /dev/loop15[/learn-math/books]                                                                                                            ext4
+│ └─/home/jerry/Projects/learn-math/books/rag/.venv                                                                         /dev/loop15[/learn-math/books/rag/.venv]                                                                                                  ext4
+├─/home/jerry/Projects/learn-operate-system/books                                                                           /dev/loop15[/learn-operate-system/books]                                                                                                  ext4
+│ └─/home/jerry/Projects/learn-operate-system/books/rag/.venv                                                               /dev/loop15[/learn-operate-system/books/rag/.venv]                                                                                        ext4
+├─/home/jerry/Projects/learn-politics/books                                                                                 /dev/loop15[/learn-politics/books]                                                                                                        ext4
+├─/home/jerry/Projects/transporter/data                                                                                     /dev/loop15[/transporter/data]                                                                                                            ext4
+├─/tmp                                                                                                                      /dev/loop15[/tmp]                                                                                                                         ext4
+│ └─/tmp/node-compile-cache                                                                                                 /dev/loop15[/tmp/node-compile-cache]                                                                                                      ext4
+├─/etc/ssl/certs/ca-certificates.crt                                                                                        /dev/nvme0n1p7[/etc/ssl/certs/ca-certificates.crt]                                                                                        ext4
+├─/home/jerry/.cache/cursor-compile-cache                                                                                   /dev/nvme0n1p7[/home/jerry/.cache/cursor-compile-cache]                                                                                   ext4
+├─/home/jerry/.cursor/sandbox-policies                                                                                      /dev/nvme0n1p7[/home/jerry/.cursor/sandbox-policies]                                                                                      ext4
+├─/home/jerry/.local/state/cursor/agent-stores/cursor_agent_stores/9a378cf8-73a0-4771-8f7b-02d3c1782be8/files/.claude       /dev/nvme0n1p7[/home/jerry/.local/state/cursor/agent-stores/cursor_agent_stores/9a378cf8-73a0-4771-8f7b-02d3c1782be8/files/.claude]       ext4
+├─/home/jerry/.local/state/cursor/agent-stores/cursor_agent_stores/9a378cf8-73a0-4771-8f7b-02d3c1782be8/files/.cursor       /dev/nvme0n1p7[/home/jerry/.local/state/cursor/agent-stores/cursor_agent_stores/9a378cf8-73a0-4771-8f7b-02d3c1782be8/files/.cursor]       ext4
+├─/home/jerry/.local/state/cursor/agent-stores/cursor_agent_stores/u218079461/files/.claude                                 /dev/nvme0n1p7[/home/jerry/.local/state/cursor/agent-stores/cursor_agent_stores/u218079461/files/.claude]                                 ext4
+├─/home/jerry/.local/state/cursor/agent-stores/cursor_agent_stores/u218079461/files/.cursor                                 /dev/nvme0n1p7[/home/jerry/.local/state/cursor/agent-stores/cursor_agent_stores/u218079461/files/.cursor]                                 ext4
+├─/home/jerry/Projects/.claude                                                                                              /dev/nvme0n1p7[/home/jerry/Projects/.claude]                                                                                              ext4
+├─/home/jerry/Projects/.cursor                                                                                              /dev/nvme0n1p7[/home/jerry/Projects/.cursor]                                                                                              ext4
+│ └─/home/jerry/Projects/.cursor/commands                                                                                   /dev/nvme0n1p7[/home/jerry/Projects/.cursor/commands]                                                                                     ext4
+├─/home/jerry/Projects/Agenote/.vscode                                                                                      /dev/nvme0n1p7[/home/jerry/Projects/Agenote/.vscode]                                                                                      ext4
+├─/home/jerry/Projects/from-scratch/Stanford-OS-Learning-Path/.git/config                                                   /dev/nvme0n1p7[/home/jerry/Projects/from-scratch/Stanford-OS-Learning-Path/.git/config]                                                   ext4
+├─/home/jerry/Projects/from-scratch/Stanford-OS-Learning-Path/.git/hooks                                                    /dev/nvme0n1p7[/home/jerry/Projects/from-scratch/Stanford-OS-Learning-Path/.git/hooks]                                                    ext4
+├─/home/jerry/Projects/from-scratch/computer-network-lab/.git/config                                                        /dev/nvme0n1p7[/home/jerry/Projects/from-scratch/computer-network-lab/.git/config]                                                        ext4
+├─/home/jerry/Projects/from-scratch/computer-network-lab/.git/hooks                                                         /dev/nvme0n1p7[/home/jerry/Projects/from-scratch/computer-network-lab/.git/hooks]                                                         ext4
+├─/home/jerry/Projects/from-scratch/computer-organization-lab/.git/config                                                   /dev/nvme0n1p7[/home/jerry/Projects/from-scratch/computer-organization-lab/.git/config]                                                   ext4
+├─/home/jerry/Projects/from-scratch/computer-organization-lab/.git/hooks                                                    /dev/nvme0n1p7[/home/jerry/Projects/from-scratch/computer-organization-lab/.git/hooks]                                                    ext4
+├─/home/jerry/Projects/from-scratch/operating-systems-lab/.git/config                                                       /dev/nvme0n1p7[/home/jerry/Projects/from-scratch/operating-systems-lab/.git/config]                                                       ext4
+├─/home/jerry/Projects/grok-build-cursor-extension/.git/config                                                              /dev/nvme0n1p7[/home/jerry/Projects/grok-build-cursor-extension/.git/config]                                                              ext4
+├─/home/jerry/Projects/grok-build-cursor-extension/.git/hooks                                                               /dev/nvme0n1p7[/home/jerry/Projects/grok-build-cursor-extension/.git/hooks]                                                               ext4
+├─/home/jerry/Projects/learn-computer-organization/.git/config                                                              /dev/nvme0n1p7[/home/jerry/Projects/learn-computer-organization/.git/config]                                                              ext4
+├─/home/jerry/Projects/learn-computer-organization/.git/hooks                                                               /dev/nvme0n1p7[/home/jerry/Projects/learn-computer-organization/.git/hooks]                                                               ext4
+├─/home/jerry/Projects/learn-english/.git/config                                                                            /dev/nvme0n1p7[/home/jerry/Projects/learn-english/.git/config]                                                                            ext4
+├─/home/jerry/Projects/learn-english/.git/hooks                                                                             /dev/nvme0n1p7[/home/jerry/Projects/learn-english/.git/hooks]                                                                             ext4
+├─/home/jerry/Projects/learn-math/.git/config                                                                               /dev/nvme0n1p7[/home/jerry/Projects/learn-math/.git/config]                                                                               ext4
+├─/home/jerry/Projects/learn-math/.git/hooks                                                                                /dev/nvme0n1p7[/home/jerry/Projects/learn-math/.git/hooks]                                                                                ext4
+├─/home/jerry/Projects/learn-operate-system/.git/config                                                                     /dev/nvme0n1p7[/home/jerry/Projects/learn-operate-system/.git/config]                                                                     ext4
+├─/home/jerry/Projects/learn-operate-system/.git/hooks                                                                      /dev/nvme0n1p7[/home/jerry/Projects/learn-operate-system/.git/hooks]                                                                      ext4
+├─/home/jerry/Projects/learn-operate-system/research/2026-cscc-os/source/11-lebrondiddy/kernel/.vscode                      /dev/nvme0n1p7[/home/jerry/Projects/learn-operate-system/research/2026-cscc-os/source/11-lebrondiddy/kernel/.vscode]                      ext4
+├─/home/jerry/Projects/learn-operate-system/research/2026-cscc-os/source/11-lebrondiddy/vendor/lose-net-stack-0.1.0/.vscode /dev/nvme0n1p7[/home/jerry/Projects/learn-operate-system/research/2026-cscc-os/source/11-lebrondiddy/vendor/lose-net-stack-0.1.0/.vscode] ext4
+├─/home/jerry/Projects/learn-politics/.git/config                                                                           /dev/nvme0n1p7[/home/jerry/Projects/learn-politics/.git/config]                                                                           ext4
+├─/home/jerry/Projects/learn-politics/.git/hooks                                                                            /dev/nvme0n1p7[/home/jerry/Projects/learn-politics/.git/hooks]                                                                            ext4
+├─/home/jerry/Projects/transporter/.git/config                                                                              /dev/nvme0n1p7[/home/jerry/Projects/transporter/.git/config]                                                                              ext4
+├─/home/jerry/Projects/transporter/.git/hooks                                                                               /dev/nvme0n1p7[/home/jerry/Projects/transporter/.git/hooks]                                                                               ext4
+├─/home/jerry/Projects/transporter/client/node_modules/.pnpm/iconv-lite@0.6.3/node_modules/iconv-lite/.idea                 /dev/nvme0n1p7[/home/jerry/Projects/transporter/client/node_modules/.pnpm/iconv-lite@0.6.3/node_modules/iconv-lite/.idea]                 ext4
+├─/home/jerry/Projects/transporter/client/node_modules/.pnpm/xmlbuilder@15.1.1/node_modules/xmlbuilder/.vscode              /dev/nvme0n1p7[/home/jerry/Projects/transporter/client/node_modules/.pnpm/xmlbuilder@15.1.1/node_modules/xmlbuilder/.vscode]              ext4
+├─/home/jerry/Projects/wechat-tools/.git/config                                                                             /dev/nvme0n1p7[/home/jerry/Projects/wechat-tools/.git/config]                                                                             ext4
+├─/home/jerry/Projects/wechat-tools/.git/hooks                                                                              /dev/nvme0n1p7[/home/jerry/Projects/wechat-tools/.git/hooks]                                                                              ext4
+├─/home/jerry/Projects/wechat-tools/wcdb-key-tool/.git/config                                                               /dev/nvme0n1p7[/home/jerry/Projects/wechat-tools/wcdb-key-tool/.git/config]                                                               ext4
+├─/home/jerry/Projects/wechat-tools/wcdb-key-tool/.git/hooks                                                                /dev/nvme0n1p7[/home/jerry/Projects/wechat-tools/wcdb-key-tool/.git/hooks]                                                                ext4
+├─/home/jerry/Projects/wechat-tools/wxchat-export/.git/config                                                               /dev/nvme0n1p7[/home/jerry/Projects/wechat-tools/wxchat-export/.git/config]                                                               ext4
+├─/home/jerry/Projects/wechat-tools/wxchat-export/.git/hooks                                                                /dev/nvme0n1p7[/home/jerry/Projects/wechat-tools/wxchat-export/.git/hooks]                                                                ext4
+└─/home/jerry/Projects/wechat-tools/wxchat-export/.venv                                                                     /dev/nvme0n1p7[/home/jerry/Projects/wechat-tools/wxchat-export/.venv]                                                                     ext4
+
+## /sys/fs/ext4/nvme0n1p7 调参项
+mb_group_prealloc                = 512
+mb_stream_req                    = 16
+mb_max_to_scan                   = 200
+mb_min_to_scan                   = 10
+mb_order2_req                    = 2
+mb_prefetch                      = 128
+mb_best_avail_max_trim_order     = 3
+delayed_allocation_blocks        = 699
+lifetime_write_kbytes            = 4348486858
+session_write_kbytes             = 13452568
+reserved_clusters                = 4096
+mb_stats                         = 0
+
+## 块组规模推算
+block_size            = 4096
+clusters_per_group    = 32768   # 1 bitmap block covers 8*blocksize clusters
+group_size_bytes      = 134217728
+MB_NUM_ORDERS         = 14  # blocksize_bits+2
+
+## 源码版本标记
+8: * mballoc.c contains the multiblocks allocation routines
+
+## kernel-source md5
+0a325f1ee7358e9a8758f896ec4aa03f  mballoc.c
+456b3ed3d13da93185c787240d990471  mballoc.h
+49147ffd62a761668a1c7d37717732da  balloc.c
+538cb513f798f1a4f388d721fc49fd95  bitmap.c
+71e3f79d73f63568a18a45afe89a135c  ext4.h
+9ca19268f2ed145131e140b665784771  ialloc.c

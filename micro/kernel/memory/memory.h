@@ -17,8 +17,13 @@
  * 不做 VMA、COW、swap、按需分页策略；这些属于用户态 VM server。
  */
 
+/* arch/riscv/types.h 也定义了同名宏；允许两个模块出现在同一编译单元。 */
+#ifndef PAGE_SHIFT
 #define PAGE_SHIFT 12
+#endif
+#ifndef PAGE_SIZE
 #define PAGE_SIZE ((size_t)1 << PAGE_SHIFT)
+#endif
 #define MEMORY_MAX_FRAMES 65536
 #define AS_MAX 16
 
@@ -70,11 +75,16 @@ void as_unref(struct as *as);
 
 /*
  * 把 kernel_root 顶层 [first_index, 512) 的表项复制到 as。
+ * 目标区间必须尚未映射，否则返回 MEM_EEXIST；每个 as 只允许安装一次。
  * 这些页表页由内核永久拥有，不参与 as 的引用计数，也不在 as_destroy 中释放；
  * 调用者必须保证 kernel_root 的生命周期长于 as。
  */
 int as_share_kernel(struct as *as, pfn_t kernel_root, int first_index);
 
+/*
+ * rights 只能由 MEM_R/W/X/U/KERNEL 组成，且至少包含 R/W/X 之一。
+ * MEM_W 自动带 MEM_R；不带 MEM_KERNEL 的映射设置 PTE_U。
+ */
 int as_map(struct as *as, vaddr_t va, pfn_t pfn, int rights);
 int as_unmap(struct as *as, vaddr_t va);
 int as_translate(struct as *as, vaddr_t va, int *rights, pfn_t *pfn);

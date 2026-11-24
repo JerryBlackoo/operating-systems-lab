@@ -1,4 +1,5 @@
 #include "platform.h"
+#include "hart.h"
 
 #define SSTATUS_SIE (1UL << 1)
 #define SBI_EXT_TIME 0x54494D45UL
@@ -9,6 +10,15 @@ uint64_t clock_arch_read_ticks(void)
 
     __asm__ volatile("rdtime %0" : "=r"(ticks));
     return ticks;
+}
+
+/*
+ * arch 的 tp 不变量：tp 恒等于 &hart_local[hartid]。
+ * clock 只取 hartid，不解释 hart_local 的其它字段。
+ */
+uint32_t clock_arch_hart_id(void)
+{
+    return (uint32_t)hart_local_get()->hartid;
 }
 
 void clock_arch_set_compare(uint64_t ticks)

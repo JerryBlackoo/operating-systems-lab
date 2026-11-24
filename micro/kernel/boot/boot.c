@@ -26,6 +26,7 @@
 #include "sbi.h"
 
 extern char __kernel_start[], __kernel_end[];
+extern char __boot_stack_top[];
 
 /* .bss 探针：boot.S 若没清 BSS，这里读到的就不是 0。volatile 防止被折叠。 */
 static volatile u64 bss_probe;
@@ -104,12 +105,101 @@ static __attribute__((noreturn)) void boot_panic(const char *why)
 
 static void platform_fill(struct boot_platform *p)
 {
+    *p = (struct boot_platform){0};
     p->ram_base = RAM_BASE;
     p->ram_size = RAM_SIZE;
     p->firmware_base = RAM_BASE;
     p->firmware_size = KERNEL_BASE - RAM_BASE;
     p->kernel_start = (u64)__kernel_start;
     p->kernel_end = (u64)__kernel_end;
+}
+
+/* ---- 时刻 1：entry —— 把 boot.S 的承诺变成断言 ---------------------- */
+
+static void boot_check_entry(void)
+{
+    if (bss_probe != 0)
+        boot_panic("bss not cleared");
+    if (csr_read(CSR_SATP) != 0)
+        boot_panic("satp is not zero");
+    if (csr_read(CSR_SSTATUS) & SSTATUS_SIE)
+        boot_panic("interrupts enabled at entry");
+    if (csr_read(CSR_SIE) != 0)
+        boot_panic("interrupts armed at entry");
+    if (csr_read(CSR_SSCRATCH) != 0)
+        boot_panic("sscratch is not zero");
+}
+
+/* ---- 时刻 2：console —— 只输出，不接收，不注册驱动 ------------------ */
+
+static void boot_console_banner(u64 hartid, u64 dtb)
+{
+    con_puts("\n[micro] boot: minimal model\n");
+    con_puts("[boot] raw handoff: hartid=");
+    con_putdec(hartid);
+    con_puts(" dtb=");
+    con_puthex(dtb);
+    con_puts("\n");
+    con_puts("[boot] entry: bss=0, satp=0, SIE=0, sscratch=0\n");
+    con_puts("[boot] console: SBI legacy putchar OK\n");
+}
+
+/* ---- 时刻 3/4：parse/validate + reserve ------------------------------ */
+
+static void bootinfo_report(const struct bootinfo *bi)
+{
+    con_puts("[boot] bootinfo: v");
+    con_putdec(bi->version);
+    con_puts(" size=");
+    con_putdec(bi->size);
+    con_puts("\n");
+
+    con_puts("[boot] kernel: ");
+    con_puthex(bi->kernel_start);
+    con_puts(" + ");
+    con_puthex(bi->kernel_end - bi->kernel_start);
+    con_puts("\n");
+
+    for (u32 i = 0; i < bi->ram_count; i++) {
+        con_puts("[boot] ram: ");
+        con_puthex(bi->ram[i].base);
+        con_puts(" + ");
+        con_puthex(bi->ram[i].size);
+        con_puts("\n");
+    }
+    for (u32 i = 0; i < bi->reserved_count; i++) {
+        con_puts("[boot] reserved[");
+        con_putdec(i);
+        con_puts("]: ");
+        con_puthex(bi->reserved[i].base);
+        con_puts(" + ");
+        con_puthex(bi->reserved[i].size);
+        con_puts(" ");
+        con_puts(region_name(bi->reserved[i].type));
+        con_puts("\n");
+    }
+}
+
+/* ---- 时刻 5：arch 归一化与交接 -------------------------------------- */
+
+static void arch_ready(u64 hartid)
+{
+    boot_hart.hartid = hartid;
+    boot_hart.kernel_sp_top = (u64)__boot_stack_top;
+    boot_hart.current = NULL;
+    hart_set(&boot_hart);
+    if (hart_local_get() != &boot_hart)
+        boot_panic("tp invariant broken");
+
+    trap_install();
+    if (csr_read(CSR_STVEC) == 0)
+        boot_panic("stvec not installed");
+    con_puts("[boot] arch: tp=&hart_local, stvec installed\n");
+    con_puts("[boot] arch: satp=");
+    con_puthex(csr_read(CSR_SATP));
+    con_puts(" sstatus=");
+    con_puthex(csr_read(CSR_SSTATUS));
+    con_puts("\n");
 }
 
 /*
@@ -134,24 +224,10 @@ void boot_main(u64 hartid, u64 dtb)
     int dtb_state;
     int rc;
 
-    con_puts("\n[micro] boot: minimal model\n");
-    con_puts("[boot] raw handoff: hartid=");
-    con_putdec(hartid);
-    con_puts(" dtb=");
-    con_puthex(dtb);
-    con_puts("\n");
+    boot_check_entry();
+    boot_console_banner(hartid, dtb);
 
-    /* 1. 入口契约：把 boot.S 的承诺变成断言。 */
-    if (bss_probe != 0)
-        boot_panic("bss not cleared");
-    if (csr_read(CSR_SATP) != 0)
-        boot_panic("satp is not zero");
-    if (csr_read(CSR_SSTATUS) & SSTATUS_SIE)
-        boot_panic("interrupts enabled at entry");
-    con_puts("[boot] entry: bss=0, satp=0, SIE=0\n");
-    con_puts("[boot] console: SBI legacy putchar OK\n");
-
-    /* 2. 构建 BootInfo：平台事实 + DTB 指针。 */
+    /* 3. 构建 BootInfo：平台事实 + DTB 指针，随后校验自洽性。 */
     platform_fill(&plat);
     dtb_state = bootinfo_build(&bi, &plat, hartid, dtb);
     if (dtb_state == BOOT_DTB_BAD)
@@ -160,7 +236,6 @@ void boot_main(u64 hartid, u64 dtb)
                  ? "[boot] fdt: header OK\n"
                  : "[boot] fdt: absent, using platform constants\n");
 
-    /* 3. 校验；失败即停，不带病交接。 */
     rc = bootinfo_validate(&bi);
     if (rc != BOOTINFO_OK) {
         con_puts("[boot] bootinfo: ");
@@ -169,49 +244,11 @@ void boot_main(u64 hartid, u64 dtb)
         boot_panic("BootInfo validation failed");
     }
 
-    con_puts("[boot] bootinfo: v");
-    con_putdec(bi.version);
-    con_puts(" size=");
-    con_putdec(bi.size);
-    con_puts("\n");
-    for (u32 i = 0; i < bi.ram_count; i++) {
-        con_puts("[boot] ram: ");
-        con_puthex(bi.ram[i].base);
-        con_puts(" + ");
-        con_puthex(bi.ram[i].size);
-        con_puts("\n");
-    }
-    for (u32 i = 0; i < bi.reserved_count; i++) {
-        con_puts("[boot] reserved[");
-        con_putdec(i);
-        con_puts("]: ");
-        con_puthex(bi.reserved[i].base);
-        con_puts(" + ");
-        con_puthex(bi.reserved[i].size);
-        con_puts(" ");
-        con_puts(region_name(bi.reserved[i].type));
-        con_puts("\n");
-    }
+    /* 4. reserve：BootInfo 已把 firmware/kernel/DTB 显式列为保留区。 */
+    bootinfo_report(&bi);
 
-    /* 4. arch 归一化：建立 tp 不变量、安装 stvec。 */
-    boot_hart.hartid = hartid;
-    boot_hart.kernel_sp_top = 0;
-    boot_hart.current = NULL;
-    hart_set(&boot_hart);
-    if (hart_local_get() != &boot_hart)
-        boot_panic("tp invariant broken");
-
-    trap_install();
-    if (csr_read(CSR_STVEC) == 0)
-        boot_panic("stvec not installed");
-    con_puts("[boot] arch: tp=&hart_local, stvec installed\n");
-    con_puts("[boot] arch: satp=");
-    con_puthex(csr_read(CSR_SATP));
-    con_puts(" sstatus=");
-    con_puthex(csr_read(CSR_SSTATUS));
-    con_puts("\n");
-
-    /* 5. 交接；kmain 不返回。 */
+    /* 5. handoff：先建立 tp 不变量并安装 stvec，再交给 kmain。 */
+    arch_ready(hartid);
     con_puts("[boot] handoff: kmain(&bootinfo)\n");
     kmain(&bi);
     boot_panic("kmain returned");

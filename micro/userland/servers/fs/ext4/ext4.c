@@ -3,8 +3,10 @@
 
 enum {
     SUPER_OFFSET = 1024, EXT4_MAGIC = 0xef53, GROUP_DESC_SIZE = 32,
-    FEATURE_FILETYPE = 0x2, FEATURE_EXTENTS = 0x40, RO_FEATURES = 0x43,
-    INODE_EXTENTS = 0x80000, EXTENT_MAGIC = 0xf30a, EXTENT_ENTRIES = 4,
+    INCOMPAT_FILETYPE = 0x2, INCOMPAT_EXTENTS = 0x40, INCOMPAT_FLEX_BG = 0x200,
+    RO_FEATURES = 0x1 | 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x100 | 0x400,
+    INODE_EXTENTS = 0x80000, INODE_INLINE_DATA = 0x10000000,
+    EXTENT_MAGIC = 0xf30a, EXTENT_ENTRIES = 4,
     TYPE_MASK = 0xf000, MODE_DIR = 0x4000, MODE_FILE = 0x8000,
 };
 
@@ -47,7 +49,8 @@ static enum ext4_result load_inode(const struct ext4 *fs, uint32_t ino, struct i
     uint16_t mode = le16(p) & TYPE_MASK;
     if (mode != MODE_DIR && mode != MODE_FILE)
         return EXT4_WRONG_TYPE;
-    if (le32(p + 0x20) != INODE_EXTENTS)
+    uint32_t flags = le32(p + 0x20);
+    if (!(flags & INODE_EXTENTS) || (flags & INODE_INLINE_DATA))
         return EXT4_UNSUPPORTED;
     inode->type = mode == MODE_DIR ? EXT4_DIRECTORY : EXT4_FILE;
     inode->size = (uint64_t)le32(p + 0x6c) << 32 | le32(p + 4);
@@ -89,8 +92,15 @@ enum ext4_result ext4_mount(struct ext4 *fs, const void *image, size_t bytes)
     const uint8_t *super = (const uint8_t *)image + SUPER_OFFSET;
     if (le16(super + 0x38) != EXT4_MAGIC || le16(super + 0x3a) != 1)
         return EXT4_FORMAT;
-    if (le32(super + 0x18) != 2 || le32(super + 0x14) != 0 ||
-        le32(super + 0x60) != (FEATURE_FILETYPE | FEATURE_EXTENTS) ||
+    uint32_t log_block = le32(super + 0x18);
+    uint16_t desc_size = le16(super + 0xfe);
+    uint32_t incompat = le32(super + 0x60);
+    if (log_block != 2 || le32(super + 0x14) != 0 ||
+        le32(super + 0x1c) != log_block ||
+        (desc_size && desc_size != GROUP_DESC_SIZE) ||
+        (incompat & (INCOMPAT_FILETYPE | INCOMPAT_EXTENTS)) !=
+            (INCOMPAT_FILETYPE | INCOMPAT_EXTENTS) ||
+        (incompat & ~(INCOMPAT_FILETYPE | INCOMPAT_EXTENTS | INCOMPAT_FLEX_BG)) ||
         (le32(super + 0x64) & ~RO_FEATURES))
         return EXT4_UNSUPPORTED;
 
