@@ -82,6 +82,20 @@ void as_unref(struct as *as);
 int as_share_kernel(struct as *as, pfn_t kernel_root, int first_index);
 
 /*
+ * 为内核建立恒等映射（VA == PA），不参与 frame 引用计数。
+ *
+ * 两个用途的物理页性质不同：
+ *   - 内核镜像由链接脚本/固件提供，不是 frame_init 的对象；
+ *   - 直接映射窗口是 frame_init 管理的帧池，但池中的帧由
+ *     frame_alloc()/持有者负责引用。
+ * 二者对这个 AS 都是“非拥有映射”：PTE 用 RSW 位标记，as_unmap() 和
+ * AS 销毁时跳过 frame_unref。因此不能走 as_map() 的 refcount 检查。
+ *
+ * 必须在目标 AS 第一次作为 satp 使用之前调用；重复映射返回 MEM_EEXIST。
+ */
+int as_map_kernel_range(struct as *as, paddr_t base, size_t size);
+
+/*
  * rights 只能由 MEM_R/W/X/U/KERNEL 组成，且至少包含 R/W/X 之一。
  * MEM_W 自动带 MEM_R；不带 MEM_KERNEL 的映射设置 PTE_U。
  */

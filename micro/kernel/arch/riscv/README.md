@@ -320,8 +320,8 @@ Boot HART MISA    : rv64imafdch          ← 有 F/D，但编译期禁用
 | **I1** | 内核态（S-mode）`tp` 恒为 `&hart_local[hartid]`；当且仅当 U-mode 时 `sscratch` = 该线程内核栈顶，S-mode 时 `sscratch == 0`。U-mode 的 `tp` 属于用户上下文，本模型约定用户不得改写它 |
 | **I2** | trap frame 是跨特权级传递寄存器状态的**唯一**结构（288 B，31 GPR + 4 CSR + pad） |
 | **I3** | 进入 `trap_handler` 时 `sstatus.SIE = 0`（硬件保证） |
-| **I4** | 任何 `satp` 写入后必须 `sfence.vma`（**尚未实现**，MMU 未开） |
-| **I5** | 内核代码/数据/栈/trap frame 在所有地址空间中地址相同且 `PTE_U=0`（尚未开 MMU，待验证） |
+| **I4** | 任何 `satp` 写入后必须 `sfence.vma`。`memory/as.c: as_activate()` 已实现；`kernel/syscall/closure.c` 在 QEMU virt 上验证了两个用户 AS 的真实 `satp` 切换 |
+| **I5** | 内核代码/数据/栈/trap frame 在所有地址空间中地址相同且 `PTE_U=0`。由 `as_map_kernel_range()` 建立内核根页表、`as_share_kernel()` 复制到用户 AS；闭环日志中的 `[as] satp switch ...` 与隔离缺页是直接证据 |
 | **I6** | `trap_handler` 返回值 = 下一个要跑的 frame，**不一定等于入参** |
 | **I7** | 内核不可重入 trap（trap 期间关中断）；内核栈溢出为未定义行为 |
 
@@ -360,6 +360,14 @@ kernel/arch/riscv/
 正式 boot/demo 镜像**不链接 `trap.c`**：`shared/demo.c` 提供了同签名的
 `trap_handler`，负责 demo 的 ecall 协议。两者都必须遵守 `trap.S` 的 ABI
 （入参/返回值都是 `struct trap_frame *`），并由 `trap.S` 统一恢复现场。
+
+本次统一闭环把 timer/U-`ecall` 接到了**正式镜像实际使用的** `shared/demo.c`
+`trap_handler`：S 态 timer 先给模块 trap 一次观察/接管机会，未接管时执行
+`clock_handle_interrupt()` → `sched_tick()`，返回前 `sched_check()` →
+`cpu_switch()`；U 态 `ecall` 继续分发给模块 trap（`kernel/syscall/closure.c`
+再进入 `syscall_dispatch()`）。运行命令和串口证据见
+[`kernel/syscall/README.md`](../../syscall/README.md) 与
+[`qemu-unified.log`](../../syscall/qemu-unified.log)。
 
 ---
 

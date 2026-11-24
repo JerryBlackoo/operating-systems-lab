@@ -263,6 +263,46 @@ static void test_kernel_share(void)
     printf("memory: kernel share ok\n");
 }
 
+/*
+ * as_map_kernel_range() 的叶子是非拥有映射：它不增加引用，as_unmap 和
+ * AS 销毁都不得 frame_unref 目标页。用一个已由测试持有（refcount=1）
+ * 的池帧验证：若回收路径误 unref，frame_refcount 会掉到 0。
+ */
+static void test_nonowned_kernel_map(void)
+{
+    uint64_t baseline = frame_free_count();
+    struct as *kernel = as_create();
+    pfn_t owned = frame_alloc();
+    vaddr_t va;
+    int rights = 0;
+    pfn_t translated = PFN_NONE;
+
+    assert(kernel != 0);
+    assert(owned != PFN_NONE);
+    assert(frame_refcount(owned) == 1);
+    va = (vaddr_t)frame_paddr(owned);
+
+    assert(as_map_kernel_range(kernel, (paddr_t)va, PAGE_SIZE) == MEM_OK);
+    assert(as_translate(kernel, va, &rights, &translated) == MEM_OK);
+    assert(translated == owned);
+    assert((rights & MEM_U) == 0);
+    assert((rights & (MEM_R | MEM_W | MEM_X)) == (MEM_R | MEM_W | MEM_X));
+    assert(frame_refcount(owned) == 1); /* 非拥有映射不增加引用 */
+
+    /* as_unmap 非拥有叶子不得释放 owner 的页 */
+    assert(as_unmap(kernel, va) == MEM_OK);
+    assert(frame_refcount(owned) == 1);
+
+    /* 重新映射后销毁 AS，同样不得误回收 */
+    assert(as_map_kernel_range(kernel, (paddr_t)va, PAGE_SIZE) == MEM_OK);
+    as_unref(kernel);
+    assert(frame_refcount(owned) == 1);
+
+    assert(frame_free(owned) == MEM_OK);
+    assert(frame_free_count() == baseline);
+    printf("memory: non-owned kernel map ok\n");
+}
+
 int main(void)
 {
     void *memory = 0;
@@ -276,6 +316,7 @@ int main(void)
 
     test_map_copy_unmap();
     test_kernel_share();
+    test_nonowned_kernel_map();
     test_reserve_and_exhaust();
 
     printf("memory: all tests passed\n");

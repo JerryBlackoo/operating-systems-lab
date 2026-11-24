@@ -48,7 +48,7 @@ MODEL_SUPPORT_pm := $(MODEL_SUPPORT_sched) kernel/capability/capability.c kernel
 MODEL_SUPPORT_syscall := $(SCHED_SUPPORT) $(CLOCK_SUPPORT) kernel/ipc/ipc.c \
                          kernel/capability/capability.c kernel/capability/cap_arch_riscv.c
 MODEL_DIR_syscall := kernel/syscall
-MODEL_FILES_syscall := syscall.c demo.c
+MODEL_FILES_syscall := syscall.c demo.c closure.c user_prog.S
 MODEL_DIR_abi := shared/abi
 MODEL_FILES_abi := demo.c
 MODEL_DIR_init := userland/init

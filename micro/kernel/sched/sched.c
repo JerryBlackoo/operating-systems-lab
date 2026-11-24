@@ -388,9 +388,18 @@ void sched(void)
     current_thread = next;
 
     if (next->as != 0) {
-        /* 用户线程：切页表并刷 TLB；内核线程沿用当前映射。 */
+        /* 用户线程：切页表并刷 TLB。 */
         as_activate(next->as);
         active_as = next->as;
+    } else if (active_as != 0) {
+        /*
+         * 内核线程没有地址空间。若从用户线程切回来，必须退回 bare，
+         * 否则 satp 仍指向死掉/无关的用户页表，后续内核线程会在错误
+         * 的地址空间里运行。bare 下内核镜像与直接映射窗口按物理地址
+         * 访问，仍然有效。
+         */
+        as_activate(0);
+        active_as = 0;
     }
 
     if (prev == next) {
@@ -532,8 +541,9 @@ uint64_t sched_quantum_expiration_count(void)
  *
  * 注意：sched_start_tick() 只负责武装 timer 和置 STIE；要真正形成抢占，
  * 还需要 trap 路径在 S 态 timer 中断里调用 clock_handle_interrupt()，
- * 并在返回前调用 sched_check()。这段 glue 目前只接在 sched/demo.c，
- * 通用 arch/riscv/trap.c 尚未接入。
+ * 并在返回前调用 sched_check()。正式镜像的这段 glue 在 shared/demo.c 的
+ * trap_handler 默认分支；模块 trap 可先接管（clock/interrupt 专用 demo），
+ * 未接管时由统一路径执行。arch/riscv/trap.c 只属于 ARCH_SELFTEST 镜像。
  */
 static struct clock_timer tick_timer;
 static uint64_t tick_period;

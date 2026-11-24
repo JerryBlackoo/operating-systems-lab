@@ -16,6 +16,21 @@ static const struct demo_module *active_module;
 static bool running_user;
 static bool reported_first_umode_ecall;
 
+/*
+ * 正式启动路径的通用 S 态定时器 glue。
+ *
+ * clock/sched 不是每个单模块镜像都会链接（例如 memory/objects），因此这里用
+ * 弱符号：链接到对应实现时就是正常的 clock_handle_interrupt + sched_check，
+ * 没链接时归一化为空，不会把“模块尚未接入”变成链接失败。
+ *
+ * 强符号定义位置：kernel/clock/timer.c、kernel/sched/sched.c。
+ */
+extern void clock_handle_interrupt(void) __attribute__((weak));
+extern void sched_check(void) __attribute__((weak));
+
+static void (*const clock_irq_hook)(void) = clock_handle_interrupt;
+static void (*const sched_check_hook)(void) = sched_check;
+
 void *memcpy(void *dst, const void *src, size_t n)
 {
     uint8_t *out = dst;
@@ -73,6 +88,12 @@ static void user_control(uint64_t op, uintptr_t arg, uintptr_t detail)
 
 static _Noreturn void stop(uint32_t code)
 {
+    /*
+     * 失败路径可能发生在用户地址空间里（satp != 0）。QEMU 的测试地址
+     * 0x00100000 不在任何用户页表中，先退回 bare 才能写入。
+     */
+    csr_write(CSR_SATP, 0);
+    __asm__ volatile("sfence.vma zero, zero" ::: "memory");
     *(volatile uint32_t *)QEMU_TEST_BASE = code;
     for (;;)
         __asm__ volatile("wfi");
@@ -134,6 +155,37 @@ static _Noreturn void unexpected_trap(const struct trap_frame *frame)
 struct trap_frame *trap_handler(struct trap_frame *frame)
 {
     running_user = false;
+
+    /*
+     * S 态定时器中断的通用路径。
+     *
+     * 先给模块一次接管机会：clock/interrupt 的 demo 需要直接驱动各自的
+     * 定时器/irq 层，不能先被 clock 队列的“撤防”截断。模块返回 NULL
+     * 表示不接管，此时正式路径统一执行
+     *
+     *   clock_handle_interrupt() -> sched_tick()
+     *   sched_check()            -> sched() -> cpu_switch()
+     *
+     * 这条路径不再依赖 sched/demo.c 的局部 glue。
+     */
+    if ((frame->scause & SCAUSE_IRQ) &&
+        (frame->scause & ~SCAUSE_IRQ) == IRQ_S_TIMER) {
+        struct trap_frame *next = NULL;
+
+        if (active_module && active_module->trap)
+            next = active_module->trap(frame);
+        if (next) {
+            running_user = !(next->sstatus & SSTATUS_SPP);
+            return next;
+        }
+        if (clock_irq_hook)
+            clock_irq_hook();
+        if (sched_check_hook)
+            sched_check_hook();
+        running_user = !(frame->sstatus & SSTATUS_SPP);
+        return frame;
+    }
+
     if (frame->scause == EXC_ECALL_U && !(frame->sstatus & SSTATUS_SPP)) {
         if (!reported_first_umode_ecall) {
             reported_first_umode_ecall = true;

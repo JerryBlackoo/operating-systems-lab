@@ -7,15 +7,22 @@
 #include "sched.h"
 
 /*
- * syscall/demo.c 分两段验证同一套分发器：
+ * closure.c：同一模块里的统一 trap / 启动路径闭环。
+ * 它先于 legacy 单 AS 用例运行，复用 shared/demo.c 的正式 trap_handler。
+ */
+extern bool closure_active;
+void closure_run(void);
+struct trap_frame *closure_trap(struct trap_frame *frame);
+
+/*
+ * syscall/demo.c 分三段验证同一套分发器：
  *
  *   1. 模型用例：用带计数的假后端逐条覆盖形状、权限、阻塞与续完，
  *      这里只关心 syscall.c 自己的状态机。
- *   2. 全链路用例：后端换成 capability + ipc + memory + sched 的真实实现，
- *      从 U-mode ecall 一路走到能力检查、端点队列、页表和调度器。
- *
- * 真实后端的 acquire 只做「句柄 -> 对象类别 + 权限」校验，对象在
- * cap_invoke 的 pins 区间内保持存活；release 仅用于核对在途引用计数。
+ *   2. 统一闭环（closure.c）：两个真实 AS 的用户线程，经正式 trap 的
+ *      timer glue 抢占，从 U-mode ecall 走能力检查、IPC 和隔离缺页。
+ *   3. legacy 全链路用例：单 AS（satp=0）下从 U-mode ecall 验证
+ *      capability + ipc + memory + sched 的既有接线。
  */
 
 /* ---------------- 模型用例：受控的假后端 ---------------- */
@@ -581,6 +588,7 @@ static enum syscall_phase kernel_invoke(void *ctx, const struct syscall_request 
 }
 
 static const struct syscall_backend kernel_backend = {
+    .ctx = &kernel,
     .acquire = kernel_acquire, .release = kernel_release, .invoke = kernel_invoke,
 };
 static struct syscall_call kernel_call;
@@ -731,19 +739,40 @@ static void user_demo(uintptr_t argument)
     CHECK(kernel.served == 2);
     CHECK(kernel.acquires == kernel.releases);
 
-    demo_log("U-mode ecall: capability-checked IPC, real map/unmap and thread exit");
+    demo_log("U-mode ecall: legacy single-AS capability send/recv, real map/unmap and thread exit");
     abi_ecall(ABI_THREAD_EXIT, (struct abi_regs){0});
     CHECK(false);
 }
 
 static struct trap_frame *handle_trap(struct trap_frame *frame)
 {
+    if (closure_active)
+        return closure_trap(frame);
+
+    /*
+     * 正式 trap 的 timer 分支会把非 ecall 帧先交给模块 trap。legacy 全链路
+     * 只消费同步 U-mode ecall；其它帧必须返回 NULL，让 shared/demo.c 的
+     * 统一 clock/sched glue 处理，不能把 timer 帧喂给 syscall_dispatch。
+     */
+    if (frame->scause != EXC_ECALL_U || (frame->sstatus & SSTATUS_SPP))
+        return NULL;
+
     enum syscall_phase phase = syscall_dispatch(&kernel_call, frame, CALLER, &kernel_backend);
 
     if (phase == SYSCALL_IGNORED)
         return NULL;
     if (phase == SYSCALL_EXITED)
         demo_pass();
+    if (phase != SYSCALL_COMPLETE) {
+        if (phase == SYSCALL_WAITING)
+            demo_log("legacy: unexpected WAITING");
+        else if (phase == SYSCALL_DISPATCHED)
+            demo_log("legacy: unexpected DISPATCHED");
+        else if (phase == SYSCALL_ENTERED)
+            demo_log("legacy: unexpected ENTERED");
+        else
+            demo_log("legacy: unexpected IDLE");
+    }
     CHECK(phase == SYSCALL_COMPLETE);
     return frame;
 }
@@ -751,6 +780,7 @@ static struct trap_frame *handle_trap(struct trap_frame *frame)
 static void run(void)
 {
     model_cases();
+    closure_run();
     kernel_setup();
     demo_enter_user(user_demo, (uintptr_t)&env);
 }

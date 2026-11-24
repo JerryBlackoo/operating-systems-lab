@@ -84,6 +84,7 @@ int as_fault(struct as *as, vaddr_t va, int access, pfn_t *pfn);
 int as_copyin(struct as *as, vaddr_t uva, void *dst, size_t len);
 int as_copyout(struct as *as, vaddr_t uva, const void *src, size_t len);
 int as_share_kernel(struct as *as, pfn_t kernel_root, int first_index);
+int as_map_kernel_range(struct as *as, paddr_t base, size_t size);
 void as_activate(struct as *as);
 ```
 
@@ -143,6 +144,35 @@ as_share_kernel(user_as, kernel_as->root_pfn, KERNEL_VPN2);
 
 `KERNEL_VPN2` 是内核虚拟地址对应的 Sv39 顶层索引（例如 `0x80000000` 对应 2）。
 共享表项不会被用户 AS 释放；内核 AS 必须比所有用户 AS 活得久。
+
+### 本次接线：`as_map_kernel_range()`
+
+`as_map()` 要求目标物理帧的 `refcount >= 1`，这只适合 `frame_alloc()` 的对象。
+这里有两类物理页：
+
+- **内核镜像**由链接脚本/固件提供，不是 `frame_init` 的对象；
+- **直接映射窗口**是 `frame_init` 管理的帧池，池中的帧由 `frame_alloc()` 及其
+  持有者管理引用。
+
+两者对这个内核 AS 都是**非拥有映射**：`as_map_kernel_range(as, base, size)` 做
+逐页恒等映射（VA == PA、`PTE_U=0`），不增加 refcount，并在 PTE 的 RSW bit 8
+写“非拥有”标记。`as_unmap()` 和 AS 销毁遍历 `free_table()` 时看到该标记会跳过
+`frame_unref()`，所以销毁带恒等映射的 AS 不会误回收内核镜像或帧池 owner 仍持有
+的页。它只在 satp 第一次启用前调用，用来建立“所有用户 AS 共享的内核根页表”。
+
+```c
+struct as *kernel_as = as_create();
+as_map_kernel_range(kernel_as, (paddr_t)__kernel_start, kernel_image_size);
+as_map_kernel_range(kernel_as, (paddr_t)pool_base, pool_size);
+
+struct as *user_as = as_create();
+as_share_kernel(user_as, kernel_as->root_pfn, 2); /* VA >= 0x80000000 */
+```
+
+`kernel/syscall/closure.c` 用这条路径让两个用户 AS 在 satp 切换后仍能进入
+S 态 trap handler、访问 frame 池中的页表页，并在日志里留下不同的 root pfn。
+主机自测 `memory_test.c` 覆盖“销毁带非拥有恒等映射的 AS 不改变池帧 refcount”。
+完整运行记录见 [`kernel/syscall/qemu-unified.log`](../syscall/qemu-unified.log)。
 
 ## 已知边界
 

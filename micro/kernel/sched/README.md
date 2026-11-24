@@ -45,6 +45,9 @@ Sched  = (ready_queue, current, idle)
    新线程第一次运行由 `thread_bootstrap` 打开中断。
 9. `reap_dead()` 只有在当前执行流不再依赖该 AS 时才释放页表；如果死线程的
    AS 仍挂在 `satp` 上，先切回 bare 映射再 `as_unref()`。
+10. `sched()` 切换到 `as == NULL` 的内核线程时，若 `active_as != NULL`，必须
+    `as_activate(0)` 并清 `active_as`；内核线程在 bare 映射下按物理地址访问
+    内核镜像和直接映射窗口。用户线程之间的切换则 `as_activate(next->as)`。
 10. `thread_block()/thread_yield()/sched_check()` 把“状态迁移 + sched()”放在
     同一个关中断区间内，避免定时器在两步之间插入一次调度。
 
@@ -143,8 +146,15 @@ sched: all tests passed
   `time_left` 耗尽次数，供 QEMU 串口核对。
 - demo 不再自带 `on_tick`；trap 路径仍是
   `clock_handle_interrupt() → sched_tick()`，返回前 `sched_check()`。
-  这段 glue 目前在 `sched/demo.c`；通用 `arch/riscv/trap.c` 尚未接入，
-  因此不能只凭 `sched_start_tick()` 就认为任意内核线程已具备抢占。
+- 本次接线把这段 glue 放进了正式镜像实际使用的 `shared/demo.c`
+  `trap_handler`：模块 trap 先获得一次观察/接管机会（`clock`/`interrupt`
+  的专用 demo 需要直接驱动自己的定时器/irq 层），未接管则默认执行
+  `clock_handle_interrupt()` + `sched_check()`。`kernel/syscall/closure.c`
+  的两个用户线程在 QEMU 上通过这条默认路径发生了真实抢占和 satp 切换，
+  不再依赖 `sched/demo.c` 才能跑通。`arch/riscv/trap.c` 仍然只属于
+  `ARCH_SELFTEST` 自检镜像。
+- 从用户线程切到 `as == NULL` 的内核线程时，`sched()` 现在会
+  `as_activate(0)` 并清 `active_as`；否则 satp 会继续指向无关的用户页表。
 
 ### 验收命令与结果
 

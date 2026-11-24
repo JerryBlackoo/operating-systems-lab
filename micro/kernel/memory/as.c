@@ -14,6 +14,11 @@
 #define PTE_U (1ULL << 4)
 #define PTE_A (1ULL << 6)
 #define PTE_D (1ULL << 7)
+/*
+ * RSW（9:8）由软件保留。bit 8 标记“非拥有映射”：叶子指向的物理页
+ * 不由本 AS 持有引用，as_unmap/free_table 不得 frame_unref 它。
+ */
+#define PTE_RSW_NONOWNED (1ULL << 8)
 
 #define PTE_PFN(pte) ((pfn_t)((pte) >> 10))
 #define PTE_MAKE(pfn, flags) ((((uint64_t)(pfn)) << 10) | (uint64_t)(flags))
@@ -207,7 +212,13 @@ static void free_table(pfn_t table, int level, int root_limit)
         child = PTE_PFN(entry);
 
         if (entry & PTE_PERMS) {
-            frame_unref(child);
+            /*
+             * 只有 as_map() 建立的拥有映射才持有 frame 引用。
+             * as_map_kernel_range() 的恒等映射标记为非拥有：物理页由
+             * 启动资产或 frame 池的 owner 负责，销毁 AS 不能误回收。
+             */
+            if (!(entry & PTE_RSW_NONOWNED))
+                frame_unref(child);
         } else if (level > 0) {
             free_table(child, level - 1, 512);
             frame_unref(child);
@@ -319,6 +330,54 @@ int as_share_kernel(struct as *as, pfn_t kernel_root, int first_index)
     return MEM_OK;
 }
 
+int as_map_kernel_range(struct as *as, paddr_t base, size_t size)
+{
+    paddr_t end;
+
+    if (as == 0 || !as->active) {
+        return MEM_EINVAL;
+    }
+    if (size == 0) {
+        return MEM_OK;
+    }
+    if ((base & (paddr_t)(PAGE_SIZE - 1)) != 0 ||
+        (size & (size_t)(PAGE_SIZE - 1)) != 0) {
+        return MEM_EINVAL;
+    }
+    end = base + size;
+    if (end < base) {
+        return MEM_EINVAL;
+    }
+
+    /*
+     * 逐页建立恒等叶子。中间页表页由 walk 按需从 frame 池分配，它们
+     * 自身随后也会落在这个范围内（池窗口），所以最终同样可被 S 态
+     * 通过物理地址访问。
+     *
+     * 叶子标记 PTE_RSW_NONOWNED：
+     *   - 内核镜像页是链接脚本/固件资产，不是 frame_init 的对象；
+     *   - 直接映射窗口是 frame_init 的帧池，但它由 frame_alloc/持有者
+     *     管理引用，AS 的恒等映射不增加也不负责释放。
+     * 因此 free_table()/as_unmap() 看到该位时跳过 frame_unref。
+     */
+    for (paddr_t pa = base; pa < end; pa += PAGE_SIZE) {
+        struct walk_result result;
+        int rc = walk(as, (vaddr_t)pa, true, &result);
+
+        if (rc != MEM_OK) {
+            return rc;
+        }
+        if (result.pfn != PFN_NONE) {
+            return MEM_EEXIST;
+        }
+        *result.pte = PTE_MAKE(pa >> PAGE_SHIFT,
+                              PTE_V | PTE_R | PTE_W | PTE_X | PTE_A | PTE_D |
+                              PTE_RSW_NONOWNED);
+    }
+    as_flush_tlb();
+    return MEM_OK;
+}
+
 int as_map(struct as *as, vaddr_t va, pfn_t pfn, int rights)
 {
     struct walk_result result;
@@ -381,8 +440,15 @@ int as_unmap(struct as *as, vaddr_t va)
         return MEM_EFAULT;
     }
 
+    uint64_t pte = *result.pte;
+
     *result.pte = 0;
-    frame_unref(result.pfn);
+    /*
+     * as_map_kernel_range() 的恒等叶子是非拥有映射；解除映射时不能
+     * frame_unref，否则会释放内核镜像/帧池 owner 仍持有的页。
+     */
+    if (!(pte & PTE_RSW_NONOWNED))
+        frame_unref(result.pfn);
     as_flush_tlb();
     return MEM_OK;
 }
