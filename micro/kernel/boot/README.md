@@ -263,13 +263,20 @@ OpenSBI 日志之后应出现：
 ...
 [cap] selftest ok
 [capability] PASS
+[bootstrap] preempt: 1 ms SBI timer armed on unified trap path
+[bootstrap] preempt: worker-a starts without yielding
+[bootstrap] preempt: worker-b starts before worker-a done
+[bootstrap] preempt: worker-a resumed after timer switch
+[bootstrap] preempt: worker-b resumed after timer switch
+[bootstrap] preempt: ticks=60 switches=7 quantum_expired=4 workers=2
 [bootstrap] PASS
 [kmain] shutting down
 ```
 
-具体数值会随内核大小和 QEMU 版本略变；关键是三段：`entry` 断言、`reserved`
-列表、`arch` 证据。能力自检的完整输出见
-[`kernel/capability/README.md`](../capability/README.md)。
+具体数值会随内核大小和 QEMU 版本略变；关键是四段：`entry` 断言、`reserved`
+列表、`arch` 证据，以及默认镜像的 timer 抢占计数。能力自检的完整输出见
+[`kernel/capability/README.md`](../capability/README.md)。默认抢占的完整串口见
+[`qemu-default-preempt.log`](qemu-default-preempt.log)。
 
 ### 验收表
 
@@ -286,7 +293,10 @@ OpenSBI 日志之后应出现：
 | `reserved[2]` | DTB 被显式保护 |
 | `tp=&hart_local, stvec installed` | arch 的 `hart_set` 和 `trap_install` 已执行 |
 | `kmain(&bootinfo)` | 早期初始化完成，开始读取本镜像的自举清单 |
-| `[bootstrap] PASS` | 清单各项已按顺序结束 |
+| `worker-b starts before worker-a done` | 两条不同内核线程交替运行：worker-a 尚未完成时被 timer 抢占，worker-b 获得 CPU |
+| `worker-a/b resumed after timer switch` | 两条线程都被时间片切走，并在 timer 抢占后恢复（判别性证据） |
+| `ticks=60 switches=7 quantum_expired=4` | 辅助计数来自本次 QEMU 运行；单独不构成抢占证明，需与 overlap/resumed 联合看 |
+| `[bootstrap] PASS` | 清单各项和默认抢占探针均已按顺序结束 |
 
 ### QEMU 实测证据（启动闭环）
 
@@ -294,10 +304,12 @@ OpenSBI 日志之后应出现：
 
 | 场景 | 命令 | 退出码 | 完整输出 |
 |---|---|---|---|
-| 默认能力自检 | `make -C micro run` | 0 | [`qemu-boot-capability.log`](qemu-boot-capability.log) |
+| 默认能力自检 + timer 抢占 | `make -C micro run` | 0 | [`qemu-default-preempt.log`](qemu-default-preempt.log) |
 | U-mode ecall 路径 | `make -C micro run BOOT_MODULES=libs` | 0 | [`qemu-boot-umode.log`](qemu-boot-umode.log) |
 
-两份 log 开头都记录实际执行的 `# command:` 和 `# exit code:`。OpenSBI 横幅带 NUL 字节，保存前用 `tr -d '\000'` 去掉，仅做纯文本化，未改动其他内容。
+每份 log 开头都记录实际执行的 `# command:` 和 `# exit code:`。OpenSBI 横幅带 NUL 字节，保存前用 `tr -d '\000'` 去掉，仅做纯文本化，未改动其他内容。
+`qemu-boot-capability.log` 保留为接入默认抢占前的历史基线；当前默认行为以
+`qemu-default-preempt.log` 为准。
 
 两条命令都真正执行 `qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel ...`，不是宿主替身。内核在 `[bootstrap] PASS` 后调用 `sbi_shutdown`，QEMU 自行退出，因此不需要等满 15s 超时。
 
@@ -334,6 +346,54 @@ runtime: stack alignment, IPC wrappers, signed error and thread exit
 
 正式启动镜像不主动触发 S-mode 非法指令；同步异常原因与 `sepc` 的实测证据来自独立架构自检，`trap.c` 的非法指令恢复分支只在自检 Makefile 定义的 `ARCH_SELFTEST` 下编译，正式路径遇到非法指令会 `panic`。见 [`arch/riscv/README.md`](../arch/riscv/README.md) 第八节与 [`qemu-selftest.log`](../arch/riscv/qemu-selftest.log)。
 
+### 默认镜像的 timer 抢占接线（本次新增）
+
+架构核实结论：
+
+- 默认 `make -C micro run` 的 `BOOT_MODULES` 是 `capability`。正式镜像链接
+  `shared/demo.c` 提供的 `trap_handler`，**不链接** `kernel/arch/riscv/trap.c`；
+  后者只属于 `ARCH_SELFTEST` 自检镜像。
+- `clock` 的 one-shot 队列、`sched_start_tick()`、`sched_tick()/sched_check()`
+  和 `shared/demo.c` 的 timer glue 此前已经存在；但 `sched_start_tick()` 只在
+  `kernel/syscall/closure.c` 与 `kernel/sched/demo.c` 调用，所以默认 capability
+  镜像没有周期 tick，也没有抢占证据。
+
+本次把最后一段启动接线补在正式路径上，而不是复制一个模块 demo：
+
+| 改动 | 位置 | 作用 |
+| --- | --- | --- |
+| 仅默认 `capability` 配置链接抢占探针 | `micro/Makefile` 的 `ifeq ($(BOOT_SELECTED),capability)` | 不改其它模块清单的既有行为 |
+| 模块清单之后调用探针 | `kernel/boot/bootstrap.c` 的弱符号 `boot_preempt_probe` | 探针属于 bootstrap，不属于 capability demo |
+| 创建两条内核 worker、`clock_init()`、`sched_start_tick(1 ms)`、开 `SIE` | `kernel/boot/preempt_probe.c` | 真实 timer 中断进入 `shared/demo.c` 的统一 trap |
+| timer IRQ 路径 | `shared/demo.c` → `clock_handle_interrupt()` → `sched_tick()` → `sched_check()` → `sched()` → `cpu_switch()` | 产生真实 tick、时间片耗尽和上下文切换 |
+| 收尾核验 | `preempt_probe.c` | 检查两条 worker 都启动/完成、出现 overlap、都被切走再恢复，并打印 tick/switch/quantum |
+
+边界：
+
+- 这个探针只证明“默认镜像的 S 态 timer 中断能在统一 trap 路径上触发抢占”，
+  不是完整的 idle/服务调度策略，也不创建首个用户态服务。它是 boot 在默认
+  启动上的**验证专用例外**；boot 自身仍不创建首个线程/服务。
+- 只在 `BOOT_SELECTED` 恰好等于 `capability` 时链接。`BOOT_MODULES=capability`
+  可独立通过；`syscall`、`sched`、`clock` 等配置保持原有验收输出。
+- 有判别力的是 `worker-b starts before worker-a done` 和两条
+  `resumed after timer switch`；`ticks/switches/quantum_expired` 是辅助计数，
+  单独不能证明抢占。worker 的启动/恢复日志在抢占点前后可能交换顺序，验收
+  不依赖固定行序。
+
+完整证据见 [`qemu-default-preempt.log`](qemu-default-preempt.log)，实测退出码为 0，
+关键行为：
+
+```text
+[capability] PASS
+[bootstrap] preempt: worker-a starts without yielding
+[bootstrap] preempt: worker-b starts before worker-a done
+[bootstrap] preempt: worker-a resumed after timer switch
+[bootstrap] preempt: worker-b resumed after timer switch
+[bootstrap] preempt: ticks=60 switches=7 quantum_expired=4 workers=2
+[bootstrap] PASS
+[kmain] shutting down
+```
+
 ---
 
 ## 八、显式不做与已知限制
@@ -345,7 +405,8 @@ runtime: stack alignment, IPC wrappers, signed error and thread exit
 | 自举模块来源 | 构建时链接进 ELF。独立的初始用户映像可用 initrd 描述 | `bootstrap_plan.c` |
 | 物理页分配器 | 未实现，只给区间 | `kernel/memory` |
 | 首个线程/服务 | 未创建 | `kernel/objects` / `userland/init` |
-| `kmain` | 完成选定的 demo 后关机 | `kernel/boot/bootstrap.c` |
+| 默认抢占探针 | 只验证 timer IRQ 能抢占两条内核 worker；没有 idle/服务策略 | `kernel/boot/preempt_probe.c` |
+| `kmain` | 完成选定的 demo 和默认抢占探针后关机 | `kernel/boot/bootstrap.c` |
 | context/trap | 每次自举使用共享切换和陷阱入口，架构自检有独立镜像 | `arch/riscv/README.md` §八 |
 | MBR/PBR | RISC-V virt 不存在这条链 | `ex/x86-bios` |
 

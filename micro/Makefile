@@ -67,6 +67,12 @@ C_SRCS := kernel/boot/boot.c \
           shared/demo.c \
           $(filter %.c,$(MODEL_SRCS))
 
+# 默认 capability 镜像在正式 bootstrap 上跑一次 timer 抢占冒烟测试。
+# 其它组合不链接这个文件，避免改变各模块 demo 的既有验收语义。
+ifeq ($(BOOT_SELECTED),capability)
+C_SRCS += kernel/boot/preempt_probe.c
+endif
+
 ASM_SRCS := kernel/arch/riscv/boot.S \
             kernel/arch/riscv/trap.S \
             kernel/arch/riscv/context.S \

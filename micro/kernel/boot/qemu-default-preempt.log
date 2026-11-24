@@ -1,0 +1,97 @@
+# command: make -C micro run
+# build: make -C micro all
+# cwd: repository root
+# exit code: 0
+# note: OpenSBI banner omitted; NUL padding from OpenSBI removed with `tr -d '\000'`.
+# note: real QEMU virt, not a host-side function-call demo. The run was wrapped in
+#       `timeout 25s`; rc=0 means the kernel shut QEMU down, not timeout 124.
+# note: default BOOT_MODULES=capability. After [capability] PASS, bootstrap arms a
+#       1 ms SBI timer and runs two kernel workers through shared/demo.c's unified
+#       trap glue. The probe rebuilds object/sched state around its own static
+#       probe_runner; it does not reuse capability run()'s stack-local current.
+# note: decisive evidence is worker-b starting before worker-a is done plus both
+#       workers resuming after a timer switch. Tick/switch/quantum counters are
+#       corroborating values, not proof by themselves.
+# note: this probe is a boot verification-only exception; boot itself still does
+#       not create the first user/service thread.
+
+[micro] boot: minimal model
+[boot] raw handoff: hartid=0 dtb=0x0000000087e00000
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x0000000000054000
+[boot] ram: 0x0000000080000000 + 0x0000000008000000
+[boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
+[boot] reserved[1]: 0x0000000080200000 + 0x0000000000054000 kernel
+[boot] reserved[2]: 0x0000000087e00000 + 0x0000000000001516 dtb
+[boot] arch: tp=&hart_local, stvec installed
+[boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
+[boot] handoff: kmain(&bootinfo)
+[kmain] handoff: BootInfo at 0x0000000080252e30, hartid=0
+[bootstrap] begin
+[capability] start
+
+[cap] capability minimal model
+[cap] object create  OK
+[cap] root install  OK
+[cap] mint subset  OK
+[cap] mint superset rejected  OK
+[cap] badge mint needs grant  OK
+[cap] badge mint with grant  OK
+[cap] copy  OK
+[cap] cross-task move needs grant  OK
+[cap] cross-task move with grant  OK
+[cap] moved source handle stale  OK
+[cap] revoke root  OK
+[cap] root survives revoke  OK
+[cap] mint child gone  OK
+[cap] copy child gone  OK
+[cap] cross-task child gone  OK
+[cap] refs back to root  OK
+[cap] delete root  OK
+[cap] finalized once  OK
+[cap] deleted handle stale  OK
+[cap] object create 2  OK
+[cap] slot reuse new gen  OK
+[cap] mint task0 slot5  OK
+[cap] task isolation  OK
+[cap] mint read-only  OK
+[cap] invoke without write right  OK
+[cap] invoke with read right  OK
+[cap] limited object create  OK
+[cap] limited object install  OK
+[cap] unsupported op rejected  OK
+[cap] occupied slot rejected  OK
+[cap] occupied slot unchanged  OK
+[cap] object create 4  OK
+[cap] discard unreferenced  OK
+[cap] 100 mint/delete cycles  OK
+[cap] delete limited object  OK
+[cap] delete c5  OK
+[cap] delete c4  OK
+[cap] delete root2  OK
+[cap] borrow object create  OK
+[cap] borrow root install  OK
+[cap] acquire rejects missing right  OK
+[cap] acquire pins object  OK
+[cap] delete defers finalize  OK
+[cap] deleted borrow handle stale  OK
+[cap] release finalizes  OK
+[cap] all objects finalized  OK
+[cap] no live caps  OK
+[cap] no live objects  OK
+[cap] invariants  OK
+[cap] live caps=0 objects=0 finalized=5/5
+[cap] selftest ok
+capability: caps gate IPC call/reply, AS map and cross-CSpace revoke
+[capability] PASS
+[bootstrap] preempt: 1 ms SBI timer armed on unified trap path
+[bootstrap] preempt: worker-a starts without yielding
+[bootstrap] preempt: worker-b starts before worker-a done
+[bootstrap] preempt: worker-a resumed after timer switch
+[bootstrap] preempt: worker-b resumed after timer switch
+[bootstrap] preempt: ticks=60 switches=7 quantum_expired=4 workers=2
+[bootstrap] PASS
+[kmain] shutting down
