@@ -134,6 +134,27 @@ void sched(void);
 void sched_tick(void);
 void sched_check(void);
 
+/*
+ * 周期性调度 tick 源。
+ *
+ * 调用前必须先 clock_init()。本函数武装一个 one-shot clock_timer，
+ * 回调里调用 sched_tick() 并锚定旧 deadline 重装；同时置 sie.STIE。
+ * sstatus.SIE 仍由调用者打开，以便先布置好状态再允许中断。
+ *
+ * 注意：仅武装 tick 不会自动产生抢占；trap 侧仍需在 S 态 timer 中断里
+ * 调用 clock_handle_interrupt()，并在返回前调用 sched_check()。
+ * sched_stop_tick() 取消 timer；只有启动前 STIE 原本为 0 时才清 STIE。
+ *
+ * 返回值：false 表示 period 为 0、已经在运行，或 timer 武装失败。
+ */
+bool sched_start_tick(uint64_t period_ns);
+void sched_stop_tick(void);
+
+/* 观测：真实 tick 回调次数与成功完成的上下文切换次数。 */
+uint64_t sched_tick_count(void);
+uint64_t sched_switch_count(void);
+uint64_t sched_quantum_expiration_count(void);
+
 /* 启动/自测用：强制某个线程成为 current，并把它从就绪队列摘下。 */
 void sched_bootstrap(struct thread *t);
 void sched_set_idle(struct thread *t);

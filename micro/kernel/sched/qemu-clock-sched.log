@@ -1,0 +1,104 @@
+# command: make -C micro BOOT_MODULES=clock,sched run
+# cwd: repository root
+# exit code: 0
+# note: the OpenSBI banner contains NUL bytes; they were stripped with `tr -d '\000'`
+#       before saving. The make "进入目录/离开目录" lines were dropped so the
+#       log contains no machine-specific absolute path. No other content changed.
+#
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/sched/demo.c -o build/riscv-bootstrap/clock-sched/kernel/sched/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/sched/sched.c -o build/riscv-bootstrap/clock-sched/kernel/sched/sched.o
+build/riscv-bootstrap/clock-sched/ld.lld -T kernel/arch/riscv/link.ld --no-relax -o build/riscv-bootstrap/clock-sched/kernel.elf build/riscv-bootstrap/clock-sched/kernel/boot/boot.o build/riscv-bootstrap/clock-sched/kernel/boot/bootinfo.o build/riscv-bootstrap/clock-sched/kernel/boot/bootstrap.o build/riscv-bootstrap/clock-sched/kernel/arch/riscv/sbi.o build/riscv-bootstrap/clock-sched/shared/demo.o build/riscv-bootstrap/clock-sched/kernel/clock/demo.o build/riscv-bootstrap/clock-sched/kernel/clock/event.o build/riscv-bootstrap/clock-sched/kernel/clock/timebase.o build/riscv-bootstrap/clock-sched/kernel/clock/timer.o build/riscv-bootstrap/clock-sched/kernel/ipc/ipc.o build/riscv-bootstrap/clock-sched/kernel/memory/as.o build/riscv-bootstrap/clock-sched/kernel/memory/frame.o build/riscv-bootstrap/clock-sched/kernel/objects/object.o build/riscv-bootstrap/clock-sched/kernel/sched/demo.o build/riscv-bootstrap/clock-sched/kernel/sched/sched.o build/riscv-bootstrap/clock-sched/kernel/arch/riscv/boot_asm.o build/riscv-bootstrap/clock-sched/kernel/arch/riscv/trap_asm.o build/riscv-bootstrap/clock-sched/kernel/arch/riscv/context_asm.o build/riscv-bootstrap/clock-sched/kernel/sched/switch_rv64_asm.o build/riscv-bootstrap/clock-sched/bootstrap_plan.o
+built: build/riscv-bootstrap/clock-sched/kernel.elf
+   text	   data	    bss	    dec	    hex	filename
+  27208	      8	 237632	 264848	  40a90	build/riscv-bootstrap/clock-sched/kernel.elf
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel build/riscv-bootstrap/clock-sched/kernel.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___/_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+
+[micro] boot: minimal model
+[boot] raw handoff: hartid=0 dtb=0x0000000087e00000
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x0000000000041000
+[boot] ram: 0x0000000080000000 + 0x0000000008000000
+[boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
+[boot] reserved[1]: 0x0000000080200000 + 0x0000000000041000 kernel
+[boot] reserved[2]: 0x0000000087e00000 + 0x0000000000001516 dtb
+[boot] arch: tp=&hart_local, stvec installed
+[boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
+[boot] handoff: kmain(&bootinfo)
+[kmain] handoff: BootInfo at 0x0000000080240880, hartid=0
+[bootstrap] begin
+[clock] start
+timer interrupts: canceled deadline and equal-deadline FIFO
+[clock] PASS
+[sched] start
+[sched] timer: SBI one-shot tick source armed at 1 ms, sie.STIE=1
+[sched] worker-a running without yielding
+[sched] S-timer IRQ #1: scause=0x8000000000000005 tick=318797
+[sched] S-timer IRQ #2: scause=0x8000000000000005 tick=328521 delta=9724
+[sched] S-timer IRQ #3: scause=0x8000000000000005 tick=338524 delta=10003
+[sched] sched_tick: worker-a time_left 1->0, need_resched set
+[sched] switch: worker-a -> worker-b, sched switches=2
+[sched] worker-a resumed after timer preemption
+[sched] integrated: irqs=17 ticks=16 switches=11 quantum_expired=3 preempt_switches=1
+sched: timer preemption, quantum, block/wake and IPC
+[sched] PASS
+[bootstrap] PASS
+[kmain] shutting down

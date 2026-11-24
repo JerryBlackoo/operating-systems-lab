@@ -1,0 +1,27 @@
+# command: make -C micro BOOT_MODULES=clock,sched run
+# cwd: repository root
+# exit code: 0
+# note: key serial excerpt for the clock + scheduler integration run.
+#       Full serial output: ../sched/qemu-clock-sched.log
+#       The OpenSBI banner in the raw capture contains NUL bytes; they were
+#       stripped with `tr -d '\000'` before saving. The make "进入目录/离开目录"
+#       lines were dropped so this log has no machine-specific absolute path.
+#
+[bootstrap] begin
+[clock] start
+timer interrupts: canceled deadline and equal-deadline FIFO
+[clock] PASS
+[sched] start
+[sched] timer: SBI one-shot tick source armed at 1 ms, sie.STIE=1
+[sched] worker-a running without yielding
+[sched] S-timer IRQ #1: scause=0x8000000000000005 tick=318797
+[sched] S-timer IRQ #2: scause=0x8000000000000005 tick=328521 delta=9724
+[sched] S-timer IRQ #3: scause=0x8000000000000005 tick=338524 delta=10003
+[sched] sched_tick: worker-a time_left 1->0, need_resched set
+[sched] switch: worker-a -> worker-b, sched switches=2
+[sched] worker-a resumed after timer preemption
+[sched] integrated: irqs=17 ticks=16 switches=11 quantum_expired=3 preempt_switches=1
+sched: timer preemption, quantum, block/wake and IPC
+[sched] PASS
+[bootstrap] PASS
+[kmain] shutting down

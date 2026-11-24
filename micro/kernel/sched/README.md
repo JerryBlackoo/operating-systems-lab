@@ -54,7 +54,7 @@ Sched  = (ready_queue, current, idle)
 | 文件 | 内容 |
 |---|---|
 | `sched.h` | Thread/CPU 上下文/等待队列/API |
-| `sched.c` | 就绪队列、RR 时间片、block/wake、idle、死线程回收、定时睡眠 |
+| `sched.c` | 就绪队列、RR 时间片、block/wake、idle、死线程回收、定时睡眠、周期 tick 源 |
 | `switch_rv64.S` | RISC-V 64 的 `cpu_switch` / `cpu_switch_to` |
 | `sched_test.c` | RR、时间片、block/wake、idle 回退、回收、容量/等待队列自测 |
 | `Makefile` | 主机自测构建（`-DSCHED_HOST_TEST`，fake `cpu_switch`） |
@@ -81,6 +81,13 @@ void thread_sleep_until(uint64_t deadline_ns);
 void sched(void);
 void sched_tick(void);
 void sched_check(void);
+
+/* 周期性 tick 源；调用前先 clock_init()，最后再打开 sstatus.SIE。 */
+bool sched_start_tick(uint64_t period_ns); /* 武装 timer + 置 sie.STIE */
+void sched_stop_tick(void);                /* 撤销 timer；按启动前状态恢复 STIE */
+uint64_t sched_tick_count(void);           /* 真实 tick 回调次数 */
+uint64_t sched_switch_count(void);         /* 真实 cpu_switch 次数 */
+uint64_t sched_quantum_expiration_count(void); /* time_left 耗尽次数 */
 
 void sched_bootstrap(struct thread *t); /* 启动/自测：强制 current */
 void sched_set_idle(struct thread *t);
@@ -113,18 +120,65 @@ sched: all tests passed
 主机自测的 `cpu_switch` 只记录调用，不真正切栈；因此它验证的是状态机、队列和
 时间片决策，不是实际寄存器切换。RISC-V 真实切换由 `switch_rv64.S` 提供。
 
-## QEMU 接线
+## QEMU 接线：真实 S 态定时器 → 调度
+
+### 此前已有的部分
+
+- `clock` 已有 `clock_timer_arm()`，经 SBI TIME `sbi_set_timer()` 编程 one-shot
+  比较器；`clock_handle_interrupt()` 负责撤防、派发到期回调并重装下一次 deadline。
+- `sched` 已有 `sched_tick()`（每 tick 扣 `time_left`，耗尽置 `need_resched`）
+  与 `sched_check()`。
+- `sched` demo 之前在自己的 `demo.c` 里维护一个周期性 `clock_timer` 回调，
+  回调中调用 `sched_tick()`。
+
+### 本次新增的钩子
+
+- `sched_start_tick(period_ns)`：把 tick 源收进 sched 本体，武装 one-shot
+  `clock_timer`；回调中调用 `sched_tick()`，按旧 deadline 重装下一次比较值，
+  并置 `sie.STIE`。`sstatus.SIE` 留给调用者在布置完成后打开。
+- `sched_stop_tick()`：取消 timer；只有启动前 STIE 原本为 0 时才清
+  `sie.STIE`，避免误关别的定时器使用者。
+- `sched_tick_count()` / `sched_switch_count()` /
+  `sched_quantum_expiration_count()`：记录真实 tick、真实 `cpu_switch` 与
+  `time_left` 耗尽次数，供 QEMU 串口核对。
+- demo 不再自带 `on_tick`；trap 路径仍是
+  `clock_handle_interrupt() → sched_tick()`，返回前 `sched_check()`。
+  这段 glue 目前在 `sched/demo.c`；通用 `arch/riscv/trap.c` 尚未接入，
+  因此不能只凭 `sched_start_tick()` 就认为任意内核线程已具备抢占。
+
+### 验收命令与结果
 
 ```sh
-make -C micro run BOOT_MODULES=sched
+make -C micro BOOT_MODULES=clock,sched run
 ```
 
-这个 demo 不再是纯状态机演示，而是把时间层接进真实内核路径：
+退出码 0。完整串口见 [`qemu-clock-sched.log`](qemu-clock-sched.log)：
+开头记录了 command / exit code；OpenSBI 横幅中的 NUL 已用 `tr -d '\000'`
+去掉，未改其它内容。
+
+关键串口：
 
 ```text
-clock 定时器中断 → clock_handle_interrupt() → sched_tick()
-trap 返回前       → sched_check()             → sched() → cpu_switch()
+[clock] PASS
+[sched] timer: SBI one-shot tick source armed at 1 ms, sie.STIE=1
+[sched] worker-a running without yielding
+[sched] S-timer IRQ #1: scause=0x8000000000000005 tick=318797
+[sched] S-timer IRQ #2: scause=0x8000000000000005 tick=328521 delta=9724
+[sched] S-timer IRQ #3: scause=0x8000000000000005 tick=338524 delta=10003
+[sched] sched_tick: worker-a time_left 1->0, need_resched set
+[sched] switch: worker-a -> worker-b, sched switches=2
+[sched] worker-a resumed after timer preemption
+[sched] integrated: irqs=17 ticks=16 switches=11 quantum_expired=3 preempt_switches=1
+[sched] PASS
+[bootstrap] PASS
 ```
+
+`scause=0x8000000000000005` 是 S 态 timer 中断（bit 63 | cause 5）。
+连续三次 IRQ 的 `tick` 差分别为 9724 和 10003，说明 one-shot 比较值确实
+被重装并再次触发；但间隔不一定精确等于 period（1ms @ 10MHz = 10000
+ticks），可能受首次 pending、中断处理耗时以及回调按旧 deadline 重装影响。
+`time_left 1->0` 与 `worker-a -> worker-b` 证明时间片耗尽后确实发生了真实
+上下文切换，而不是只在宿主自测里手动调用 `sched_tick()`。
 
 工作负载：
 
@@ -139,6 +193,7 @@ trap 返回前       → sched_check()             → sched() → cpu_switch()
 object_system_init();
 sched_init();
 ipc_init();
+clock_init();
 
 struct thread *main = thread_create(0, kmain_thread, 0, stack, stack_size, "main");
 struct thread *idle = thread_create(0, idle_loop, 0, idle_stack, idle_stack_size,
@@ -146,8 +201,14 @@ struct thread *idle = thread_create(0, idle_loop, 0, idle_stack, idle_stack_size
 sched_set_idle(idle);
 sched_bootstrap(main);
 
-/* 10 ms 定时器中断：clock_handle_interrupt() -> sched_tick() */
-/* trap 返回用户/内核前：sched_check() */
+/* 1 ms one-shot tick：回调里 sched_tick()，再重装下一次 deadline。 */
+CHECK(sched_start_tick(1000000ULL));
+irq_enable(); /* sched_start_tick 只置 sie.STIE，不打开 sstatus.SIE。 */
+
+/* trap：clock_handle_interrupt() -> sched_tick()
+ *       sched_check() -> sched() -> cpu_switch() */
+
+sched_stop_tick();
 ```
 
 RISC-V 细节：
@@ -169,6 +230,11 @@ RISC-V 细节：
 ## 已知边界
 
 - 单核、无优先级、无 CFS/EEVDF、无实时调度、无 SMP。
+- `sched_start_tick()` 假定调用者已完成 `clock_init()`，且当前 hart 的
+  clock 队列可用；停止时必须先 `sched_stop_tick()` 再拆除 clock。
+  它只置 `sie.STIE`，`sstatus.SIE` 由调用者统一打开。
+- 主机自测（`-DSCHED_HOST_TEST`）不编译 tick 源，`sched_test` 只验证状态机、
+  队列和时间片决策；真实 SBI 定时器与 `cpu_switch` 由 QEMU 验收覆盖。
 - 等待队列本身不带 timeout；`thread_sleep_until()` 用一个临时的
   `clock_timer` 实现线程睡眠，不改变 `waitq` 的阻塞/唤醒语义。
 - 不做进程对象；`waitpid`、信号、fd 表等属于用户态 PM/VFS。

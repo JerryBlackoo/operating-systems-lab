@@ -7,6 +7,7 @@
 
 #ifndef SCHED_HOST_TEST
 #include "clock/clock.h"
+#include "csr.h"
 #endif
 
 /*
@@ -27,6 +28,11 @@ static struct thread *idle_thread;
 static struct as *active_as;
 
 static bool need_resched;
+
+/* 观测计数：只增不减，供真实 QEMU 验收核对。 */
+static uint64_t tick_count;
+static uint64_t switch_count;
+static uint64_t quantum_expirations;
 
 static void thread_bootstrap(void);
 
@@ -251,6 +257,9 @@ void sched_init(void)
     idle_thread = 0;
     active_as = 0;
     need_resched = false;
+    tick_count = 0;
+    switch_count = 0;
+    quantum_expirations = 0;
 
     /* 对象注册表与调度器共享同一把单核锁。 */
     object_set_lock(sched_lock, sched_unlock);
@@ -389,6 +398,7 @@ void sched(void)
         return;
     }
 
+    switch_count++;
     if (prev != 0) {
         cpu_switch(&prev->ctx, &next->ctx);
     } else {
@@ -491,10 +501,102 @@ void sched_tick(void)
         if (current_thread->time_left == 0) {
             current_thread->time_left = SCHED_QUANTUM_TICKS;
             need_resched = true;
+            quantum_expirations++;
         }
     }
     sched_unlock(flags);
 }
+
+uint64_t sched_tick_count(void)
+{
+    return tick_count;
+}
+
+uint64_t sched_switch_count(void)
+{
+    return switch_count;
+}
+
+uint64_t sched_quantum_expiration_count(void)
+{
+    return quantum_expirations;
+}
+
+#ifndef SCHED_HOST_TEST
+/*
+ * 周期性 tick 是调度策略的一部分，但触发机制仍由 clock 提供：
+ * 这里只持有 timer 对象，回调在 S 态定时器中断上下文执行。
+ *
+ * 与 demo 局部定时器的区别：tick 源由 sched 自己武装和撤销，
+ * 不再需要在每个使用者的 demo 里复制一份回调。
+ *
+ * 注意：sched_start_tick() 只负责武装 timer 和置 STIE；要真正形成抢占，
+ * 还需要 trap 路径在 S 态 timer 中断里调用 clock_handle_interrupt()，
+ * 并在返回前调用 sched_check()。这段 glue 目前只接在 sched/demo.c，
+ * 通用 arch/riscv/trap.c 尚未接入。
+ */
+static struct clock_timer tick_timer;
+static uint64_t tick_period;
+static bool tick_running;
+static bool tick_stie_was_set;
+
+static void sched_tick_callback(struct clock_timer *timer)
+{
+    tick_count++;
+    sched_tick();
+
+    /* 锚定旧 deadline，避免 UART 打印等延迟累积成漂移。 */
+    clock_timer_arm(timer, timer->deadline + tick_period);
+}
+
+bool sched_start_tick(uint64_t period_ns)
+{
+    uint64_t flags;
+
+    if (period_ns == 0) {
+        return false;
+    }
+
+    flags = sched_lock();
+    if (tick_running) {
+        sched_unlock(flags);
+        return false;
+    }
+
+    tick_period = period_ns;
+    tick_count = 0;
+    quantum_expirations = 0;
+    clock_timer_init(&tick_timer, sched_tick_callback, 0);
+    if (!clock_timer_arm(&tick_timer, clock_now() + period_ns)) {
+        sched_unlock(flags);
+        return false;
+    }
+
+    /*
+     * timer 已武装后再解闸 STIE。sstatus.SIE 不在这里打开：
+     * 调用者通常还要完成自己的布置，最后再统一开中断。
+     * 记录原来的 STIE，停止时不要误关别的定时器使用者。
+     */
+    tick_stie_was_set = (csr_read(CSR_SIE) & SIE_STIE) != 0;
+    csr_set(CSR_SIE, SIE_STIE);
+    tick_running = true;
+    sched_unlock(flags);
+    return true;
+}
+
+void sched_stop_tick(void)
+{
+    uint64_t flags = sched_lock();
+
+    if (tick_running) {
+        clock_timer_cancel(&tick_timer);
+        if (!tick_stie_was_set)
+            csr_clear(CSR_SIE, SIE_STIE);
+        tick_running = false;
+    }
+    sched_unlock(flags);
+}
+#endif /* SCHED_HOST_TEST */
 
 void sched_check(void)
 {

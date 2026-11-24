@@ -253,6 +253,60 @@ make clean
 make -C micro run BOOT_MODULES=clock
 ```
 
+### 与调度器的真实集成（本次验收）
+
+此前 `clock` 的 API 与 clock demo 已经各自可用：S 态 timer 经 SBI
+`sbi_set_timer()` 完成 one-shot 编程，`clock_handle_interrupt()` 负责撤防、
+派发和重装；`sched` demo 也已有局部回调调用 `sched_tick()`。本次没有重写这些
+机制，而是把周期性 tick 源收进调度器本体：
+
+- `sched_start_tick()` 用现有 `clock_timer_arm()` 武装一个 one-shot timer，
+  回调里调用 `sched_tick()`，并按旧 deadline 重装；同时置 `sie.STIE`。
+- `sched_stop_tick()` 取消 timer；只有启动前 STIE 原本为 0 时才清
+  `sie.STIE`，避免误关别的定时器使用者。
+- 调度器暴露真实 tick / `cpu_switch` / 时间片耗尽计数，trap 路径仍是
+  `clock_handle_interrupt()` 后 `sched_check()`。这两步调用目前只接在
+  `sched/demo.c`，通用 `arch/riscv/trap.c` 尚未接入。
+
+因此本节的证据不是 clock demo 的原文复制，而是同一次 QEMU 启动里
+clock 模块通过后，sched 模块用 SBI one-shot 定时器触发真实抢占。
+
+验收命令：
+
+```sh
+make -C micro BOOT_MODULES=clock,sched run
+```
+
+退出码 0。本目录的 [`qemu-clock-sched.log`](qemu-clock-sched.log) 保存了关键
+串口；完整输出在 [`../sched/qemu-clock-sched.log`](../sched/qemu-clock-sched.log)。
+两份 log 开头都有 `# command` / `# exit code`；OpenSBI 横幅的 NUL 字节已用
+`tr -d '\000'` 去掉，未改其它内容。
+
+关键串口：
+
+```text
+[clock] start
+timer interrupts: canceled deadline and equal-deadline FIFO
+[clock] PASS
+[sched] timer: SBI one-shot tick source armed at 1 ms, sie.STIE=1
+[sched] worker-a running without yielding
+[sched] S-timer IRQ #1: scause=0x8000000000000005 tick=318797
+[sched] S-timer IRQ #2: scause=0x8000000000000005 tick=328521 delta=9724
+[sched] S-timer IRQ #3: scause=0x8000000000000005 tick=338524 delta=10003
+[sched] sched_tick: worker-a time_left 1->0, need_resched set
+[sched] switch: worker-a -> worker-b, sched switches=2
+[sched] worker-a resumed after timer preemption
+[sched] integrated: irqs=17 ticks=16 switches=11 quantum_expired=3 preempt_switches=1
+[bootstrap] PASS
+```
+
+`[clock] PASS` 仍是既有 clock demo 的队列/取消/FIFO 验收；新增证据是后面的
+`sched` 段：S 态 timer 中断 `scause=0x8000000000000005` 连续三次触发，
+相邻 `tick` 差为 9724 和 10003，说明 one-shot 比较器被重装并再次触发。
+该间隔不保证精确等于 period（1ms @ 10MHz = 10000 ticks），可能受首次
+pending、中断处理耗时以及回调按旧 deadline 重装影响。`worker-a
+time_left 1->0` 后发生 `worker-a -> worker-b` 的真实切换。
+
 ## 已知限制
 
 - 单 hart：`head` / `running` 是全局变量。SMP 需要按 CPU 复制队列与比较器，并处理 timer 迁移。
