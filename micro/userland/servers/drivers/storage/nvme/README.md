@@ -71,3 +71,10 @@ make -C micro run BOOT_MODULES=all
 
 - 需要 → 属于 `servers/block/` 的通用请求层
 - 不需要（只有 NVMe 才有 SQE/CQE、PRP、doorbell）→ 本目录
+
+## 本轮接线状态（勿过声称）
+
+本轮**没有**接通真实 NVMe 控制器。demo 中的控制器、DMA 内存和完成队列都是
+替身，`[nvme] PASS` 只证明 SQE/CQE 编解码、队列指针、doorbell 顺序和故障
+恢复模型；没有 MMIO 探测、真实 IRQ、真实 DMA 或 U-mode 驱动服务。剩余差距：
+PCIe/MMIO 初始化、队列内存分配与 IOMMU/PMP、真实中断与完成回收。

@@ -43,3 +43,10 @@ make -C micro/userland/servers/net run
 ```
 
 从仓库根目录运行，成功时输出 `[net] PASS` 并退出 QEMU。
+
+## 本轮接线状态（勿过声称）
+
+本轮**没有**接通真实网卡或链路层。demo 使用链路替身捕获发送报文并注入接收
+队列，`[net] PASS` 只证明 IPv4/UDP 报头、校验和、端口队列和丢弃规则；
+不代表 MMIO 网卡、DMA、IRQ 或 U-mode net 服务已经工作。剩余差距：链路层
+驱动、DMA/IRQ 接线、分片/选项、ARP/ICMP 和真实网络往返。

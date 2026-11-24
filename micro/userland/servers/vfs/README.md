@@ -44,3 +44,10 @@ make -C micro/userland/servers/vfs run
 ```sh
 make -C micro BOOT_MODULES=all run
 ```
+
+## 本轮接线状态（勿过声称）
+
+本轮**没有**把 VFS 接到真实块设备或持久文件系统。上面的 QEMU demo 使用内存
+文件系统替身，`[vfs] PASS` 只证明路径解析、每客户端偏移和描述符所有权；
+不代表块设备、ext4 挂载或 U-mode 文件服务已经接通。剩余差距：block/ext4
+真实请求路径、IPC 请求/完成协议、错误恢复与挂载点管理。

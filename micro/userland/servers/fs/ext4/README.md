@@ -91,3 +91,11 @@ make -C micro/userland/servers/fs/ext4 run
 ## 与 vfs 的分工
 
 vfs 下发的是「inode + 偏移 + 长度」，本目录负责翻译成「块号 + 块数」并维护 ext4 自己的元数据一致性（位图、组描述符计数、校验和）。
+
+## 本轮接线状态（勿过声称）
+
+本轮**没有**挂载真实 ext4 镜像或接入 block server。QEMU demo 解析内存中的
+只读字节镜像，`[ext4] PASS` 只证明超级块/组描述符/inode/extent 的边界检查
+和只读读取模型；不代表真实磁盘 I/O、日志恢复、写路径或 U-mode 文件系统
+服务已经接通。剩余差距：block 请求与完成 IPC、缓存、错误恢复、写路径和
+校验和验证。

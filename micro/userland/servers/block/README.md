@@ -82,3 +82,10 @@ make -C micro/userland/servers/block run
 | B（正规） | 本目录统一持有，fs 通过 IPC 取块 | 每次取块一次 IPC 往返，但全局一致 |
 
 当前建议 A；切 B 时把 `bcache.c` 填上并把 `fs/ext4/` 的 `getblk` 改成 IPC。
+
+## 本轮接线状态（勿过声称）
+
+本轮**没有**接通真实块设备。QEMU demo 使用内存盘替身和合成的完成项，
+`[block] PASS` 只证明 FIFO、在途槽、完成匹配和失败投递模型；不代表 NVMe
+队列、真实 DMA、IRQ 或 U-mode block 服务已经工作。剩余差距：真实队列/
+中断接线、DMA 生命周期、设备复位与错误恢复。
