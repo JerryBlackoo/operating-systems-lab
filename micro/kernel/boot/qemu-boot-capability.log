@@ -1,0 +1,142 @@
+# command: make -C micro run
+# cwd: repository root
+make: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c shared/demo.c -o build/riscv/shared/demo.o
+build/riscv/ld.lld -T kernel/arch/riscv/link.ld --no-relax -o build/riscv/kernel.elf build/riscv/kernel/boot/boot.o build/riscv/kernel/boot/bootinfo.o build/riscv/kernel/boot/bootstrap.o build/riscv/kernel/arch/riscv/sbi.o build/riscv/shared/demo.o build/riscv/kernel/capability/cap_arch_riscv.o build/riscv/kernel/capability/cap_selftest.o build/riscv/kernel/capability/capability.o build/riscv/kernel/capability/demo.o build/riscv/kernel/clock/event.o build/riscv/kernel/clock/timebase.o build/riscv/kernel/clock/timer.o build/riscv/kernel/ipc/ipc.o build/riscv/kernel/memory/as.o build/riscv/kernel/memory/frame.o build/riscv/kernel/objects/object.o build/riscv/kernel/sched/sched.o build/riscv/kernel/syscall/syscall.o build/riscv/kernel/arch/riscv/boot_asm.o build/riscv/kernel/arch/riscv/trap_asm.o build/riscv/kernel/arch/riscv/context_asm.o build/riscv/kernel/sched/switch_rv64_asm.o build/riscv/bootstrap_plan.o
+built: build/riscv/kernel.elf
+   text	   data	    bss	    dec	    hex	filename
+  39468	      8	 286400	 325876	  4f8f4	build/riscv/kernel.elf
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel build/riscv/kernel.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___/_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+
+[micro] boot: minimal model
+[boot] raw handoff: hartid=0 dtb=0x0000000087e00000
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x0000000000050000
+[boot] ram: 0x0000000080000000 + 0x0000000008000000
+[boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
+[boot] reserved[1]: 0x0000000080200000 + 0x0000000000050000 kernel
+[boot] reserved[2]: 0x0000000087e00000 + 0x0000000000001516 dtb
+[boot] arch: tp=&hart_local, stvec installed
+[boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
+[boot] handoff: kmain(&bootinfo)
+[kmain] handoff: BootInfo at 0x000000008024fca0, hartid=0
+[bootstrap] begin
+[capability] start
+
+[cap] capability minimal model
+[cap] object create  OK
+[cap] root install  OK
+[cap] mint subset  OK
+[cap] mint superset rejected  OK
+[cap] badge mint needs grant  OK
+[cap] badge mint with grant  OK
+[cap] copy  OK
+[cap] cross-task move needs grant  OK
+[cap] cross-task move with grant  OK
+[cap] moved source handle stale  OK
+[cap] revoke root  OK
+[cap] root survives revoke  OK
+[cap] mint child gone  OK
+[cap] copy child gone  OK
+[cap] cross-task child gone  OK
+[cap] refs back to root  OK
+[cap] delete root  OK
+[cap] finalized once  OK
+[cap] deleted handle stale  OK
+[cap] object create 2  OK
+[cap] slot reuse new gen  OK
+[cap] mint task0 slot5  OK
+[cap] task isolation  OK
+[cap] mint read-only  OK
+[cap] invoke without write right  OK
+[cap] invoke with read right  OK
+[cap] limited object create  OK
+[cap] limited object install  OK
+[cap] unsupported op rejected  OK
+[cap] occupied slot rejected  OK
+[cap] occupied slot unchanged  OK
+[cap] object create 4  OK
+[cap] discard unreferenced  OK
+[cap] 100 mint/delete cycles  OK
+[cap] delete limited object  OK
+[cap] delete c5  OK
+[cap] delete c4  OK
+[cap] delete root2  OK
+[cap] borrow object create  OK
+[cap] borrow root install  OK
+[cap] acquire rejects missing right  OK
+[cap] acquire pins object  OK
+[cap] delete defers finalize  OK
+[cap] deleted borrow handle stale  OK
+[cap] release finalizes  OK
+[cap] all objects finalized  OK
+[cap] no live caps  OK
+[cap] no live objects  OK
+[cap] invariants  OK
+[cap] live caps=0 objects=0 finalized=5/5
+[cap] selftest ok
+capability: caps gate IPC call/reply, AS map and cross-CSpace revoke
+[capability] PASS
+[bootstrap] PASS
+[kmain] shutting down
+make: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+# exit code: 0

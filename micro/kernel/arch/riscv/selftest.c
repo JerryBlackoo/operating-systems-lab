@@ -104,8 +104,27 @@ void boot_main(u64 hartid, u64 dtb)
         "1: csrw 0xc01, zero\n"
         ".option pop\n"
         : "=&r"(fault_pc) : : "memory");
-    if (csr_read(CSR_SCAUSE) != EXC_INST_ILLEGAL ||
-        csr_read(CSR_SEPC) != fault_pc + 4)
+
+    /* 事后读回 CSR：把「同步异常的原因与出错 PC」直接写进串口。 */
+    u64 trap_cause = csr_read(CSR_SCAUSE);
+    u64 trap_sepc = csr_read(CSR_SEPC);
+    u64 trap_tval = csr_read(CSR_STVAL);
+    u64 expected_sepc = fault_pc + 4;
+
+    puts_raw("[trap] scause=");
+    put_hex(trap_cause);
+    puts_raw(" (");
+    puts_raw(trap_cause == EXC_INST_ILLEGAL ? "illegal instruction"
+                                           : "unexpected");
+    puts_raw(") sepc=");
+    put_hex(trap_sepc);
+    puts_raw(" expected=");
+    put_hex(expected_sepc);
+    puts_raw(" stval=");
+    put_hex(trap_tval);
+    puts_raw("\n");
+
+    if (trap_cause != EXC_INST_ILLEGAL || trap_sepc != expected_sepc)
         fail("illegal instruction trap or return was not observed");
     puts_raw("[trap] survived, trap return works  OK\n");
 

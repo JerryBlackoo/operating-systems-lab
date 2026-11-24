@@ -114,16 +114,26 @@ struct trap_frame *trap_handler(struct trap_frame *tf)
         panic("page fault (MMU not enabled in minimal model)", tf);
 
     case EXC_INST_ILLEGAL:
+#ifdef ARCH_SELFTEST
         /*
-         * 自检路径：写只读 CSR 会到这里。
-         * 这不是「恢复」的通用做法，只为了让 harness 能证明
-         * trap 三件套（保存 → 分发 → 返回）真的通了。
+         * 仅架构自检镜像启用（ARCH_SELFTEST 由 arch/riscv/Makefile 定义）。
+         * 自检故意写只读 CSR 制造非法指令，需要从故障指令之后继续，
+         * 才能证明 trap 三件套（保存 → 分发 → 返回）真的通了。
+         * 前提：故障指令是 4 字节非压缩编码；selftest.c 用 .option norvc
+         * 保证这一点。正式内核路径不跳过非法指令，落到下方 panic。
          */
         if (!from_user) {
-            puts_raw("[trap] illegal instruction caught in S-mode, resuming\n");
+            puts_raw("[trap] illegal instruction caught in S-mode: scause=");
+            put_hex_raw(cause);
+            puts_raw(" sepc=");
+            put_hex_raw(tf->sepc);
+            puts_raw(" stval=");
+            put_hex_raw(tf->stval);
+            puts_raw(", resuming\n");
             tf->sepc += 4;
             return tf;
         }
+#endif
         panic(exc_name(cause), tf);
 
     case EXC_ECALL_S:

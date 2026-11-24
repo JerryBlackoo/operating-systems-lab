@@ -10,7 +10,7 @@ LLD_REAL := $(shell command -v ld.lld 2>/dev/null || \
 LD_LLD := $(BUILD_DIR)/toolchain/ld.lld
 KERNEL := $(BUILD_DIR)/kernel.elf
 CFLAGS := --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei \
-          -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin \
+          -DARCH_SELFTEST=1 -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin \
           -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables \
           -fno-unwind-tables -nostdlib -O2 -g -Wall -Wextra -MMD -MP -I.
 OBJS := $(addprefix $(BUILD_DIR)/,selftest.o trap.o sbi.o boot_asm.o trap_asm.o context_asm.o)

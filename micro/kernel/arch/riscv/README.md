@@ -223,7 +223,7 @@ RISC-V 的一台 hart 在任意瞬间，可被本模块触碰的状态只有四�
 | 函数 | 寄存器/Memory 操作 |
 |---|---|
 | `trap_install()`（`trap.S`） | `csrw stvec, &trap_entry`（Direct 模式，mode=0） |
-| `trap_handler(tf)` | 读 `tf->scause`、`tf->sstatus`；`ecall` 时 `tf->sepc += 4`；非法指令自检时同样 `+=4` |
+| `trap_handler(tf)` | 读 `tf->scause`、`tf->sstatus`；`ecall` 时 `tf->sepc += 4`；仅编译时定义 `ARCH_SELFTEST` 的自检镜像在 S-mode 非法指令时 `+=4`（假设故障指令为 4 字节非压缩编码），正式路径直接 `panic` |
 | `panic()` | 读 `tf` 四个字段 + `hart_local_get()->hartid`（经 `tp`） |
 
 **分发依据**：`scause` 最高位 63 = 中断标志；`sstatus.SPP` 判来源。
@@ -336,7 +336,7 @@ kernel/arch/riscv/
 ├── boot.S          时刻 1：_start 五步
 ├── trap.S          时刻 2：trap_entry + trap_return
 ├── context.S       时刻 3：14 字上下文切换
-├── trap.c          自检镜像的 trap_handler 分发 + panic
+├── trap.c          唯一 trap 分发 + panic（非法指令恢复仅在 ARCH_SELFTEST）
 ├── csr.h           6 个 CSR 原语 + irq_* + 常量
 ├── hart.h          hart_local + tp 出入口
 ├── trap.h          struct trap_frame + 偏移宏
@@ -369,20 +369,20 @@ kernel/arch/riscv/
 
 ### 8.1 运行
 
-在本目录运行：
+从仓库根目录运行：
 
 ```sh
-cd /home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/arch/riscv
+make -C micro/kernel/arch/riscv run
+```
+
+也可以先进入本目录再执行 `make run`：
+
+```sh
+cd micro/kernel/arch/riscv
 make run
 ```
 
-也可以从 `micro/` 目录运行：
-
-```sh
-make -C kernel/arch/riscv run
-```
-
-需要 `clang`、`ld.lld` 或 Rust 工具链的 `rust-lld`，以及 `qemu-system-riscv64`。构建产物放在 `micro/build/riscv-arch-selftest/`；本目录执行 `make clean` 只清理该自检目录。QEMU 正常关机时退出码为 0；自检断言失败会打印 `[selftest] FAIL` 并请求 QEMU 非零退出。
+需要 `clang`、`ld.lld` 或 Rust 工具链的 `rust-lld`，以及 `qemu-system-riscv64`。自检 Makefile 为本镜像定义 `-DARCH_SELFTEST=1`，因此只有这条自检路径会跳过 S-mode 非法指令并从 `sepc + 4` 继续；正式内核镜像不定义该宏，遇到非法指令会 `panic`。构建产物放在 `micro/build/riscv-arch-selftest/`；本目录执行 `make clean` 只清理该自检目录。QEMU 正常关机时退出码为 0；自检断言失败会打印 `[selftest] FAIL` 并请求 QEMU 非零退出。
 
 在 `micro/` 运行 `make run` 会启动 boot 镜像并执行 `BOOT_MODULES` 清单。这里的非法指令和寄存器自检使用独立镜像。 [自举清单](../../boot/README.md#自举清单)
 
@@ -415,11 +415,14 @@ QEMU virt → OpenSBI → boot.S:_start → selftest.c:boot_main
 [ctx] in B, switching back to A
 [ctx] back in A, switch_count=1  OK
 [trap] writing read-only CSR (time)...
-[trap] illegal instruction caught in S-mode, resuming
+[trap] illegal instruction caught in S-mode: scause=0x0000000000000002 sepc=0x0000000080200964 stval=0x00000000c0101073, resuming
+[trap] scause=0x0000000000000002 (illegal instruction) sepc=0x0000000080200968 expected=0x0000000080200968 stval=0x00000000c0101073
 [trap] survived, trap return works  OK
 
 [micro] all three moments verified, shutting down
 ```
+
+上例是本机 QEMU 8.2.2 + OpenSBI v1.3 的实测输出，`sepc` 的绝对地址随镜像布局变化。完整串口记录（含 OpenSBI 横幅）见 [`qemu-selftest.log`](qemu-selftest.log)；文件开头记录实际命令和退出码，保存前去掉 OpenSBI 横幅中的 NUL 字节，仅为纯文本化，未改动其他内容。
 
 | 输出 | 证明了什么 |
 |---|---|
@@ -428,6 +431,8 @@ QEMU virt → OpenSBI → boot.S:_start → selftest.c:boot_main
 | `bss cleared` | `.bss` 探针 `switch_count` 的初值为 0 |
 | `stvec installed` | 读回的 `stvec` 等于 `trap_entry`，此时尚未触发 trap |
 | `switch_count=1` | 执行 B 后成功切回 A，计数为 1；不等于逐一验证全部寄存器取值 |
-| `illegal ... resuming` + `survived` | S-mode 非法指令经过 trap 保存、分发、恢复和 `sret` 后继续运行；自检还检查 `scause` 与 `sepc` |
+| `illegal instruction caught ... scause=0x2 sepc=0x... stval=0x...` | trap 路径本身打印同步异常的原因码、出错 PC 和 `stval`；`sepc` 指向触发 `csrw time` 的那条指令 |
+| `scause=... (illegal instruction) sepc=... expected=...` | 返回后读回 CSR：`scause=2`，`sepc` 已按 `+4` 前进且等于期望值，证明保存→分发→`sret` 全链路正确 |
+| `survived` | 非法指令后没有停机，继续执行到正常关机 |
 
-**本自检未验证**：U-mode 陷入与返回、`IRQ_S_TIMER`、MMU、多 hart、`trap_handler` 返回另一个线程的 frame。它只走 S-mode trap 路径，不代表用户态路径已验证。`trap.c` 对 S-mode 非法指令加 4 并继续运行是当前自检用途，不能作为正式内核异常恢复的一般做法。
+**本自检未验证**：U-mode 陷入与返回、`IRQ_S_TIMER`、MMU、多 hart、`trap_handler` 返回另一个线程的 frame。它只走 S-mode trap 路径，不代表用户态路径已验证。U-mode 的首次 `ecall` 由正式 boot 镜像的 `libs` 模块留下 `scause`/`SPP`/`sepc` 诊断，见 [`boot/README.md`](../../boot/README.md) 的“QEMU 实测证据”一节。`trap.c` 对 S-mode 非法指令加 4 并继续运行**只**在自检 Makefile 定义 `ARCH_SELFTEST` 时编译进来，属于自检用途；正式内核路径不会静默跳过非法指令。

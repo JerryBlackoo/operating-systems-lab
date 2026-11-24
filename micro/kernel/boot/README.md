@@ -205,7 +205,7 @@ offset 4   totalsize   big-endian
 | `csr_read`（`csr.h`） | 入口断言与 arch 证据 | 读回 `satp/sstatus/stvec`，不是“以为它是 0” |
 | `sbi_shutdown`（`sbi.c`） | `boot_panic` / `kmain` | 失败路径和正常退出都能让 QEMU 结束 |
 
-`context_switch` 保存启动执行流，完成一个模块后恢复它并推进清单。U-mode demo 通过 `trap_return` 进入用户态，通过陷阱报告结果。架构层还提供独立自检。 [arch 三时刻自检](../arch/riscv/README.md)
+`context_switch` 保存启动执行流，完成一个模块后恢复它并推进清单。U-mode demo 通过 `trap_return` 进入用户态，首次 `ecall` 由 trap 打印诊断，模块结束由 `context_switch` 回到启动执行流。架构层还提供独立自检。 [arch 三时刻自检](../arch/riscv/README.md)
 
 先执行 `hart_set`，再执行 `trap_install`，令陷阱入口安装后始终可通过 `tp` 取得 `hart_local`。
 
@@ -249,15 +249,15 @@ OpenSBI 日志之后应出现：
 [boot] console: SBI legacy putchar OK
 [boot] fdt: header OK
 [boot] bootinfo: v1 size=448
-[boot] kernel: 0x0000000080200000 + 0x0000000000019000
+[boot] kernel: 0x0000000080200000 + 0x0000000000050000
 [boot] ram: 0x0000000080000000 + 0x0000000008000000
 [boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
-[boot] reserved[1]: 0x0000000080200000 + 0x0000000000019000 kernel
+[boot] reserved[1]: 0x0000000080200000 + 0x0000000000050000 kernel
 [boot] reserved[2]: 0x0000000087e00000 + 0x0000000000001516 dtb
 [boot] arch: tp=&hart_local, stvec installed
 [boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
 [boot] handoff: kmain(&bootinfo)
-[kmain] handoff: BootInfo at 0x000000008020c750, hartid=0
+[kmain] handoff: BootInfo at 0x000000008024fca0, hartid=0
 [bootstrap] begin
 [capability] start
 ...
@@ -287,6 +287,52 @@ OpenSBI 日志之后应出现：
 | `tp=&hart_local, stvec installed` | arch 的 `hart_set` 和 `trap_install` 已执行 |
 | `kmain(&bootinfo)` | 早期初始化完成，开始读取本镜像的自举清单 |
 | `[bootstrap] PASS` | 清单各项已按顺序结束 |
+
+### QEMU 实测证据（启动闭环）
+
+本次打通启动闭环的实测命令、退出码与完整串口记录如下（均在仓库根目录执行）：
+
+| 场景 | 命令 | 退出码 | 完整输出 |
+|---|---|---|---|
+| 默认能力自检 | `make -C micro run` | 0 | [`qemu-boot-capability.log`](qemu-boot-capability.log) |
+| U-mode ecall 路径 | `make -C micro run BOOT_MODULES=libs` | 0 | [`qemu-boot-umode.log`](qemu-boot-umode.log) |
+
+两份 log 开头都记录实际执行的 `# command:` 和 `# exit code:`。OpenSBI 横幅带 NUL 字节，保存前用 `tr -d '\000'` 去掉，仅做纯文本化，未改动其他内容。
+
+两条命令都真正执行 `qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel ...`，不是宿主替身。内核在 `[bootstrap] PASS` 后调用 `sbi_shutdown`，QEMU 自行退出，因此不需要等满 15s 超时。
+
+默认镜像的关键串口行为：
+
+```text
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] arch: tp=&hart_local, stvec installed
+[boot] handoff: kmain(&bootinfo)
+[bootstrap] begin
+[capability] start
+...
+[capability] PASS
+[bootstrap] PASS
+[kmain] shutting down
+```
+
+U-mode 模块（`libs`）的源码路径是 `userland/libs/demo.c` 的 `DEMO_MODULE(libs, true, run, handle_trap)`（`user=true`）。启动后由 `shared/demo.c` 的 `demo_enter_user` 构造 U-mode 帧并 `sret` 进入用户态；用户代码的 `DEMO_PRINT`、IPC 与 `ABI_THREAD_EXIT` 都经 `ecall` 陷回内核。首次 U-mode `ecall` 由内核打印 `scause`/`SPP`/`sepc`，`[libs] PASS` 是内核在收到用户 `ecall` 后打印的响应，不是宿主伪造。`ABI_THREAD_EXIT` 经 `demo_pass` → `context_switch` 回到 boot 执行流，因此这份日志描述的是「进入 U-mode → ecall 陷回内核 → 上下文切回 boot」，**不**单独证明从 U-mode 用 `sret` 返回整个模块，也不提供 U-mode 寄存器逐项恢复的独立证据：
+
+```text
+[bootstrap] begin
+[libs] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x000000008020216a
+runtime: stack alignment, IPC wrappers, signed error and thread exit
+[libs] PASS
+[bootstrap] PASS
+[kmain] shutting down
+```
+
+`libs` 的用户串口输出经 `DEMO_PRINT` ecall 由内核代打。完整证据以两份 log 文件为准。
+
+正式启动镜像不主动触发 S-mode 非法指令；同步异常原因与 `sepc` 的实测证据来自独立架构自检，`trap.c` 的非法指令恢复分支只在自检 Makefile 定义的 `ARCH_SELFTEST` 下编译，正式路径遇到非法指令会 `panic`。见 [`arch/riscv/README.md`](../arch/riscv/README.md) 第八节与 [`qemu-selftest.log`](../arch/riscv/qemu-selftest.log)。
 
 ---
 

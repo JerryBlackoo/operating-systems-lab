@@ -14,6 +14,7 @@ static _Alignas(16) uint8_t demo_stack[16384];
 static struct context boot_context;
 static const struct demo_module *active_module;
 static bool running_user;
+static bool reported_first_umode_ecall;
 
 void *memcpy(void *dst, const void *src, size_t n)
 {
@@ -134,6 +135,16 @@ struct trap_frame *trap_handler(struct trap_frame *frame)
 {
     running_user = false;
     if (frame->scause == EXC_ECALL_U && !(frame->sstatus & SSTATUS_SPP)) {
+        if (!reported_first_umode_ecall) {
+            reported_first_umode_ecall = true;
+            console_write("[umode] first ecall: scause=");
+            console_hex(frame->scause);
+            console_write(" SPP=");
+            console_write((frame->sstatus & SSTATUS_SPP) ? "1" : "0");
+            console_write(" sepc=");
+            console_hex(frame->sepc);
+            console_write("\n");
+        }
         switch (frame->a7) {
         case DEMO_PRINT:
             demo_log((const char *)(uintptr_t)frame->a0);
