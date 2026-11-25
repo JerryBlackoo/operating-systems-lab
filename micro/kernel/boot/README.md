@@ -19,6 +19,64 @@ kmain(const struct bootinfo *)
 
 QEMU 通过 `-kernel` 把 ELF 的可加载段写入 RAM。OpenSBI 随后交出控制权，由 `_start` 建栈、清零 `.bss` 并进入 `boot_main`。此时，包括自举清单在内的镜像内容已在内存中。 [QEMU RISC-V ELF 装载](https://github.com/qemu/qemu/blob/v8.2.2/hw/riscv/boot.c#L198-L220)
 
+## 本目录的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct bootinfo` | `bootinfo.h` | **唯一的启动契约**：RAM 区间、kernel start/end、DTB 位置、initrd 区间、保留区数组、UART/PLIC 基址 |
+| `struct boot_region` | `bootinfo.h` | 一个物理保留区（`base` + `size` + `type`），如 initrd、DTB |
+| `struct boot_platform` | `bootinfo.h` | 平台事实：`ram_base`/`ram_size`、`firmware_*`、`kernel_start`/`kernel_end`、设备基址 |
+| `struct demo_module` | `shared/demo.h` | 一个可运行模块：名字 + `run()` + 可选 `trap()` |
+| `bootstrap_plan[]` | 构建生成 | 按 `BOOT_MODULES` 生成的模块指针数组，以 NULL 结尾 |
+| `kmain()` | `kernel_init.c` | capability 镜像的真正主函数：帧池、内核 AS、UART/PLIC、storage bringup、服务装配、启动调度 |
+| `struct service_boot_layout` | `service_boot.h` | 六个服务的启动寄存器布局（init/sm/pm/vm/heaptest/heaptest2） |
+| `struct kernel_spawn_*` | `kernel_spawn.c` | PM spawn 的实现（`ABI_PM_SPAWN` / `ABI_VM_GRANT_AS` / `ABI_PM_DISCARD`） |
+| `resident_user_trap()` | `resident_trap.c` | U-mode `ecall` 的常驻入口：分发、park、延迟终止兑现 |
+
+## 与其他模块的关联
+
+```text
+arch/riscv/boot.S ──(hartid, dtb)──> boot.c ──> bootinfo ──> kmain
+                                                              │
+        ┌─────────────────────────────────────────────────────┤
+        │            │            │          │                │
+     memory       sched        capability   loader          storage
+   frame_init   sched_init    cap_system_init spawn_user   bringup
+        │            │            │          │                │
+        └────────────┴────────────┴──────────┴────────────────┘
+                                 │
+              service_boot（cap 装配）+ kernel_spawn（PM spawn）
+                                 │
+                        resident_trap（syscall 入口）
+```
+
+| 对方模块 | 关系 |
+| --- | --- |
+| `arch/riscv` | `boot.S` 交出 `(hartid, dtb)`；`trap.S` 提供 `trap_entry`/`trap_return` |
+| `memory` | `frame_init`（BootInfo RAM）+ `frame_reserve`（内核镜像与 initrd）+ `as_map_kernel_range` 建内核 AS |
+| `sched` | `sched_init` / `thread_create`（idle）+ `sched_set_idle` + `sched_start_tick` |
+| `capability` | `cap_system_init` + `cap_root_install` 装配每个服务的初始 CSpace |
+| `loader` | `loader_pin_initrd` + `loader_spawn_user` 拉起六个服务 |
+| `console` / `interrupt` / `arch/riscv/plic` | `console_mmio_init` + `plic_hw_init` + `irq_init` + `console_bind_uart_irq` |
+| `storage` | `kernel_storage_bringup`（virtio-blk + block 队列） |
+| `pager` | `pager_init(ep_vm)` |
+| `syscall` / `user_backend` | `resident_trap` 调 `syscall_dispatch`；`user_syscall_backend_reset` 清后端 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 裸 `kmain` | 直接读 DTB、自己算 RAM 布局、手写每个模块初始化 | 早期能跑，但每加一个模块都要改主函数 |
+| 2. `BootInfo` 契约 | 把 arch 交接的机器状态归一化成一份结构体；`boot_main` 负责构建与校验 | arch 与后续模块解耦；换板子只改 boot 层 |
+| 3. 自举清单 | `BOOT_MODULES` → 构建期生成 `bootstrap_plan[]`；`bootstrap_run()` 按序执行 | 单模块 demo 与整内核镜像共用一套代码，`make check` 可逐模块验证 |
+| 4. 五时刻模型 | 校验入口 → 早期控制台 → 构建 BootInfo → 装 `tp`/`stvec` → 进 `kmain` | 每个阶段的可用设施不同（SBI vs MMIO、有无 trap），必须严格排序 |
+| 5. FDT 只验头 | 不解析 DTB 树，只校验魔数与边界；RAM/设备地址写成常量 | 教学模型不需要通用 FDT 解析器；代价是换板子要改常量 |
+| 6. 常驻 `kmain` | `kernel_init.c` 取代 demo 驱动的 `bootstrap_run` | M7 需要一个真正「跑起来不退出」的镜像，而不是跑完 demo 就关机 |
+| 7. 服务装配分离 | `service_boot_prepare` 负责 cap 布局，`kernel_spawn` 负责 PM spawn | 启动期和运行期的 cap 装配逻辑不同，混在一起会互相干扰 |
+| 8. `resident_trap` 常驻入口 | U-mode `ecall` 统一进 `syscall_dispatch`；`WAITING` 时 `syscall_wait_park` | 把 syscall 分发从 demo harness 移到生产路径 |
+| 9. storage 迁出策略层（A1） | `kernel_storage_bringup` 只保留 virtio-blk + block；ext4/vfs 移进 U-mode `fs` | 内核不应解释路径与 inode |
+| 10. 延迟终止兑现 | `resident_trap` 进入时先检查 `sched_thread_kill_pending` | RUNNING 线程无法当场摘除，需要一个确定的退出点 |
+
 ---
 
 ## 一、边界
@@ -229,7 +287,7 @@ make -C micro run BOOT_MODULES=
 
 构建时生成 `bootstrap_plan.c`，里面是按顺序排列的模块描述符指针。模块的入口函数、特权级和陷阱回调由各目录的 `DEMO_MODULE` 定义。镜像只链接所选模块及其依赖的实现。例如 `ipc` 会用到对象、内存和调度代码，清单仍只调用你点名的 demo。 [模块目录表](../../shared/modules.mk)
 
-`BootInfo` 校验通过后，`bootstrap_run` 先校验清单中每个描述符（`name` / `run` 非空），再逐条执行。内核 demo 在 S-mode 运行，用户态 demo 进入 U-mode，完成后回到启动执行流。每项输出 `[模块名] start` 和 `[模块名] PASS`。全清单完成后输出 `[bootstrap] PASS` 并关机。模块断言失败会打印失败项并以非零状态退出。
+`BootInfo` 校验通过后，`bootstrap_run` 先校验清单中每个描述符（`name` / `run` 非空），再逐条执行。内核 demo 在 S-mode 运行，用户态 demo 进入 U-mode，完成后回到启动执行流。每项输出 `[模块名] start` 和 `[模块名] PASS`。全清单完成后输出 `[bootstrap] PASS`；默认 `capability` 镜像随后进入 `kernel_enter_resident()` 并常驻，其他 `BOOT_MODULES` 清单保留显式关机以便自动验收。模块断言失败会打印失败项并以非零状态退出。
 
 默认镜像对应的 QEMU 命令如下。
 
@@ -268,9 +326,14 @@ OpenSBI 日志之后应出现：
 [bootstrap] preempt: worker-b starts before worker-a done
 [bootstrap] preempt: worker-a resumed after timer switch
 [bootstrap] preempt: worker-b resumed after timer switch
-[bootstrap] preempt: ticks=60 switches=7 quantum_expired=4 workers=2
+[bootstrap] preempt: ticks=61 switches=7 quantum_expired=5 workers=2
 [bootstrap] PASS
-[kmain] shutting down
+[kmain] pool: base=0x000000008026e000 bytes=131670016 frames=32146 reserved=2 free=32144
+[kmain] reserve: firmware 0x0000000080000000 +2097152
+[kmain] reserve: kernel 0x0000000080200000 +450560
+[kmain] reserve: dtb 0x0000000087e00000 +5398
+[kmain] idle: pool=0x000000008026e000+32146 frames free=32074
+[kmain] idle: heartbeat free=32074 ext_irqs=0 timer_ticks=2001
 ```
 
 具体数值会随内核大小和 QEMU 版本略变；关键是四段：`entry` 断言、`reserved`
@@ -300,18 +363,15 @@ OpenSBI 日志之后应出现：
 
 ### QEMU 实测证据（启动闭环）
 
-本次打通启动闭环的实测命令、退出码与完整串口记录如下（均在仓库根目录执行）：
+实测命令、退出码与串口记录如下（均在仓库根目录执行）：
 
 | 场景 | 命令 | 退出码 | 完整输出 |
 |---|---|---|---|
-| 默认能力自检 + timer 抢占 | `make -C micro run` | 0 | [`qemu-default-preempt.log`](qemu-default-preempt.log) |
-| U-mode ecall 路径 | `make -C micro run BOOT_MODULES=libs` | 0 | [`qemu-boot-umode.log`](qemu-boot-umode.log) |
+| M1 无 initrd 常驻复核 | `timeout 8s qemu-system-riscv64 ... -kernel micro/build/riscv/kernel.elf` | 124（外部 timeout） | [`../../docs/evidence/M1-2026-11-24.log`](../../docs/evidence/M1-2026-11-24.log) |
+| U-mode ecall 单模块 | `make -C micro run BOOT_MODULES=libs` | 0 | [`qemu-boot-umode.log`](qemu-boot-umode.log) |
+| 默认抢占历史基线 | `make -C micro run`（M1 前） | 0 | [`qemu-default-preempt.log`](qemu-default-preempt.log) |
 
-每份 log 开头都记录实际执行的 `# command:` 和 `# exit code:`。OpenSBI 横幅带 NUL 字节，保存前用 `tr -d '\000'` 去掉，仅做纯文本化，未改动其他内容。
-`qemu-boot-capability.log` 保留为接入默认抢占前的历史基线；当前默认行为以
-`qemu-default-preempt.log` 为准。
-
-两条命令都真正执行 `qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel ...`，不是宿主替身。内核在 `[bootstrap] PASS` 后调用 `sbi_shutdown`，QEMU 自行退出，因此不需要等满 15s 超时。
+早期 log 开头的 `# command:` / `# exit code:` 和最新 Goal log 的 `$ ...` / `EXIT=...` 均来自实际执行。OpenSBI 横幅带 NUL 字节，历史日志保存前仅用 `tr -d '\000'` 做纯文本化。默认镜像自 M1 起不再主动 `sbi_shutdown()`；非 resident 单模块/all 清单仍保留该可控关机路径。
 
 默认镜像的关键串口行为：
 
@@ -402,11 +462,11 @@ runtime: stack alignment, IPC wrappers, signed error and thread exit
 |---|---|---|
 | 单 hart | 只用 hart 0；其他 hart 在 `_start` 直接 `wfi` 停车 | 后续 SMP 切面 |
 | DTB 节点解析 | 只验头，用 `platform.h` 常量 | `kernel/platform/fdt.c` |
-| 自举模块来源 | 构建时链接进 ELF。独立的初始用户映像可用 initrd 描述 | `bootstrap_plan.c` |
-| 物理页分配器 | 未实现，只给区间 | `kernel/memory` |
-| 首个线程/服务 | 未创建 | `kernel/objects` / `userland/init` |
-| 默认抢占探针 | 只验证 timer IRQ 能抢占两条内核 worker；没有 idle/服务策略 | `kernel/boot/preempt_probe.c` |
-| `kmain` | 完成选定的 demo 和默认抢占探针后关机 | `kernel/boot/bootstrap.c` |
+| 自举模块来源 | 单模块 demo 仍构建进内核 ELF；resident 初始用户程序由独立 ELF + initrd 加载 | `bootstrap_plan.c` / `kernel/loader` |
+| 物理页分配器 | resident 从 BootInfo RAM 建真实帧池；单模块 demo 保留 static 池 | `kernel/memory` / `kernel_init.c` |
+| 首个线程/服务 | idle 与 resident 用户镜像经真实线程/AS 路径创建；服务化验收见 M3 | `kernel/boot` / `userland` |
+| 默认抢占探针 | 验证 timer IRQ 抢占两条内核 worker；resident idle 另有周期 tick | `kernel/boot/preempt_probe.c` |
+| `kmain` | 默认镜像进入常驻；其他清单完成 demo 后显式关机 | `kernel/boot/boot.c` / `kernel_init.c` |
 | context/trap | 每次自举使用共享切换和陷阱入口，架构自检有独立镜像 | `arch/riscv/README.md` §八 |
 | MBR/PBR | RISC-V virt 不存在这条链 | `ex/x86-bios` |
 
@@ -420,3 +480,18 @@ runtime: stack alignment, IPC wrappers, signed error and thread exit
 2. **初始用户态 ELF**。在启动契约中记录独立用户镜像的物理区间，由内核据此建立用户地址空间。
 3. **SMP**：hart lottery、per-hart `hart_local` 数组、非 boot hart 的 `wfi` 停车场。
 4. **真正的 `kmain`**：接 `kernel/objects` 创建首个地址空间/线程，或接 `userland/init` 完成第一次 IPC。
+## M7 resident 启动接线
+
+- `service_boot_prepare` 创建 `ep_sm/ep_pm/ep_fs/ep_console/ep_init_ready`；SM 持有
+  PM/FS/console/VM 的 `WRITE|GRANT` 源 cap；init 拿到 SM recv/send、ready recv
+  和标量 `plan=3`（镜像表 {fs,console,shell} 内置在 init 中）。
+- **大块数据**：没有共享 IPC 页。FS 文件内容按 24 B/块的 IPC 消息返回，
+  cat 路径按 16 B/块传入；console 输出同样经 IPC 分块。
+- **设备 MMIO**：`loader_spawn_user()` 在 `as_share_kernel(...,2)` 后把 UART0、
+  PLIC、virtio-mmio 恒等映射进每个用户 AS（无 U 位）。否则内核代 U-mode 执行
+  FS 读取时访问 virtio 会缺页，错误打印再访问 UART 会形成静默挂死（M7 根因）。
+- PM spawn FS/console 时安装 ready send（slot 1）、SM send（slot 3）、服务 recv
+  （slot 2）；spawn shell 时只安装 ready send 与 SM send，FS/PM/console 句柄由
+  shell 经 SM lookup 获得。
+- **M7 服务链**：内核 spawn `sm/pm/vm/heaptest/heaptest2/init`；init `plan=3` 经 PM 拉 fs/console/shell（initrd 9 成员）。**勿**默认链 `kernel_init_m6.c` / `service_boot_m6.c` / `init_main_m6.o`；`make check` 运行 `tools/verify_capability_wiring.sh`。
+- PM-only plan=6 实验见 `kernel_init_m6.c` 等，未作验收默认。

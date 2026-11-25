@@ -25,6 +25,10 @@
 #include "trap.h"
 #include "sbi.h"
 
+#ifdef MICRO_POST_BOOT_RESIDENT
+#include "kernel_init.h"
+#endif
+
 extern char __kernel_start[], __kernel_end[];
 extern char __boot_stack_top[];
 
@@ -212,9 +216,14 @@ __attribute__((noreturn)) void kmain(const struct bootinfo *bi)
     con_puts(", hartid=");
     con_putdec(bi->hartid);
     con_puts("\n");
+    /* demo 清单（与可选抢占探针）到此结束；常驻路径见 kernel_init.c。 */
     bootstrap_run();
+#ifdef MICRO_POST_BOOT_RESIDENT
+    kernel_enter_resident(bi);
+#else
     con_puts("[kmain] shutting down\n");
     sbi_shutdown();
+#endif
 }
 
 void boot_main(u64 hartid, u64 dtb)

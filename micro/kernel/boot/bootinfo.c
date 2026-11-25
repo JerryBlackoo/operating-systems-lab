@@ -10,6 +10,7 @@
  * 打印和 fail-stop 属于 boot.c 的策略。
  */
 #include "bootinfo.h"
+#include "fdt_initrd.h"
 
 #define FDT_MAGIC        0xd00dfeedUL
 #define FDT_HEADER_SIZE  40UL
@@ -115,6 +116,17 @@ int bootinfo_build(struct bootinfo *bi, const struct boot_platform *p,
 
     region_add(bi->reserved, &bi->reserved_count, BOOT_REGION_DTB,
                dtb, bi->dtb_size);
+
+    {
+        u64 ir_start = 0;
+        u64 ir_end = 0;
+
+        if (fdt_chosen_initrd(dtb, &ir_start, &ir_end) &&
+            ir_end > ir_start) {
+            region_add(bi->reserved, &bi->reserved_count, BOOT_REGION_INITRD,
+                       ir_start, ir_end - ir_start);
+        }
+    }
     return BOOT_DTB_VALID;
 }
 
