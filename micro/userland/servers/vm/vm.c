@@ -22,8 +22,10 @@ enum vm_result vm_reserve(struct vm *vm, uint32_t as, uint64_t lo, uint64_t len,
     if (!valid_range(as, lo, len))
         return VM_BAD_RANGE;
     if (!rights || (rights & ~(ABI_READ | ABI_WRITE | ABI_EXEC)) ||
-        ((rights & ABI_WRITE) && !(rights & ABI_READ)))
-        return VM_DENIED;
+        ((rights & ABI_WRITE) && !(rights & ABI_READ)) ||
+        ((rights & ABI_WRITE) && (rights & ABI_EXEC)))
+        return VM_DENIED; /* 与 loader 一致：不生成 W+X 页 */
+
 
     const uint64_t hi = lo + len;
     struct vm_region *free_region = NULL;
@@ -103,4 +105,30 @@ enum vm_result vm_release(struct vm *vm, uint32_t as, uint64_t lo, uint64_t len)
         return VM_OK;
     }
     return VM_BAD_RANGE;
+}
+
+unsigned vm_forget(struct vm *vm, uint32_t as)
+{
+    unsigned dropped = 0;
+
+    if (vm == 0 || as == 0) {
+        return 0;
+    }
+    for (unsigned i = 0; i < VM_PAGES; i++) {
+        struct vm_page *page = &vm->pages[i];
+
+        if (page->as == as) {
+            vm->port->unmap(vm->port->ctx, as, page->va);
+            *page = (struct vm_page){0};
+        }
+    }
+    for (unsigned i = 0; i < VM_REGIONS; i++) {
+        struct vm_region *region = &vm->regions[i];
+
+        if (region->as == as) {
+            *region = (struct vm_region){0};
+            dropped++;
+        }
+    }
+    return dropped;
 }

@@ -19,8 +19,11 @@
 
 enum { VM_PAGE = 4096, VM_REGIONS = 4, VM_PAGES = 8 };
 
-/* Sv39 用户地址上限（不含）；与 kernel/memory 的地址空间检查保持一致。 */
-#define VM_LIMIT (UINT64_C(1) << 38)
+/*
+ * 用户可映射上限（不含）。用户 AS 共享 0x80000000 以上的内核顶层表项，
+ * as_map() 会拒绝更高地址；VM 必须用同一分界，否则会同意永远补不上的页。
+ */
+#define VM_LIMIT (UINT64_C(1) << 31)
 
 enum vm_result {
     VM_OK = 0,
@@ -64,7 +67,8 @@ struct vm {
 /*
  * 登记一个匿名区间。lo 与 len 都必须页对齐，len 非零，且区间不越过
  * VM_LIMIT。rights 只能是 ABI_READ/ABI_WRITE/ABI_EXEC 的非空组合，
- * 且 ABI_WRITE 必须同时带 ABI_READ。同一地址空间的区间不得重叠。
+ * ABI_WRITE 必须同时带 ABI_READ，且不得与 ABI_EXEC 同时出现（W^X）。
+ * 同一地址空间的区间不得重叠。
  */
 enum vm_result vm_reserve(struct vm *, uint32_t as, uint64_t lo, uint64_t len, unsigned rights);
 
@@ -79,5 +83,14 @@ enum vm_result vm_fault(struct vm *, uint32_t as, uint64_t va, unsigned access);
  * 撤销一个完整匹配的区间：逐页撤销映射，删除驻留页记录，再释放区间槽位。
  */
 enum vm_result vm_release(struct vm *, uint32_t as, uint64_t lo, uint64_t len);
+
+/*
+ * 丢弃某地址空间的全部状态（进程退出）。
+ *
+ * VM 看不到进程生命周期：没有这条路径，被杀掉或崩溃的进程会把 region 与
+ * 驻留页槽位永久占住。逐区间调用 vm_release 语义等价，但一次扫描更直接，
+ * 也能覆盖「区间已登记、页尚未驻留」的情况。返回被清理的区间数。
+ */
+unsigned vm_forget(struct vm *, uint32_t as);
 
 #endif

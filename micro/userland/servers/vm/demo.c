@@ -139,6 +139,8 @@ static void reserve_cases(void)
     CHECK(vm_reserve(&vm, 1, 0x1000, VM_PAGE, 8) == VM_DENIED);
     CHECK(vm_reserve(&vm, 1, 0x1000, VM_PAGE, ABI_WRITE) == VM_DENIED);
     CHECK(vm_reserve(&vm, 1, 0x1000, VM_PAGE, ABI_READ | 8) == VM_DENIED);
+    CHECK(vm_reserve(&vm, 1, 0x1000, VM_PAGE,
+                     ABI_READ | ABI_WRITE | ABI_EXEC) == VM_DENIED);
 
     CHECK(vm_reserve(&vm, 1, 0x1000, 2 * VM_PAGE, ABI_READ | ABI_WRITE) == VM_OK);
     CHECK(vm_reserve(&vm, 1, 0x2000, VM_PAGE, ABI_READ) == VM_CONFLICT);
@@ -230,6 +232,58 @@ static void release_cases(void)
     CHECK(vm_release(&vm, 2, 0x1000, VM_PAGE) == VM_OK);
     CHECK(m->unmaps == 4 && fake_refs() == 0);
     demo_log("vm: release unmaps every resident page and frees the region");
+
+    /*
+     * 槽位长期复用：region 表和驻留页表都是固定大小，反复
+     * reserve→fault→release 必须能把槽位还回去。
+     *
+     * 这条路径过去在 resident 里根本没有入口（协议没有 release 消息），
+     * 于是每次 reserve 都永久占用一个 region 槽，VM_REGIONS 用完后新缺页
+     * 一律 VM_NO_SPACE。轮数刻意超过 VM_REGIONS 与 VM_PAGES。
+     */
+    {
+        struct vm vm2;
+        struct fake_memory *m2 = fake_begin(&vm2, FAKE_FRAMES);
+
+        for (unsigned i = 0; i < VM_REGIONS * 3U; i++) {
+            CHECK(vm_reserve(&vm2, 1, 0x10000, VM_PAGE,
+                             ABI_READ | ABI_WRITE) == VM_OK);
+            CHECK(vm_fault(&vm2, 1, 0x10000, ABI_READ) == VM_RESUME);
+            CHECK(vm_release(&vm2, 1, 0x10000, VM_PAGE) == VM_OK);
+        }
+        CHECK(fake_refs() == 0);
+        CHECK(m2->unmaps == VM_REGIONS * 3U);
+        demo_log("vm: region and resident slots are reused across many cycles");
+
+        /*
+         * 进程退出清理：vm_forget 必须一次性丢掉该 AS 的所有 region 与
+         * 驻留页。这是 PM 在 discard 后唯一能触达的回收入口——VM 自己
+         * 看不到进程生命周期。
+         */
+        {
+            struct vm vm3;
+            struct fake_memory *m3 = fake_begin(&vm3, FAKE_FRAMES);
+
+            for (unsigned i = 0; i < VM_REGIONS / 2; i++) {
+                uint64_t va = 0x20000 + (uint64_t)i * VM_PAGE;
+
+                CHECK(vm_reserve(&vm3, 5, va, VM_PAGE,
+                                 ABI_READ | ABI_WRITE) == VM_OK);
+                CHECK(vm_fault(&vm3, 5, va, ABI_READ) == VM_RESUME);
+            }
+            /* 另一个 AS 的区间必须不受影响。 */
+            CHECK(vm_reserve(&vm3, 6, 0x90000, VM_PAGE, ABI_READ) == VM_OK);
+            CHECK(vm_fault(&vm3, 6, 0x90000, ABI_READ) == VM_RESUME);
+            CHECK(fake_refs() == VM_REGIONS / 2 + 1);
+            CHECK(vm_forget(&vm3, 5) == VM_REGIONS / 2);
+            CHECK(fake_refs() == 1);
+            CHECK(vm_fault(&vm3, 5, 0x20000, ABI_READ) == VM_DENIED);
+            CHECK(vm_fault(&vm3, 6, 0x90000, ABI_READ) == VM_RESUME);
+            CHECK(vm_forget(&vm3, 0) == 0);
+            CHECK(m3->unmaps == VM_REGIONS / 2);
+        }
+        demo_log("vm: forget drops one address space without touching others");
+    }
 }
 
 /* ---- kernel/memory 端口 ------------------------------------------ */
