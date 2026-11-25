@@ -1,6 +1,7 @@
 #ifndef MICRO_MODEL_EXT4_H
 #define MICRO_MODEL_EXT4_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -12,14 +13,26 @@ enum ext4_result {
 enum ext4_type { EXT4_FILE, EXT4_DIRECTORY };
 
 struct ext4_node { uint32_t ino; enum ext4_type type; };
+
+struct ext4_blk_io {
+    void *ctx;
+    enum ext4_result (*read_block)(void *ctx, uint64_t block, uint8_t buf[EXT4_BLOCK]);
+};
+
 struct ext4 {
     const uint8_t *image;
+    const struct ext4_blk_io *io;
+    uint8_t cache_blk[EXT4_BLOCK];
+    uint64_t cache_block;
+    bool cache_valid;
     uint32_t blocks, inodes, inodes_per_group;
     uint16_t inode_size;
     uint32_t inode_tables[EXT4_GROUPS];
 };
 
 enum ext4_result ext4_mount(struct ext4 *, const void *image, size_t bytes);
+enum ext4_result ext4_mount_blk(struct ext4 *, const struct ext4_blk_io *io,
+                                uint64_t capacity_blocks);
 void ext4_unmount(struct ext4 *);
 enum ext4_result ext4_lookup(const struct ext4 *, uint32_t dir, const char *name,
                             size_t name_len, struct ext4_node *);
