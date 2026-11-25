@@ -1,0 +1,45 @@
+name: Import MtAgentLens GitHub source snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/import-proj32-comparison.yml'
+      - 'research/2026-cscc-os/proj32-comparison/import_mtagentlens.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mtagentlens-github-snapshot
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Export pinned GitHub source and flatten its submodules
+        run: python3 research/2026-cscc-os/proj32-comparison/import_mtagentlens.py
+      - name: Commit verified source snapshot without upstream history
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess
+          prefix = b'research/2026-cscc-os/proj32-comparison/'
+          allowed = {prefix + b'MTAGENTLENS_SNAPSHOT.json', prefix + b'IMPORT_STATUS.md'}
+          paths = subprocess.check_output(['git', 'diff', '--cached', '--name-only', '-z']).split(b'\0')
+          for path in filter(None, paths):
+              if not (path.startswith(prefix + b'sources/01-mtagentlens/') or path in allowed):
+                  raise SystemExit('Unexpected staged path; refusing commit: ' + repr(path))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'vendor: import pinned MtAgentLens GitHub snapshot without upstream history'
+          git push origin HEAD:main

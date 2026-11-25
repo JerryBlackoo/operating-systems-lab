@@ -19,3 +19,24 @@ ex/x86-boot/*.bin
 ex/x86-boot/*.elf
 ex/x86-boot/*.img
 ex/x86-boot/*.o
+
+# Generated test rootfs (rebuilt by .cursor/install.sh / make-rootfs.sh)
+/busybox-rootfs/
+
+# Container runtime scratch/overlay layers (SPEC §6: ./.ctr-<name>/)
+/.ctr-*/
+
+# Built ctr binary
+/ctr
+
+# Go build/test artifacts
+*.test
+*.out
+
+# Cloned third-party OS learning repos (see scripts/clone-os-learning.sh)
+/external/os-learning/*/
+!/external/os-learning/README.md
+
+# Cloned third-party CPU learning repos (see scripts/clone-cpu-learning.sh)
+/external/cpu-learning/*/
+!/external/cpu-learning/README.md
