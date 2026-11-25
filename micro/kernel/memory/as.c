@@ -38,9 +38,13 @@ static struct as as_pool[AS_MAX];
 static void memzero(void *dst, size_t len)
 {
     uint8_t *p = (uint8_t *)dst;
+    size_t i = 0;
 
-    while (len-- > 0) {
-        *p++ = 0;
+    for (; i + sizeof(uint64_t) <= len; i += sizeof(uint64_t)) {
+        *(uint64_t *)(p + i) = 0;
+    }
+    for (; i < len; i++) {
+        p[i] = 0;
     }
 }
 
@@ -226,10 +230,15 @@ static void free_table(pfn_t table, int level, int root_limit)
     }
 }
 
+void cap_as_release(struct as *as) __attribute__((weak));
+
 static void as_destroy(struct object *obj)
 {
     struct as *as = (struct as *)obj;
 
+    if (cap_as_release != 0) {
+        cap_as_release(as);
+    }
     if (as->active && as->root_pfn != PFN_NONE) {
         free_table(as->root_pfn, 2, as->kernel_start);
         frame_unref(as->root_pfn);
@@ -348,6 +357,10 @@ int as_map_kernel_range(struct as *as, paddr_t base, size_t size)
     if (end < base) {
         return MEM_EINVAL;
     }
+    /* 整个范围都必须落在共享内核区间之下（含跨顶层索引的末尾页）。 */
+    if (((int)(((end - 1) >> 30) & 0x1ff)) >= as->kernel_start) {
+        return MEM_EPERM;
+    }
 
     /*
      * 逐页建立恒等叶子。中间页表页由 walk 按需从 frame 池分配，它们
@@ -399,6 +412,9 @@ int as_map(struct as *as, vaddr_t va, pfn_t pfn, int rights)
         (rights & (MEM_R | MEM_W | MEM_X)) == 0) {
         return MEM_EINVAL;
     }
+    if ((rights & MEM_W) && (rights & MEM_X)) {
+        return MEM_EINVAL; /* W^X：不建立可写又可执行的用户页 */
+    }
 
     rc = walk(as, va, true, &result);
     if (rc != MEM_OK) {
@@ -417,9 +433,25 @@ int as_map(struct as *as, vaddr_t va, pfn_t pfn, int rights)
     return MEM_OK;
 }
 
+static int table_is_empty(const uint64_t *page_table, int limit)
+{
+    for (int i = 0; i < limit; i++) {
+        if (page_table[i] & PTE_V) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/*
+ * 从 root 走到 va 的叶子，沿途记录经过的中间页表页，用于在解除映射后
+ * 回收变空的页表。level2→level0，links[i] 指向指向下一级的那一项。
+ */
 int as_unmap(struct as *as, vaddr_t va)
 {
     struct walk_result result;
+    uint64_t *links[2];
+    pfn_t tables[2];
     int rc;
 
     if (as == 0 || !as->active) {
@@ -440,15 +472,52 @@ int as_unmap(struct as *as, vaddr_t va)
         return MEM_EFAULT;
     }
 
-    uint64_t pte = *result.pte;
+    {
+        uint64_t pte = *result.pte;
 
-    *result.pte = 0;
+        *result.pte = 0;
+        /*
+         * as_map_kernel_range() 的恒等叶子是非拥有映射；解除映射时不能
+         * frame_unref，否则会释放内核镜像/帧池 owner 仍持有的页。
+         */
+        if (!(pte & PTE_RSW_NONOWNED)) {
+            frame_unref(result.pfn);
+        }
+    }
+
     /*
-     * as_map_kernel_range() 的恒等叶子是非拥有映射；解除映射时不能
-     * frame_unref，否则会释放内核镜像/帧池 owner 仍持有的页。
+     * 回收因这次 unmap 而变空的中间页表页。
+     *
+     * 不回收的话，反复 map/unmap 不同 VA 会把页表页永久吃掉：每新建一个
+     * 叶子页表就要一帧，而 AS 存活期间没有任何其它路径归还它。demand paging
+     * 场景每个新页都可能触发，长期运行必然耗尽帧池。
      */
-    if (!(pte & PTE_RSW_NONOWNED))
-        frame_unref(result.pfn);
+    {
+        pfn_t table = as->root_pfn;
+
+        for (int level = 2; level >= 1; level--) {
+            uint64_t *page_table = (uint64_t *)frame_ptr(table);
+            int index = (int)((va >> (PAGE_SHIFT + 9 * level)) & 0x1ff);
+
+            if (page_table == 0) {
+                break;
+            }
+            links[2 - level] = &page_table[index];
+            tables[2 - level] = PTE_PFN(page_table[index]);
+            table = tables[2 - level];
+        }
+        /* 自底向上：子表空了就断开并归还，再看父表是否也空。 */
+        for (int i = 1; i >= 0; i--) {
+            uint64_t *child = (uint64_t *)frame_ptr(tables[i]);
+
+            if (child == 0 || !table_is_empty(child, 512)) {
+                break;
+            }
+            *links[i] = 0;
+            frame_unref(tables[i]);
+        }
+    }
+
     as_flush_tlb();
     return MEM_OK;
 }
@@ -554,6 +623,15 @@ static int copy_range(struct as *as, vaddr_t uva, void *buf, size_t len,
         rc = as_translate(as, uva + done, &rights, &pfn);
         if (rc != MEM_OK) {
             return rc;
+        }
+        /*
+         * check_range() 只保证调用开始时的权限；这里按真正拷贝时刻的
+         * PTE 重新校验，避免窗口期内映射被改成只读/撤销后仍然写入。
+         * 拷贝通过 direct map 访问物理帧，不经过用户 VA，因此不依赖
+         * SSTATUS.SUM。
+         */
+        if ((rights & need) != need) {
+            return MEM_EPERM;
         }
         frame = (uint8_t *)frame_ptr(pfn);
         if (frame == 0) {

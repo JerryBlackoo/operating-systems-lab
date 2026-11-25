@@ -59,6 +59,7 @@ void frame_ref(pfn_t pfn);
 void frame_unref(pfn_t pfn);
 uint32_t frame_refcount(pfn_t pfn);
 uint64_t frame_free_count(void);
+uint64_t frame_total_count(void);
 void *frame_ptr(pfn_t pfn);
 paddr_t frame_paddr(pfn_t pfn);
 
@@ -67,6 +68,7 @@ struct as {
     pfn_t root_pfn;
     uint16_t kernel_start; /* Sv39 顶层 [kernel_start, 512) 为共享内核映射 */
     bool active;
+    uint32_t cap_oid; /* 能力层对象 id；0 表示尚未 bind（或 cap 未初始化） */
 };
 
 struct as *as_create(void);

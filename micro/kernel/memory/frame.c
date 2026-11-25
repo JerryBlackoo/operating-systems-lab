@@ -96,6 +96,34 @@ void frame_reserve(paddr_t pa, size_t size)
     }
 }
 
+static uint32_t frame_find_free(uint32_t from, uint32_t to)
+{
+    uint32_t byte_start = from / 8U;
+    uint32_t byte_end = (to + 7U) / 8U;
+
+    for (uint32_t byte_i = byte_start; byte_i < byte_end; byte_i++) {
+        uint8_t mask = used_bitmap[byte_i];
+
+        if (mask == 0xffU) {
+            continue;
+        }
+        for (unsigned bit = 0; bit < 8U; bit++) {
+            uint32_t idx = byte_i * 8U + bit;
+
+            if (idx < from) {
+                continue;
+            }
+            if (idx >= to) {
+                return FRAME_INDEX_NONE;
+            }
+            if ((mask & (1u << bit)) == 0) {
+                return idx;
+            }
+        }
+    }
+    return FRAME_INDEX_NONE;
+}
+
 pfn_t frame_alloc(void)
 {
     uint32_t index = FRAME_INDEX_NONE;
@@ -104,19 +132,9 @@ pfn_t frame_alloc(void)
         return PFN_NONE;
     }
 
-    for (uint32_t i = alloc_hint; i < frame_count; i++) {
-        if (!bitmap_used(i)) {
-            index = i;
-            break;
-        }
-    }
-    if (index == FRAME_INDEX_NONE) {
-        for (uint32_t i = 0; i < alloc_hint && i < frame_count; i++) {
-            if (!bitmap_used(i)) {
-                index = i;
-                break;
-            }
-        }
+    index = frame_find_free(alloc_hint, frame_count);
+    if (index == FRAME_INDEX_NONE && alloc_hint != 0) {
+        index = frame_find_free(0, alloc_hint);
     }
     if (index == FRAME_INDEX_NONE) {
         return PFN_NONE;
@@ -197,6 +215,11 @@ uint32_t frame_refcount(pfn_t pfn)
 uint64_t frame_free_count(void)
 {
     return free_count;
+}
+
+uint64_t frame_total_count(void)
+{
+    return frame_count;
 }
 
 void *frame_ptr(pfn_t pfn)

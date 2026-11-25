@@ -1,9 +1,44 @@
 # memory：物理帧与 Sv39 地址空间
 
-本目录实现微内核最小模型里的“空间层”：物理帧所有权 + VA → Frame 的部分映射。
+本目录实现微内核最小模型里的「空间层」：物理帧所有权 + VA → Frame 的部分映射。
 不做 VMA、COW、swap、按需分页策略；这些属于用户态 VM server。
 
 其他路径的代码没有修改；本目录可以独立编译和自测。
+
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `pfn_t`（物理帧） | `memory.h` | 4 KiB 页的物理页号；帧池由 `frame_init()` 从 BootInfo RAM 建立 |
+| 帧位图 + 引用计数 | `frame.c` | `used_bitmap[]` 记录占用，`refcounts[]` 记录引用数；`alloc_hint` 指向上次分配位置 |
+| `struct as` | `memory.h` | 一个 Sv39 三级页表树：`root_pfn`、`kernel_start`（共享内核的顶层索引下界）、`active`、`cap_oid` |
+| PTE | `as.c` | 页表项；`PTE_RSW_NONOWNED`（bit 8）标记「非拥有映射」，销毁时不得 `frame_unref` |
+| `struct walk_result` | `as.c` | 页表遍历结果：叶子 PTE 指针 + 命中的 pfn（`PFN_NONE` 表示空槽） |
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 | 具体接口 |
+| --- | --- | --- |
+| `objects` | 注册 `OBJ_AS` | `as_create()` 注册；`as_destroy()` 是析构回调 |
+| `capability` | AS 的 cap 对象 | `cap_as_bind()` 为 AS 建 cap 对象并记 `as->cap_oid`；`as_destroy()` 通过弱钩子 `cap_as_release()` 反向丢弃它 |
+| `loader` | 最主要的 AS 使用方 | `as_create` / `as_share_kernel` / `as_map`（装载 PT_LOAD）/ `as_map_kernel_range`（设备 MMIO）/ `as_activate` |
+| `boot/kernel_init` | 建内核 AS | `as_map_kernel_range` 建立内核镜像与帧池的**非拥有**恒等映射，再 `as_share_kernel` 给每个用户 AS |
+| `sched` | AS 生命周期 | `thread_create` 对 `as` 做 `as_ref`；`as_activate()` 在上下文切换时写 `satp`；`reap_dead`/`sched_thread_discard` 在安全点 `as_unref` |
+| `pager` | 缺页处理 | `as_fault` / `as_translate`；缺页后由 VM 服务经 `ABI_VM_MAP` 调 `as_map` 补页 |
+| `syscall/user_backend` | 跨 AS 拷贝 | `ABI_CONSOLE_*` / `ABI_BLOCK_READ` 用 `as_copyin` / `as_copyout` 访问调用者缓冲区 |
+| `ipc` | 无直接耦合 | IPC 不映射内存；消息体在 TCB 里 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 纯位图分配器 | 只有 `frame_alloc` / `frame_free`，无引用计数 | 单模块 demo：分配、耗尽、保留区 |
+| 2. 引入引用计数 | `frame_ref` / `frame_unref`，`as_map` 加一次、`as_unmap` 减一次 | 同一物理帧要被多个 AS 共享（`as_share_kernel`），单靠 free 无法判断何时真回收 |
+| 3. 非拥有映射 | `as_map_kernel_range` 在 PTE 的 RSW bit 8 打标记，`free_table` 与 `as_unmap` 跳过 `frame_unref` | 内核镜像与帧池不在帧池的引用体系里；误回收会让整个系统崩掉 |
+| 4. 内核上半区共享 | `as_share_kernel(as, root, first_index)` 复制内核顶层表项 | 用户 AS 在 satp 切换后仍需进入 S 态 trap handler、访问内核代码与帧池 |
+| 5. `as_fault` + W^X | 拒绝 `W|X` 组合、未知权限位；用户拷贝额外要求 `PTE_U` | `ABI_VM_MAP` 必须能表达只读页，且不能造出可写可执行的用户页 |
+| 6. 页表页回收（A13） | `as_unmap` 解除映射后**自底向上**检查中间页表是否变空，空了就断链 + `frame_unref` | 旧实现只清叶子 PTE，反复 map/unmap 不同 VA 会永久吃掉页表页；demand paging 长跑必然耗尽帧池 |
+| 7. 位图字节跳扫 | `frame_find_free` 先按 `0xff` 跳过整字节 | 大池上逐位线性扫描太慢 |
 
 ## 最小模型
 
@@ -39,7 +74,7 @@ FREE --frame_alloc--> ALLOCATED --as_map--> MAPPED --as_unmap--> ALLOCATED
 11. `as_share_kernel` 要求目标顶层区间 `[first_index, 512)` 尚未映射；否则返回
     `MEM_EEXIST`，避免覆盖已有 PTE 并泄漏其 frame。
 12. `as_map` 只接受 `MEM_R/W/X/U/KERNEL` 这些权限位，未定义的位一律
-    `MEM_EINVAL`；至少需要 `R/W/X` 之一。
+    `MEM_EINVAL`；至少需要 `R/W/X` 之一，且 `W` 与 `X` 不能同时出现（W^X）。
 
 ## Sv39 页表
 
@@ -71,6 +106,8 @@ int  frame_free(pfn_t pfn);
 void frame_ref(pfn_t pfn);
 void frame_unref(pfn_t pfn);
 uint32_t frame_refcount(pfn_t pfn);
+uint64_t frame_free_count(void);
+uint64_t frame_total_count(void);
 void *frame_ptr(pfn_t pfn);
 
 struct as *as_create(void);
@@ -109,9 +146,15 @@ make -C micro/kernel/memory test
 ```text
 memory: map/copy/unmap ok
 memory: kernel share ok
+memory: non-owned kernel map ok
+memory: page table reclaim ok
 memory: reserve/exhaust ok
 memory: all tests passed
 ```
+
+`page table reclaim` 覆盖 `as_unmap` 的页表回收：解除映射后，自底向上把
+变空的中间页表页断链并 `frame_unref`。旧实现只清叶子 PTE，反复
+map/unmap 不同 VA 会永久吃掉页表页，demand paging 长跑必然耗尽帧池。
 
 ## QEMU 接线
 
@@ -126,7 +169,7 @@ frame_init(0x80000000, 128 * 1024 * 1024, direct_map_ptr);
 frame_reserve((paddr_t)kernel_start, kernel_size);
 struct as *as = as_create();
 as_share_kernel(as, kernel_as->root_pfn, KERNEL_VPN2);
-as_map(as, USER_VA, frame, MEM_R | MEM_W | MEM_X);
+as_map(as, USER_VA, frame, MEM_R | MEM_W);
 as_activate(as); /* 写 satp + sfence.vma */
 ```
 
@@ -172,12 +215,12 @@ as_share_kernel(user_as, kernel_as->root_pfn, 2); /* VA >= 0x80000000 */
 `kernel/syscall/closure.c` 用这条路径让两个用户 AS 在 satp 切换后仍能进入
 S 态 trap handler、访问 frame 池中的页表页，并在日志里留下不同的 root pfn。
 主机自测 `memory_test.c` 覆盖“销毁带非拥有恒等映射的 AS 不改变池帧 refcount”。
-完整运行记录见 [`kernel/syscall/qemu-unified.log`](../syscall/qemu-unified.log)。
+完整运行记录见 [`docs/evidence/qemu-unified-legacy.log`](../../docs/evidence/qemu-unified-legacy.log)。
 
 ## 已知边界
 
 - 无大页、无 ASID、无 SMP TLB shootdown。
-- `as_unmap` 不回收变空的中间页表页，统一在 AS 销毁时回收。
-- `as_copyin/out` 的“先校验再拷贝”在单核上成立；SMP 下需要锁或 pin。
-- 无 pager 时缺页返回 `MEM_EFAULT`；接用户态 VM server 时把它转成 IPC 即可。
+- `as_copyin/out` 的「先校验再拷贝」在单核上成立；SMP 下需要锁或 pin。
+- **默认 capability 镜像**：U-mode 缺页经 `pager` → `TAG_VM_FAULT` → U-mode `vm`（`ABI_VM_MAP`）；单模块 demo 仍可直接 `MEM_EFAULT`。
 - 不做 COW、swap、VMA、反向映射。
+- 页表页回收只处理「变空」的情形（A13）。若某个中间页表仍有一个有效项，它就不会被回收——这是正确行为，但也意味着稀疏映射（每个页表页只放一页）会占更多内存。`AS_MAX` 与帧池容量是硬上限。

@@ -98,6 +98,8 @@ static void test_map_copy_unmap(void)
                MEM_EINVAL);
     }
     /* 未定义的权限位必须拒绝，不能静默忽略 */
+    assert(as_map(as, USER_VA + 4 * PAGE_SIZE, data,
+                  MEM_R | MEM_W | MEM_X) == MEM_EINVAL);
     assert(as_map(as, USER_VA + 3 * PAGE_SIZE, data, MEM_R | 0x40) ==
            MEM_EINVAL);
     assert(as_unmap(as, USER_VA + 0x20000000ULL) == MEM_EFAULT);
@@ -175,6 +177,44 @@ static void test_map_copy_unmap(void)
     assert(frame_free_count() == baseline);
 
     printf("memory: map/copy/unmap ok\n");
+}
+
+static void test_page_table_reclaim(void)
+{
+    struct as *as;
+    uint64_t before;
+    uint64_t after;
+
+    /*
+     * 反复 map/unmap 同一批 VA 不得让帧数单调下降：解除映射时会连带回收
+     * 变空的中间页表页。旧实现只清叶子 PTE，页表页永久泄漏——demand paging
+     * 长跑会耗尽帧池。
+     */
+    as = as_create();
+    assert(as != 0);
+    before = frame_free_count();
+
+    for (int round = 0; round < 4; round++) {
+        pfn_t frames[16];
+
+        for (int i = 0; i < 16; i++) {
+            frames[i] = frame_alloc();
+            assert(frames[i] != PFN_NONE);
+            assert(as_map(as, TEST_BASE + (vaddr_t)i * PAGE_SIZE, frames[i],
+                          MEM_R | MEM_W) == MEM_OK);
+            frame_unref(frames[i]);
+        }
+        for (int i = 0; i < 16; i++) {
+            assert(as_unmap(as, TEST_BASE + (vaddr_t)i * PAGE_SIZE) == MEM_OK);
+        }
+    }
+
+    after = frame_free_count();
+    /* 允许少量差异（如 AS 自身的根页表），但不接受每轮净泄漏。 */
+    assert(after + 4 >= before);
+
+    as_unref(as);
+    printf("memory: page table reclaim ok\n");
 }
 
 static void test_reserve_and_exhaust(void)
@@ -317,6 +357,7 @@ int main(void)
     test_map_copy_unmap();
     test_kernel_share();
     test_nonowned_kernel_map();
+    test_page_table_reclaim();
     test_reserve_and_exhaust();
 
     printf("memory: all tests passed\n");
