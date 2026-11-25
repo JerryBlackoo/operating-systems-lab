@@ -5,7 +5,7 @@
 | 目录 | 类型 | 状态 |
 |------|------|------|
 | [`mono/`](mono/) | **Monolithic kernel**（RISC-V + ARM Zynq） | 已实现 G0–G14 教学子集 |
-| [`micro/`](micro/) | **Microkernel**（RISC-V） | 骨架 + 最小启动模型（`kernel/boot` + `kernel/arch/riscv`） |
+| [`micro/`](micro/) | **Microkernel**（RISC-V） | M0–M7 主线：`make demo` / 常驻 `run` + initrd U-mode init + SM/PM/fs/console/shell + virtio→ext4→VFS；20 模块 `BOOT_MODULES=all` 仍独立 PASS（见 [`micro/docs/goals/`](micro/docs/goals/README.md)） |
 
 ## 构建与运行（宏内核）
 
@@ -33,5 +33,7 @@ timeout 8s make run
 ```
 
 启动模型见 [`micro/kernel/boot/README.md`](micro/kernel/boot/README.md)，RISC-V arch 层见 [`micro/kernel/arch/riscv/README.md`](micro/kernel/arch/riscv/README.md)。
+
+微内核的目标、基线与依赖顺序见 [`micro/docs/goals/README.md`](micro/docs/goals/README.md)（M0–M7）与 [`micro/docs/goals/GLOBAL-CONTRACT.md`](micro/docs/goals/GLOBAL-CONTRACT.md)。
 
 独立的微内核骨架副本（若仍在维护）：[`/home/jerry/Projects/micro/operating-systems-lab`](/home/jerry/Projects/micro/operating-systems-lab)；本仓库 `micro/` 为同源实现入口。
