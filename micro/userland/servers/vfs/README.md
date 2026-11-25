@@ -2,6 +2,45 @@
 
 VFS 将路径解析成文件标识，并为每个客户端维护一张文件描述符表和各自的读偏移。最小模型固定一个只读根文件系统，覆盖打开、读取和关闭三步。
 
+**A1 之后**本模块与 `ext4` 一起编译进 U-mode `fs` 服务，不再链进内核镜像。
+
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct vfs` | `vfs.h` | 挂载点：`root`（根 inode）、`port`（后端端口）、`clients[VFS_CLIENTS=4]` |
+| `struct vfs_port` | `vfs.h` | **唯一的后端缝**：`lookup` / `retain` / `release` / `read_at` |
+| `struct vfs_node` | `vfs.h` | 解析结果：`inode` + `type`（`VFS_DIRECTORY` / `VFS_REGULAR`） |
+| `struct vfs_client` | `vfs.h` | 一个客户端：`id`、`open`（已打开计数）、`files[VFS_FILES=8]` |
+| `struct vfs_file` | `vfs.h` | 一个 fd 槽：`inode`、`used` |
+| `enum vfs_result` | `vfs.h` | `VFS_OK` / `VFS_BAD_PATH` / `VFS_NOT_FOUND` / `VFS_NOT_DIR` / `VFS_NOT_FILE` / `VFS_BAD_FD` / `VFS_NO_SPACE` / `VFS_IO_ERROR` |
+
+注意 `struct vfs_file` **不含 offset**——当前实现在 `read_at` 里由调用方显式
+传 offset，不做隐式游标。这与「最小模型」里的 `(inode, offset)` 描述有出入：
+现在的契约是 `vfs_read_at(vfs, client, fd, offset, ...)`。
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 | 具体接口 |
+| --- | --- | --- |
+| `ext4` | 唯一的后端实现 | `fs_vfs_lookup` / `fs_vfs_retain` / `fs_vfs_release` / `fs_vfs_read_at`（在 `userland/servers/fs/user/fs_main.c`） |
+| `fs` 服务 | 宿主 | 路径与 fd 状态都是 `fs_main.c` 的静态变量；`TAG_FS_PATH` 变更时关闭缓存的 fd |
+| `kernel/memory` | 无直接耦合 | VFS 不知道页表；它只调用 `read_at` 拿字节 |
+| 单模块 demo | 内存 FS 替身 | `vfs` host demo 用一个内存目录树验证路径/fd/偏移语义，不碰 ext4 |
+| `shell` | 间接客户端 | shell 经 `TAG_FS_READ` 让 fs 服务读，fs 服务内部走 VFS |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 路径解析 + fd 表（内存替身） | `resolve()` 逐段 `lookup`；`vfs_open` 分配 fd 槽 | 先把「路径→inode」「fd→(client, inode)」两层映射做对 |
+| 2. 客户端隔离 | `find_client` / `find_free_client`；每个 client 8 个 fd 槽 | 多客户端不能互相覆盖 fd；`open` 归零时整块 client 槽释放 |
+| 3. 拒绝 `.` / `..` 与空段 | `resolve` 里 `len == 0` 或 `.`/`..` 直接 `BAD_PATH` | 简化模型不支持目录穿越，避免需要父指针 |
+| 4. 后端端口化 | `vfs_port` 的四个回调 | VFS 不依赖 ext4；单模块 demo 用内存替身，resident 用真 ext4 |
+| 5. 接真 ext4 | `fs_vfs_*` 四个回调把 ext4 的 `EXT4_*` 映射成 `VFS_*` | 把「路径策略」与「磁盘格式」分开 |
+| 6. 进入 U-mode（A1） | `vfs.c` 与 `ext4.c` 编进 `fs.elf`；内核只留块驱动 | 内核不应解释路径；`ABI_VFS_READ_AT` 被删除，改为 `ABI_BLOCK_READ` |
+| 7. fd 复用（A29） | `fs_main.c` 缓存上次成功的 fd，`TAG_FS_PATH` 变更时才关闭 | 客户端按 24 B 分块读，大文件有上万次 `TAG_FS_READ`；每次重开等于重做全部路径解析 |
+
 ## 最小模型
 
 ```text
@@ -47,7 +86,13 @@ make -C micro BOOT_MODULES=all run
 
 ## 本轮接线状态（勿过声称）
 
-本轮**没有**把 VFS 接到真实块设备或持久文件系统。上面的 QEMU demo 使用内存
-文件系统替身，`[vfs] PASS` 只证明路径解析、每客户端偏移和描述符所有权；
-不代表块设备、ext4 挂载或 U-mode 文件服务已经接通。剩余差距：block/ext4
-真实请求路径、IPC 请求/完成协议、错误恢复与挂载点管理。
+| 路径 | 后端 | 说明 |
+| --- | --- | --- |
+| `BOOT_MODULES=capability` | ext4 on virtio | **A1（2026-11-25）后 vfs 与 ext4 都链在 U-mode `fs` 服务里**；服务用 `ABI_BLOCK_INFO`/`ABI_BLOCK_READ` 读原始块，自己挂载 |
+| 单模块 `vfs` demo | 内存 FS 替身 | `[vfs] PASS` 只证明路径/fd/偏移语义 |
+
+未做：多挂载点、写路径、VFS 缓存跨 fs 共享。shell `cat` 按 16 B/块传路径、
+按 24 B/块收内容（经 IPC，无共享页；见 `docs/design/M7-integration.md`）。
+
+内核里已不再有 `vfs`：`make` 的 `C_SRCS` 只保留 `block` 与 `virtio_blk`，
+`ext4.c`/`vfs.c` 由 `userland/servers/fs/user/Makefile` 编译进 `fs.elf`。

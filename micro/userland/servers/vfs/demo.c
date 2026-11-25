@@ -1,7 +1,7 @@
 #include "vfs.h"
 #include "demo.h"
 
-struct directory_fixture {
+struct directory_harness {
     unsigned refs, reads;
     bool fail_read, fail_retain, overread;
 };
@@ -21,7 +21,7 @@ static enum vfs_result lookup(void *ctx, uint32_t dir, const char *name, size_t 
 
 static enum vfs_result retain(void *ctx, uint32_t inode)
 {
-    struct directory_fixture *fs = ctx;
+    struct directory_harness *fs = ctx;
     CHECK(inode == 4);
     if (fs->fail_retain)
         return VFS_IO_ERROR;
@@ -31,7 +31,7 @@ static enum vfs_result retain(void *ctx, uint32_t inode)
 
 static void release(void *ctx, uint32_t inode)
 {
-    struct directory_fixture *fs = ctx;
+    struct directory_harness *fs = ctx;
     CHECK(inode == 4 && fs->refs);
     fs->refs--;
 }
@@ -39,7 +39,7 @@ static void release(void *ctx, uint32_t inode)
 static enum vfs_result read_at(void *ctx, uint32_t inode, uint64_t offset, void *buffer,
                                size_t wanted, size_t *actual)
 {
-    struct directory_fixture *fs = ctx;
+    struct directory_harness *fs = ctx;
     static const char contents[] = "hello";
     const size_t size = sizeof(contents) - 1;
     CHECK(inode == 4 && fs->refs && wanted);
@@ -62,7 +62,7 @@ static enum vfs_result read_at(void *ctx, uint32_t inode, uint64_t offset, void 
     return VFS_OK;
 }
 
-static void check_paths(struct vfs *vfs, struct directory_fixture *fs)
+static void check_paths(struct vfs *vfs, struct directory_harness *fs)
 {
     unsigned fd;
     char long_path[2 + VFS_NAME_MAX + 1] = "/";
@@ -87,7 +87,7 @@ static void check_paths(struct vfs *vfs, struct directory_fixture *fs)
     CHECK(fs->refs == 0);
 }
 
-static void check_reads(struct vfs *vfs, struct directory_fixture *fs)
+static void check_reads(struct vfs *vfs, struct directory_harness *fs)
 {
     unsigned a, b;
     char data[8];
@@ -101,6 +101,15 @@ static void check_reads(struct vfs *vfs, struct directory_fixture *fs)
     CHECK(vfs_read(vfs, 11, a, data, 2, &n) == VFS_BAD_FD && n == 0);
     CHECK(vfs_read(vfs, 10, a, data, 2, NULL) == VFS_BAD_ARG);
     CHECK(vfs_read(vfs, 10, a, NULL, 2, &n) == VFS_BAD_ARG && n == 0);
+
+    /* pread：显式 offset 读取，不推进描述符偏移。 */
+    CHECK(vfs_read_at(vfs, 10, a, 1, data, 3, &n) == VFS_OK && n == 3 &&
+          !memcmp(data, "ell", n));
+    CHECK(vfs_read_at(vfs, 10, a, 4, data, 4, &n) == VFS_OK && n == 1 &&
+          data[0] == 'o');
+    CHECK(vfs_read_at(vfs, 10, a, 99, data, 4, &n) == VFS_OK && n == 0);
+    CHECK(vfs_read_at(vfs, 10, a, 0, data, 2, NULL) == VFS_BAD_ARG);
+    CHECK(vfs_read_at(vfs, 11, a, 0, data, 2, &n) == VFS_BAD_FD && n == 0);
 
     unsigned reads = fs->reads;
     CHECK(vfs_read(vfs, 10, a, NULL, 0, &n) == VFS_OK && n == 0 && fs->reads == reads);
@@ -128,7 +137,7 @@ static void check_reads(struct vfs *vfs, struct directory_fixture *fs)
     CHECK(vfs_close(vfs, 10, a) == VFS_OK && fs->refs == 0);
 }
 
-static void check_clients(struct vfs *vfs, struct directory_fixture *fs)
+static void check_clients(struct vfs *vfs, struct directory_harness *fs)
 {
     unsigned c, d;
     char data[8];
@@ -143,7 +152,7 @@ static void check_clients(struct vfs *vfs, struct directory_fixture *fs)
     CHECK(vfs_close(vfs, 12, d) == VFS_OK && fs->refs == 0);
 }
 
-static void check_exhaustion(struct vfs *vfs, struct directory_fixture *fs)
+static void check_exhaustion(struct vfs *vfs, struct directory_harness *fs)
 {
     unsigned fd, spare;
 
@@ -184,7 +193,7 @@ static void check_exhaustion(struct vfs *vfs, struct directory_fixture *fs)
 
 static void run(void)
 {
-    struct directory_fixture fs = {0};
+    struct directory_harness fs = {0};
     const struct vfs_port port = {&fs, lookup, retain, release, read_at};
     struct vfs vfs = {.port = &port, .root = 2};
     struct vfs empty = {0};

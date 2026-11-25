@@ -116,6 +116,34 @@ enum vfs_result vfs_read(struct vfs *vfs, uint32_t client, unsigned fd, void *bu
     return VFS_OK;
 }
 
+enum vfs_result vfs_read_at(struct vfs *vfs, uint32_t client, unsigned fd, uint64_t offset,
+                             void *buffer, size_t count, size_t *actual)
+{
+    if (!vfs || !vfs->port || !vfs->port->read_at || !actual)
+        return VFS_BAD_ARG;
+    *actual = 0;
+    if (!client)
+        return VFS_BAD_FD;
+
+    struct vfs_client *owner = find_client(vfs, client);
+    if (!owner || fd >= VFS_FILES || !owner->files[fd].used)
+        return VFS_BAD_FD;
+    if (count && !buffer)
+        return VFS_BAD_ARG;
+    if (!count)
+        return VFS_OK;
+
+    size_t n = 0;
+    enum vfs_result result = vfs->port->read_at(vfs->port->ctx, owner->files[fd].inode,
+                                                offset, buffer, count, &n);
+    if (result != VFS_OK)
+        return result;
+    if (n > count)
+        return VFS_IO_ERROR;
+    *actual = n;
+    return VFS_OK;
+}
+
 enum vfs_result vfs_close(struct vfs *vfs, uint32_t client, unsigned fd)
 {
     if (!vfs || !vfs->port || !vfs->port->release)

@@ -33,6 +33,9 @@ struct vfs {
 
 enum vfs_result vfs_open(struct vfs *, uint32_t client, const char *path, unsigned *fd);
 enum vfs_result vfs_read(struct vfs *, uint32_t client, unsigned fd, void *, size_t, size_t *);
+/* pread：从显式 offset 读取，不推进描述符 offset。 */
+enum vfs_result vfs_read_at(struct vfs *, uint32_t client, unsigned fd, uint64_t offset,
+                            void *, size_t, size_t *);
 enum vfs_result vfs_close(struct vfs *, uint32_t client, unsigned fd);
 
 #endif
