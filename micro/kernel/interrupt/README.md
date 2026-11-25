@@ -3,7 +3,7 @@
 > 路径：`micro/kernel/interrupt/`  
 从仓库根目录用 `make -C micro run BOOT_MODULES=interrupt` 启动 QEMU demo。模拟控制器验证 claim、单次通知、确认和解绑。
 
-这个模块的最小核不是“中断处理函数集合”，而是：
+这个模块的最小核不是「中断处理函数集合」，而是：
 
 **每线三态的 IRQ 对象 + 一次性通知协议。**
 
@@ -12,6 +12,43 @@
 
 本目录只实现这个核。PLIC MMIO、trap 入口、IPC/调度、capability 都在边界外；
 `irq_port` 是它们与模块之间唯一的接缝。
+
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct irq_line` | `irq.c` | 一条中断线的状态：`state`（三态）、`sink`（接收者）、`stats`（计数） |
+| `enum irq_state` | `irq.h` | `DISARMED`（屏蔽且无主）/ `ARMED`（已解闸，可投递）/ `ACTIVE`（已 claim，等待 ack） |
+| `struct irq_sink` | `irq.h` | 上层处理者：`notify(self, line)` + 不透明 `ctx` |
+| `struct irq_port` | `irq.h` | **唯一的硬件接缝**：`claim` / `complete` / `mask` / `unmask` / `intr_save` / `intr_restore` |
+| `struct irq_stats` | `irq.h` | 观测计数：`fires` / `acks` / `bad_acks` / `spurious` / `coalesced` |
+| 线表 `g_lines[]` | `irq.c` | 固定 `IRQ_LINE_MAX = 96` 条线的状态数组 |
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 | 具体接口 |
+| --- | --- | --- |
+| `arch/riscv/plic.c` | **提供 `irq_port` 实现** | `plic_irq_port()` 返回 claim/complete/mask/unmask + SIE 保存恢复；`plic_hw_init()` 清优先级与阈值 |
+| `console` | 一个 `irq_sink` | `console_uart_notify` 绑到 `UART0_IRQ`(10)：逐字节读 RBR，`\r`/`\n` 时 `flush_line` 入队并唤醒等待者，末尾 `irq_ack` |
+| `shared/demo.c`（trap glue） | 中断入口 | S 态外部中断里 `kernel_irq_enter_devices()` → `irq_dispatch()` → `kernel_irq_leave_devices()`，再 `sched_check()` |
+| `clock` | 定时器线与 PLIC 的交叉 | `port_complete(IRQ_TIMER)` 不写 PLIC claim/complete，而是重新 `sbi_set_timer`；`port_mask` 写 `UINT64_MAX` 撤防 |
+| `sched` | 中断后的抢占点 | `irq_dispatch` 本身不调度；trap 返回前的 `sched_check()` 才切换 |
+| `virtio_blk`（resident） | 轮询而非中断 | 驱动用 `virtio_blk_poll()` 读 ISR 状态位，未绑定 PLIC 线；`irq_dispatch` 只服务 UART |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 纯模型 | 内存里的假控制器，验证 claim / 单次通知 / ack / 解绑 | 先把「每线三态 + 一次性通知」的语义定下来，不碰硬件 |
+| 2. `irq_port` 抽象 | 把 `claim/complete/mask/unmask/intr_save/intr_restore` 抽成端口 | 换平台只换端口；模块本身不含任何 MMIO 地址 |
+| 3. 无主事件必须 complete | `irq_fire` 在 `state != ARMED` 或 `sink == NULL` 时仍调 `port->complete` | PLIC 的 source 在 claim 后不 complete 会被永久闸住；漏掉就是整条线死掉 |
+| 4. 先 ACTIVE 再 notify | `l->state = IRQ_ACTIVE` 之后才调 `sink->notify` | notify 期间同一线的重复事件只能合并，不能重入 |
+| 5. notify 允许同步 ack | 返回后不再读写 `l`（局部副本） | UART 的 notify 会在末尾直接 `irq_ack`，此时状态已回到 ARMED |
+| 6. 拆除顺序：先 mask 再 complete | `irq_unbind` 与 `lines_teardown` 都按这个顺序 | 若先 complete 再 mask，仍为高的电平线会在屏蔽前重新 pending |
+| 7. PLIC 优先级别忘了设 | `port_unmask` 若读到 `PLIC_PRIO(line) == 0` 就先写 1 | PLIC 源优先级为 0 时永远不会触发；这是最容易被忽略的失效原因 |
+| 8. S 态 timer 的特殊路径 | `port_complete` / `port_mask` 对 `IRQ_TIMER` 特判 | timer 不在 PLIC 里；它的「complete」等价于重装比较器 |
+| 9. `irq_dispatch` 预算上限 | `IRQ_DRAIN_BUDGET = 32` | 防止电平线在 handler 有 bug 时把 CPU 卡在 dispatch 循环里 |
+| 10. 单核锁语义差异（已确认非缺陷） | `port_intr_restore` 在 `flags == 0` 时显式清 SIE；`sched_unlock` 则保持不动 | 两者只在各自模块的短临界区内成对使用，不会互相嵌套破坏外层状态 |
 
 ---
 
@@ -121,7 +158,10 @@ struct irq_port {
 
 ### 5.1 接到 QEMU virt PLIC
 
-示意（不在本目录编译，接入 `arch/riscv` 时使用）：
+**默认常驻镜像（M4）**：`kernel/arch/riscv/plic.c` 实现本节的 `irq_port`；
+`kernel/console/console.c` 绑定 line `UART0_IRQ`（10）。
+
+模块 demo 仍用 `test_irq.c` 主机 Mock。下文为示意（结构与 `plic.c` 一致）：
 
 ```c
 static bool timer_masked = true;
