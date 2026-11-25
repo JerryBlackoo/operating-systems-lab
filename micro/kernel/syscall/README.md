@@ -2,6 +2,53 @@
 
 系统调用层把一次 U-mode `ecall` 解码成一个内核原语调用，再把结果写回发起调用的陷阱帧。它负责分发、参数校验和状态码转换。线程状态、页表和端点队列各由所属模块维护。
 
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct syscall_entry` | `syscall.c` | 分发表的一行：`argc`（有效参数个数）、`tag`（a1 是 32 位标签）、`result`（是否回写 a1..a5）、`kind`/`rights`（首句柄的对象类别与所需权限）、`valid`（附加校验）、`handle` |
+| 分发表 `table[]` | `syscall.c` | 以 `enum abi_number` 为下标的稀疏数组；空洞（12/13/18）的 handler 为 NULL，`entry_for` 会当作未知编号 |
+| `struct syscall_request` | `syscall.h` | 一次调用的**参数快照**：`caller`（可信的 `cap_sid`）、`nr`、`args`（a0..a5 副本）、`refs[2]`（acquire 得到的在途引用） |
+| `struct syscall_call` | `syscall.h` | 一次调用的**完整状态**：`phase`、`request`、`frame`、`backend`、`held`、`waiting_thread`、`async_reply_id`、`async_ipc_done`/`status`/`result` |
+| `enum syscall_phase` | `syscall.h` | `IDLE` / `IGNORED` / `ENTERED` / `DISPATCHED` / `WAITING` / `COMPLETE` / `EXITED` |
+| `struct syscall_backend` | `syscall.h` | 三个原语缝：`acquire`（解析句柄并 pin）、`release`（撤销 pin）、`invoke`（执行语义） |
+| `user_syscall_backend` | `user_backend.c` | resident 的唯一后端实现；单模块 demo 用 `fake_backend` |
+
+`struct syscall_call` 存放在 `thread.ucall_words[24]` 里（`resident_trap.c` 有
+`_Static_assert` 锁定尺寸）。这就是「每个线程一次只能有一个在途 syscall」的
+物理依据。
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 | 具体接口 |
+| --- | --- | --- |
+| `arch/riscv`（trap） | 入口 | `shared/demo.c` 的 trap glue 在 `EXC_ECALL_U` 时调 `resident_user_trap(frame)` |
+| `boot/resident_trap` | 调用者 | 取 `sched_current()->ucall_words` 作为 `syscall_call`，调 `syscall_dispatch`，再按 phase 决定 `thread_exit` / `syscall_wait_park` |
+| `capability` | 句柄解析 | `user_backend_acquire` 走 `cap_acquire`，把 `cap_object` 存进 `backend_ctx->refs[]`；`release` 走 `cap_release` |
+| `ipc` | 后端语义 | `ABI_IPC_*` 的 invoke 分派到 `ep_send`/`ep_recv`/`ep_call`/`ep_reply_from` |
+| `memory` | 后端语义 | `ABI_AS_MAP`/`ABI_AS_UNMAP` → `as_map`/`as_unmap`；`ABI_BLOCK_READ`/`ABI_CONSOLE_*` 用 `as_copyin`/`as_copyout` |
+| `sched` | 阻塞与唤醒 | `syscall_wait_park` 用 `self->syscall_wq`；`syscall_resume` 用 `thread_wake_locked` |
+| `shared/abi` | 调用号与状态码 | `enum abi_number`、`enum abi_status`、`abi_result` / `abi_decode_*` |
+| `pager` | 缺页与 syscall 的交界 | 缺页不走 syscall 分发（在 trap 里直接 `pager_handle_user_fault`），但 `ABI_VM_MAP`/`ABI_PAGER_*` 是 VM 服务的 syscall |
+| `kernel_spawn` / `storage` / `console` | 特权调用实现 | `ABI_PM_*`→`kernel_pm_*`；`ABI_BLOCK_*`→`kernel_storage_*`；`ABI_CONSOLE_*`→内核 console |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 裸 switch | 一个 `switch (a7)` 直接调各模块 | 单模块 demo 可用，但每个调用都自己重复参数校验 |
+| 2. 表驱动分发 | `struct syscall_entry table[]` + `handle_none`/`handle_handle`/`handle_map` 三类 handler | 新增调用只需加一行，参数形状与句柄解析统一 |
+| 3. 参数形状校验 | `shape_ok`：尾寄存器必须为 0、句柄/标签必须 32 位、`AS_MAP` 的 a2 也是 32 位 | 内核不能相信用户寄存器的高位；形状错误必须在触达后端前拒绝 |
+| 4. 空洞防护 | `entry_for` 除了范围检查还要判 `table[nr].handle != 0` | designated initializer 留下的空槽曾让 `dispatch` 直接调 NULL handler，把整个内核打崩 |
+| 5. 后端抽象 | `struct syscall_backend` 的 acquire/release/invoke | 让同一套分发逻辑既能在单模块 demo（fake backend）跑，也能在 resident（真实 cap/ipc/memory）跑 |
+| 6. 阶段机 | `enum syscall_phase` + `finish()` | 阻塞调用需要「保持调用帧有效、稍后再写回」，`COMPLETE`/`EXITED`/`WAITING` 必须显式区分 |
+| 7. `WAITING` 停泊 | `syscall_wait_park` + `syscall_resume` | 后端返回 `WAITING` 时 `sepc` 已推进但结果还没写回；必须阻塞在 trap 里等续完 |
+| 8. 异步 IPC（A4） | `ep_call_open`/`deliver` 在 invoke 里完成，返回 `WAITING`；`ep_reply` 经 `user_syscall_complete_async_ipc` → `syscall_resume` 写回 | 让调用者不再占用内核栈同步等待；`MICRO_SYSCALL_ASYNC_IPC=0` 保留同步回退 |
+| 9. 早完成缓存 | `async_ipc_done` / `async_ipc_status` / `async_ipc_result` + `syscall_drain_async_done` | `ep_reply` 可能早于 `WAITING` 落地；不缓存就会丢结果 |
+| 10. park/resume 同锁 | `syscall_resume` 全程持 `sched_lock`；`syscall_wait_park` 在真正 block 前复查 phase | 否则「回复已到却仍挂在 `syscall_wq`」会死锁 |
+| 11. 延迟终止兑现点 | `syscall_wait_park` 返回前检查 `sched_thread_kill_pending` | 被请求终止的线程必须在确定的点退出，而不是继续执行用户代码 |
+| 12. 策略层迁出（A1） | 删除 `ABI_VFS_READ_AT`（编号 13 留空洞），新增 `ABI_BLOCK_READ`(27) / `ABI_BLOCK_INFO`(28) | ext4/vfs 迁到 U-mode 后，内核不再解释路径；只暴露原始块访问 |
+
 ## 最小模型
 
 ```text
@@ -85,7 +132,7 @@ U 态 ecall
 
 ### 验收证据（真实 QEMU virt）
 
-完整串口记录见 [`qemu-unified.log`](qemu-unified.log)：
+完整串口记录见 [`docs/evidence/qemu-unified-legacy.log`](../../docs/evidence/qemu-unified-legacy.log)（原 `qemu-unified.log`，已归档）：
 
 ```sh
 make -C micro run BOOT_MODULES=syscall
@@ -94,8 +141,8 @@ make -C micro run BOOT_MODULES=syscall
 
 - **U-mode ecall 走同一 trap**：日志中的 `[umode] first ecall` 显示
   `scause=0x8`、`SPP=0`；`sepc` 是当时最早进入 U 态 ecall 的指令地址。
-  具体值取决于哪个用户线程先 ecall（见 `qemu-unified.log`）。
-- **两个 AS 的真实 satp 切换**（数值以本轮 `qemu-unified.log` 为准）：
+  具体值取决于哪个用户线程先 ecall（见 `docs/evidence/qemu-unified-legacy.log`）。
+- **两个 AS 的真实 satp 切换**（数值以 `docs/evidence/qemu-unified-legacy.log` 为准）：
   `satp switch 0x0 -> 0x8000000000080262 root=0x80262 at timer U-A`，
   随后 `... -> 0x8000000000080268 root=0x80268 at timer U-B`。两个 root pfn 不同，
   pfn 数值会随帧分配顺序变化。
@@ -132,76 +179,22 @@ make -C micro run BOOT_MODULES=syscall
   `0x400001d8`，是因为当时 ecall 的下一条恰好就是 `ld`；为在 U 态断言
   `ABI_BAD_NR` 增加检查后，两者相差 8 字节。
 
-### 新增：有限 U-mode SM 取证路径（不是完整服务）
+### M3 取代的 U-mode SM 取证（历史）
 
-此前 `init/pm/vm/sm` 主要是 S-mode 模块 demo：策略函数由内核直接调用，或只在
-`demo_enter_user` 里执行一次模型用例。本次在 `closure_run()` 的同一 tick
-窗口里增加了一条**有限**的 `sm` U-mode 取证路径，只证明：
+2026-11-24 之前，`closure.c` 曾在 `closure_run()` 末尾附带一条 bare-satp 的
+U-mode SM 探针（`[usvc]` 日志）。**M3 起已删除该路径**；真实 cap 拒绝与
+init/sm/pm 服务组合见：
 
-1. U-CLI 与 U-SM 都确实运行在 `SPP=0`；
-2. 一次 IPC CALL/RECV/REPLY 往返能穿过正式 trap 与 syscall 分发器；
-3. U-CLI 用只有 RECV 权限的 cap 发 SEND，会在 capability 边界被拒绝；
-4. 链接进内核的 `sm.c` 策略函数由 U-mode 代码调用（不是内核在本路径里调用）。
+- [`docs/evidence/M3-2026-11-24-run.log`](../../docs/evidence/M3-2026-11-24-run.log)
+- 历史串口：[`docs/evidence/qemu-unified-legacy.log`](../../docs/evidence/qemu-unified-legacy.log)
 
-```text
-U-CLI（U-mode，SPP=0）
-  -> ecall ABI_IPC_SEND，使用只有 RECV 权限的 cap
-     -> capability 边界按 SYSCALL_SEND 要求 WRITE，返回 ABI_DENIED
-  -> ecall ABI_IPC_CALL，使用 SEND cap
-     -> ipc 阻塞，等 U-SM
-U-SM（U-mode，SPP=0）
-  -> 在 RECV 之前预置执行 sm_register() / sm_lookup()（不是按客户端请求动态查表）
-  -> ecall ABI_IPC_RECV，被 U-CLI 的 CALL 唤醒（请求 tag = 0x211）
-  -> ecall ABI_IPC_REPLY（回包 tag = 0x212），携带 fixture token 0x101
-U-CLI 收到 tag 0x212 与 fixture token 0x101，再 ecall THREAD_EXIT
-```
-
-- **预置策略 + 一次 IPC 往返**：`svc_server_u()` 在 RECV 前先执行
-  `sm_register()`/`sm_lookup()`，没有根据 U-CLI 请求里的名称做动态查找。
-  内核的 `svc_trap()` 只做 `syscall_dispatch()`、cap 检查和 IPC 路由；它没有
-  在本路径里调用 sm 策略函数。
-- **有限 grant，不是真实 cap**：`sm_grant_send()` 返回的是 fixture token
-  `0x101`，没有 `cap_root_install()`，U-CLI 也没有拿这个 token 再做一次
-  SEND/RECV。`svc_fixture_grant == svc_reply_fixture` 只证明该 fixture
-  token 经 IPC 原样往返。
-- **越权路径是真实的 cap 拒绝**：U-CLI 用 RECV-only cap 发送，日志记录
-  `wrong-rights send status=0xfffffffffffffffc`（`ABI_DENIED`），最终
-  `denied=1`；其它错误会累加 `unexpected_errors`。
-- **接线位置**：`closure.c` 的 `svc_*` 与 `svc_uctx`；`sm.c` 被加入
-  `MODEL_SUPPORT_syscall`，只影响 `BOOT_MODULES=syscall` 配置。
-
-**边界（必须这样理解）**：U-SM 当前在 `satp=0`/bare 下运行，和内核共享同一套
-地址映射，使用 `thread_create(NULL, ...)`，不是独立 AS/ELF 服务；grant 是
-fixture token，不是 capability 表里可再次使用的句柄。因此本轮**不能**写成
-“U-mode SM 服务已完成”或“SM 已根据客户端请求完成名称解析”。更准确的表述是：
-“SPP=0 的两条 U 线程完成一次 IPC 往返，一次 RECV-only cap 越权发送被拒，
-并在 RECV 前预置执行了链接进内核的 sm 策略”。`pm/vm/init` 仍未接通 U 态服务。
-
-完整串口见 [`qemu-unified.log`](qemu-unified.log) 的 `[usvc]` 段：
-
-```text
-[usvc] U-SM pre-set register/lookup executed in U-mode
-[usvc] first U-mode ecall: scause=8 SPP=0
-[usvc] U-CLI wrong-rights send denied by cap
-[usvc] U-SM recv woke tag=0x0000000000000211
-[usvc] U-SM reply sent=0
-[usvc] U-CLI call reply fixture=0x0000000000000101
-[usvc] U-CLI got sm fixture token from U-SM
-[usvc] denied=1 call=1 recv=1 reply=1
-[usvc] sm_fixture=0x0000000000000101 reply_fixture=0x0000000000000101
-```
-
-其中 `recv woke tag=0x211` 是 U-CLI 发来的请求 tag；U-SM 的回包 tag 是
-`0x212`，U-CLI 收到的 fixture token 是 `0x101`。
+`closure_run()` 现只保留双 AS 的 IPC call/reply、非法 ecall 与跨 AS 缺页隔离。
 
 ### 为什么选 `BOOT_MODULES=syscall`
 
-默认 `BOOT_MODULES=capability` 现在已有 timer 抢占探针，但尚未运行
-`closure_run()`，也没有 U-mode 服务。`syscall` 的 `MODEL_SUPPORT_syscall`
-已经包含 `capability/ipc/memory/sched/clock`，本次又加入 `sm.c`，所以它仍是
-“双 AS U-mode 闭环 + 有限 U-mode SM 取证路径”的最小必需组合，且仍由
-`micro/Makefile` 链接正式启动路径和 `shared/demo.c` 的 `trap_handler`。
-后续可把 `closure_run()` 挂到默认镜像，不需要再新增一次性 demo 清单。
+`MODEL_SUPPORT_syscall` 含 `capability/ipc/memory/sched/clock`，承载
+`closure_run()` 的双 AS 取证闭环，仍由 `micro/Makefile` 与 `shared/demo.c`
+的 `trap_handler` 链接。
 
 ### 保留的既有 demo
 
@@ -219,8 +212,47 @@ fixture token，不是 capability 表里可再次使用的句柄。因此本轮*
   路径由 `kernel/capability/demo.c` 单独覆盖。
 - 闭环的负向访问会终止 B 线程；整体 `PASS` 表示“错误被拒绝并记录”，不是
   “非法访问成功”。
-- U-mode SM 取证路径在 bare satp 下运行，与内核共享地址映射；它不是独立
-  AS/ELF 服务，没有真实 grant cap，也没有完整服务生命周期。只有 `sm` 有这条
-  有限路径；`pm/vm/init` 仍是模块 demo/模型路径。
-- 用户线程仍由内核构造 trap frame 并映射代码页，不是通用 ELF 加载器；服务
-  代码和数据仍在同一个内核镜像里。
+- **默认 capability 镜像**：`user_backend` 为独立 U-mode ELF（init/sm/pm/fs/
+  console/shell/vm/…）提供真实 syscall；`loader_spawn_user` 负责 satp 与设备
+  MMIO 映射。单模块 `syscall` demo 仍用汇编模板对照双 AS 取证。
+- `kernel_spawn.c` 仅 PM 调用 `ABI_PM_SPAWN` 时运行；init `plan=3` 只 spawn
+  fs/console/shell（vm/heaptest 由内核 spawn）。
+- **resident 异步 IPC**（默认）：`ABI_IPC_CALL` 走 `ep_call_open` / `ep_call_deliver`，
+  发起线程在 `syscall_wait_park` 里阻塞，由 `ep_reply` 经
+  `user_syscall_complete_async_ipc` → `syscall_resume` 写回 trap 帧并唤醒。
+  同步回退：`make MICRO_SYSCALL_ASYNC_IPC=0`（此时 `ep_call` 在内核里 sched 等待）。
+- 异步路径的关键不变量：`ep_call_open` 的**创建引用**必须由
+  `ep_reply`、`ep_call_cancel_async` 或 endpoint 销毁路径归还；否则
+  `IPC_MAX_REPLIES`（16）耗尽后所有 `IPC_CALL` 返回 `ABI_NO_MEMORY`。
+- `syscall_resume` 与 `syscall_wait_park` 共用 `sched_lock`：resume 在锁内
+  落 `COMPLETE` 并 `thread_wake_locked`；park 在真正 block 前复查 phase，
+  避免「回复已到却仍挂在 `syscall_wq`」。
+- 没有 per-thread `syscall_call`（`ucall_words` 为空）时，异步分支退回同步
+  `ep_call`，绝不「投递了却没人等回复」。
+
+## M7 新增调用（resident）
+
+| nr | 名称 | 参数 | 权限与语义 |
+| --- | --- | --- | --- |
+| 9 | `ABI_CAP_MINT_TO` | `a0=src,a1=to_sid,a2=rights,a3=badge` | **仅 `SERVICE_SID_SM`**；跨 SID 需源 cap 带 `GRANT` |
+| 10 | `ABI_PM_SPAWN` | `a0=parent,a1=image,a2=reserved` | **仅 `SERVICE_SID_PM`**；安装固定 cap 并加载 initrd ELF |
+| 11 | `ABI_CAP_DELETE` | `a0=handle` | 删除调用者自己 SID 里的 cap |
+| 13 | ~~`ABI_VFS_READ_AT`~~ | — | **已删除（2026-11-25，A1）**：ext4/vfs 迁到 U-mode，内核不再解释路径。编号留作空洞 |
+| 14 | `ABI_CONSOLE_READ` | `a0=ubuf,a1=max` | **仅 `SERVICE_SID_CONSOLE`**；非阻塞，空队列 `ABI_BUSY`；shell 经 console 服务 IPC 取行 |
+| 15 | `ABI_CONSOLE_WRITE` | `a0=ubuf,a1=len` | **仅 `SERVICE_SID_CONSOLE`**；走 `console_puts`（MMIO 优先），单次最多 128 B |
+| 16 | `ABI_POWEROFF` | — | **仅 shell**；打印 `[kmain] shutdown requested by shell` 后 `sbi_shutdown()` |
+| 17 | `ABI_PID_SELF` | — | 返回当前 thread object id |
+| 19 | `ABI_VM_MAP` | `a0=tid,a1=va,a2=rights` | **仅 `SERVICE_SID_VM`**；须 `pager_authorize_map(tid,va,as_id)` 票 **且** `cap_vm_can_map_as`（VM CSpace 持目标 AS 的 `MAP` cap） |
+| 24 | `ABI_REPLY_CALLER_SID` | `a0=reply_id` | **仅 `SERVICE_SID_SM` 与 `SERVICE_SID_VM`**；返回 `ep_call` 发起者的内核 `cap_sid`。SM 用它做名称服务鉴权，VM 用它校验 `TAG_VM_FORGET` 确实来自 PM |
+| 25 | `ABI_VM_GRANT_AS` | `a0=thread_id,a1=pm_as_cap` | **仅 `SERVICE_SID_PM`**；`a1!=0` 时用 PM 侧 `MAP\|GRANT` 源 cap `cap_mint_to` 减权给 VM 后删除源 cap；`a1==0` 仅 boot/诊断：`cap_vm_ensure_as_map` |
+| 26 | `ABI_PM_DISCARD` | `a0=thread_id,a1=image` | **仅 `SERVICE_SID_PM`**；撤销子进程。READY/普通阻塞当场摘除，RUNNING 登记延迟退出（下次进入内核时退出），异步 park 先撤销在途 reply。仅 current/idle 返回 `ABI_BUSY` |
+| 27 | `ABI_BLOCK_READ` | `a0=lba,a1=udst,a2=blocks` | **仅 `SERVICE_SID_FS`**；读原始逻辑块到调用者缓冲区（A1：策略层在 U-mode）。成功 `words[0]`=字节数 |
+| 28 | `ABI_BLOCK_INFO` | — | **仅 `SERVICE_SID_FS`**；`words[0]`=容量（块数）`words[1]`=块大小。U-mode `fs` 挂 ext4 时用它校验超级块与 extent 边界 |
+| 10 出参 | `ABI_PM_SPAWN` 成功时 | `words[0]=展示 pid`，`words[1]=thread object id`，`words[2]=PM 持有的 AS 源 cap`（供 `ABI_VM_GRANT_AS` a1） |
+| 20 | `ABI_PAGER_DONE` | `a0=fault_tid` | **仅 VM**；唤醒缺页线程 |
+| 21 | `ABI_AS_SELF` | — | 任意 U-mode 线程；返回自己 AS 的 root pfn |
+| 22 | `ABI_PAGER_FAIL` | `a0=tid,a1=status` | **仅 VM**；拒绝缺页并结束 fault 线程 |
+| 23 | `ABI_PAGER_READY` | — | **仅 VM**；宣告 pager 可接收缺页 |
+
+`ABI_NOT_FOUND = -10`。resident 下内核日志不再发 S-mode `DEMO_PRINT` ecall，而是直接
+`console_puts`；panic 路径固定走 SBI。

@@ -1,5 +1,7 @@
 #include "syscall.h"
+
 #include "csr.h"
+#include "sched.h"
 
 /*
  * 分发表。每个调用号一行：
@@ -84,7 +86,7 @@ static enum syscall_phase handle_map(struct syscall_call *call, int64_t *status,
     return backend_invoke(call, status, result);
 }
 
-static const struct syscall_entry table[ABI_AS_UNMAP + 1] = {
+static const struct syscall_entry table[MICRO_ABI_MAX_NR + 1] = {
     [ABI_YIELD]       = {0, false, false, SYSCALL_NONE, 0, 0, handle_none},
     [ABI_THREAD_EXIT] = {0, false, false, SYSCALL_NONE, 0, 0, handle_none},
     [ABI_IPC_SEND]    = {6, true, false, SYSCALL_ENDPOINT, SYSCALL_SEND, 0, handle_handle},
@@ -93,11 +95,37 @@ static const struct syscall_entry table[ABI_AS_UNMAP + 1] = {
     [ABI_IPC_REPLY]   = {6, true, false, SYSCALL_REPLY, SYSCALL_ANSWER, 0, handle_handle},
     [ABI_AS_MAP]      = {4, false, false, SYSCALL_AS, SYSCALL_MAP, valid_map, handle_map},
     [ABI_AS_UNMAP]    = {2, false, false, SYSCALL_AS, SYSCALL_MAP, valid_unmap, handle_handle},
+    [ABI_CAP_MINT_TO] = {4, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_PM_SPAWN]    = {3, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_CAP_DELETE]  = {1, false, false, SYSCALL_NONE, 0, 0, handle_none},
+
+    [ABI_CONSOLE_READ]    = {2, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_CONSOLE_WRITE]   = {2, false, false, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_POWEROFF]        = {0, false, false, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_PID_SELF]        = {0, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_VM_MAP]          = {3, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_PAGER_DONE]      = {1, false, false, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_AS_SELF]         = {0, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_PAGER_FAIL]      = {2, false, false, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_PAGER_READY]     = {0, false, false, SYSCALL_NONE, 0, 0, handle_none},
+    /* 身份查询：入参是 reply_id，返回发起该 call 的真实 TCB cap_sid。 */
+    [ABI_REPLY_CALLER_SID] = {1, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_VM_GRANT_AS]      = {2, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_PM_DISCARD]       = {2, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    /* 策略层在 U-mode：原始块读只有块号/用户地址/块数。 */
+    [ABI_BLOCK_READ]       = {3, false, true, SYSCALL_NONE, 0, 0, handle_none},
+    [ABI_BLOCK_INFO]       = {0, false, true, SYSCALL_NONE, 0, 0, handle_none},
 };
 
 static const struct syscall_entry *entry_for(enum abi_number nr)
 {
-    if ((unsigned)nr < ABI_YIELD || (unsigned)nr > ABI_AS_UNMAP)
+    if ((unsigned)nr < ABI_YIELD || (unsigned)nr > MICRO_ABI_MAX_NR)
+        return 0;
+    /*
+     * 调用号有空洞（12、18）。designated initializer 留空的槽 handler
+     * 为 NULL；这里必须当作未知调用号，否则 dispatch 会调用空指针。
+     */
+    if (table[nr].handle == 0)
         return 0;
     return &table[nr];
 }
@@ -166,9 +194,79 @@ static enum syscall_phase finish(struct syscall_call *call, enum syscall_phase p
     }
     while (call->held)
         port->release(port->ctx, call->request.refs[--call->held]);
+    call->waiting_thread = 0;
+    call->async_reply_id = 0;
+    call->async_ipc_done = false;
     call->frame = 0;
     call->phase = phase;
     return phase;
+}
+
+static bool syscall_drain_async_done(struct syscall_call *call,
+                                     enum syscall_phase *out_phase)
+{
+    const struct syscall_entry *entry;
+    int64_t st;
+    struct abi_message msg;
+
+    if (call == 0 || !call->async_ipc_done) {
+        return false;
+    }
+    entry = entry_for(call->request.nr);
+    st = call->async_ipc_status;
+    msg = call->async_ipc_result;
+    call->async_ipc_done = false;
+    *out_phase = finish(call, SYSCALL_COMPLETE, st,
+                        entry != 0 && entry->result ? &msg : 0);
+    return true;
+}
+
+void syscall_wait_park(struct syscall_call *call)
+{
+    struct thread *self = sched_current();
+    uint64_t flags;
+    enum syscall_phase done;
+
+    if (call == 0 || self == 0) {
+        return;
+    }
+    flags = sched_lock();
+    while (call->phase == SYSCALL_WAITING) {
+        if (syscall_drain_async_done(call, &done)) {
+            break;
+        }
+        /*
+         * syscall_resume() 可能在 drain 之后、block 之前把 phase 落成 COMPLETE；
+         * 不再 block 可避免「已写完 trap 帧却仍挂在 syscall_wq」的死锁。
+         */
+        if (call->phase != SYSCALL_WAITING) {
+            break;
+        }
+        /*
+         * 标记 async_parked：这期间 trap 帧被在途 reply 引用，任何
+         * discard 都会写坏内存。sched_thread_terminate() 据此先撤销 reply。
+         */
+        self->async_parked = true;
+        thread_block_locked(&self->syscall_wq);
+        sched_unlock(flags);
+        sched();
+        flags = sched_lock();
+        self->async_parked = false;
+        if (syscall_drain_async_done(call, &done)) {
+            break;
+        }
+    }
+    self->async_parked = false;
+    sched_unlock(flags);
+
+    /*
+     * 若本线程在等待期间被请求终止（PM discard 对已 RUNNING 的子进程），
+     * 这里不再返回用户态，直接退出；trap 帧已续完或已放弃，不会被别人
+     * 再引用。
+     */
+    if (sched_thread_kill_pending(self)) {
+        thread_exit();
+    }
 }
 
 static enum syscall_phase backend_invoke(struct syscall_call *call,
@@ -203,6 +301,8 @@ enum syscall_phase syscall_dispatch(struct syscall_call *call, struct trap_frame
         .phase = SYSCALL_ENTERED,
         .frame = frame,
         .backend = backend,
+        .async_reply_id = 0,
+        .async_ipc_done = false,
     };
     /* 受理：从下一条指令继续。参数错误也走同一条路径。 */
     frame->sepc += 4;
@@ -225,6 +325,14 @@ enum syscall_phase syscall_dispatch(struct syscall_call *call, struct trap_frame
 
     if (phase == SYSCALL_WAITING) {
         call->phase = SYSCALL_WAITING;
+        call->waiting_thread = sched_current();
+        {
+            enum syscall_phase done;
+
+            if (syscall_drain_async_done(call, &done)) {
+                return done;
+            }
+        }
         return phase;
     }
     if (phase == SYSCALL_EXITED)
@@ -235,13 +343,31 @@ enum syscall_phase syscall_dispatch(struct syscall_call *call, struct trap_frame
 bool syscall_resume(struct syscall_call *call, int64_t status, struct abi_message message)
 {
     const struct syscall_entry *entry;
+    struct thread *wake;
+    uint64_t flags;
+    bool ok;
 
-    if (call == 0 || call->phase != SYSCALL_WAITING || call->frame == 0)
+    if (call == 0 || call->frame == 0) {
         return false;
+    }
+
+    flags = sched_lock();
+    if (call->phase != SYSCALL_WAITING) {
+        sched_unlock(flags);
+        return false;
+    }
 
     entry = entry_for(call->request.nr);
-    if (entry == 0)
+    if (entry == 0) {
+        sched_unlock(flags);
         return false;
+    }
+    wake = call->waiting_thread;
     finish(call, SYSCALL_COMPLETE, status, entry->result ? &message : 0);
-    return true;
+    if (wake != 0) {
+        thread_wake_locked(wake);
+    }
+    ok = true;
+    sched_unlock(flags);
+    return ok;
 }

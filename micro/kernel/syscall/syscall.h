@@ -5,6 +5,8 @@
 #include "abi/abi.h"
 #include "trap.h"
 
+struct thread;
+
 /*
  * 一次系统调用的阶段。
  *
@@ -65,6 +67,17 @@ struct syscall_call {
     struct trap_frame *frame;
     const struct syscall_backend *backend;
     unsigned held;
+    /*
+     * WAITING 时阻塞在 trap 里、尚未写回用户帧的线程。
+     * syscall_resume() 完成后必须 thread_wake 它。
+     */
+    struct thread *waiting_thread;
+    /* 非 0 表示 ABI_IPC_CALL 异步等待该 reply 对象 id。 */
+    uint32_t async_reply_id;
+    /* ep_reply 早于 syscall_dispatch 置 WAITING 时先缓存在此。 */
+    bool async_ipc_done;
+    int64_t async_ipc_status;
+    struct abi_message async_ipc_result;
 };
 
 /*
@@ -77,5 +90,8 @@ enum syscall_phase syscall_dispatch(struct syscall_call *call, struct trap_frame
 
 /* 阻塞调用完成后写回原调用帧；只有 WAITING 状态的调用会成功。 */
 bool syscall_resume(struct syscall_call *call, int64_t status, struct abi_message message);
+
+/* resident 路径：在返回用户态前阻塞，直到 syscall_resume 写完 trap 帧。 */
+void syscall_wait_park(struct syscall_call *call);
 
 #endif

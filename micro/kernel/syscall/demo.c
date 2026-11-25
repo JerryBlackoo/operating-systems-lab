@@ -45,7 +45,7 @@ static struct {
     bool reply_issued, mapped;
     uint64_t mapped_va;
     struct abi_message sent;
-} fixture = {.last_reply = REPLY - 1};
+} harness = {.last_reply = REPLY - 1};
 
 static int64_t fake_acquire(void *ctx, uint32_t caller, uint32_t handle,
                             enum syscall_kind kind, unsigned rights, uint32_t *ref)
@@ -54,11 +54,11 @@ static int64_t fake_acquire(void *ctx, uint32_t caller, uint32_t handle,
     if (caller != CLIENT)
         return ABI_BAD_HANDLE;
     if (kind == SYSCALL_REPLY) {
-        if (!fixture.reply_issued || fixture.last_reply != handle)
+        if (!harness.reply_issued || harness.last_reply != handle)
             return ABI_BAD_HANDLE;
         CHECK(rights == SYSCALL_ANSWER);
         *ref = 4;
-        fixture.pins++;
+        harness.pins++;
         return ABI_OK;
     }
     for (unsigned i = 0; i < sizeof(caps) / sizeof(caps[0]); i++) {
@@ -67,7 +67,7 @@ static int64_t fake_acquire(void *ctx, uint32_t caller, uint32_t handle,
         if (caps[i].type != kind || (rights & ~caps[i].rights))
             return ABI_DENIED;
         *ref = i + 1;
-        fixture.pins++;
+        harness.pins++;
         return ABI_OK;
     }
     return ABI_BAD_HANDLE;
@@ -76,51 +76,72 @@ static int64_t fake_acquire(void *ctx, uint32_t caller, uint32_t handle,
 static void fake_release(void *ctx, uint32_t ref)
 {
     (void)ctx;
-    CHECK(ref > 0 && fixture.pins > 0);
-    fixture.pins--;
+    CHECK(ref > 0 && harness.pins > 0);
+    harness.pins--;
 }
 
 static enum syscall_phase fake_invoke(void *ctx, const struct syscall_request *request,
                                       int64_t *status, struct abi_message *reply)
 {
     (void)ctx;
-    fixture.invokes++;
+    harness.invokes++;
     switch (request->nr) {
     case ABI_THREAD_EXIT:
         return SYSCALL_EXITED;
     case ABI_IPC_CALL:
-        fixture.sent = abi_decode_message(request->args);
+        harness.sent = abi_decode_message(request->args);
         return SYSCALL_WAITING;
     case ABI_IPC_SEND:
-        fixture.sent = abi_decode_message(request->args);
+        harness.sent = abi_decode_message(request->args);
         break;
     case ABI_IPC_RECV:
-        if (fixture.reply_issued || fixture.last_reply == UINT32_MAX) {
+        if (harness.reply_issued || harness.last_reply == UINT32_MAX) {
             *status = ABI_BUSY;
         } else {
-            *reply = (struct abi_message){.tag = 7, .reply = ++fixture.last_reply, .words = {42}};
-            fixture.reply_issued = true;
+            *reply = (struct abi_message){.tag = 7, .reply = ++harness.last_reply, .words = {42}};
+            harness.reply_issued = true;
         }
         break;
     case ABI_IPC_REPLY:
-        fixture.reply_issued = false;
+        harness.reply_issued = false;
         break;
     case ABI_AS_MAP:
         CHECK(request->refs[0] == 2 && request->refs[1] == 3);
-        if (fixture.mapped)
+        if (harness.mapped)
             *status = ABI_ALREADY_MAPPED;
         else {
-            fixture.mapped = true;
-            fixture.mapped_va = request->args.a[1];
+            harness.mapped = true;
+            harness.mapped_va = request->args.a[1];
         }
         break;
     case ABI_AS_UNMAP:
-        if (fixture.mapped && fixture.mapped_va == request->args.a[1])
-            fixture.mapped = false;
+        if (harness.mapped && harness.mapped_va == request->args.a[1])
+            harness.mapped = false;
         else
             *status = ABI_NOT_MAPPED;
         break;
     case ABI_YIELD:
+        break;
+    case ABI_CAP_MINT_TO:
+    case ABI_PM_SPAWN:
+    case ABI_CAP_DELETE:
+
+    case ABI_CONSOLE_READ:
+    case ABI_CONSOLE_WRITE:
+    case ABI_PID_SELF:
+    case ABI_POWEROFF:
+    case ABI_VM_MAP:
+    case ABI_PAGER_DONE:
+    case ABI_AS_SELF:
+    case ABI_PAGER_FAIL:
+    case ABI_PAGER_READY:
+    case ABI_REPLY_CALLER_SID:
+    case ABI_VM_GRANT_AS:
+    case ABI_PM_DISCARD:
+    /* 策略层已迁到 U-mode：这两个调用只在 resident 后端实现。 */
+    case ABI_BLOCK_READ:
+    case ABI_BLOCK_INFO:
+        *status = ABI_BAD_NR;
         break;
     }
     return SYSCALL_COMPLETE;
@@ -134,7 +155,7 @@ static struct syscall_call fake_call;
 static void complete_frame(struct trap_frame *frame, int64_t status)
 {
     CHECK(syscall_dispatch(&fake_call, frame, CLIENT, &fake_backend) == SYSCALL_COMPLETE);
-    CHECK(frame->a0 == (uint64_t)status && fixture.pins == 0);
+    CHECK(frame->a0 == (uint64_t)status && harness.pins == 0);
 }
 
 static void model_cases(void)
@@ -164,7 +185,7 @@ static void model_cases(void)
     frame.a2 = FRAME;
     frame.a3 = ABI_EXEC;
     complete_frame(&frame, ABI_DENIED);
-    CHECK(fixture.invokes == 0);
+    CHECK(harness.invokes == 0);
 
     /* 一次成功映射，再撤销。 */
     frame.a0 = SPACE;
@@ -172,11 +193,11 @@ static void model_cases(void)
     frame.a2 = FRAME;
     frame.a3 = ABI_READ | ABI_WRITE;
     complete_frame(&frame, ABI_OK);
-    CHECK(fixture.mapped_va == 4096);
+    CHECK(harness.mapped_va == 4096);
     frame = (struct trap_frame){.scause = EXC_ECALL_U, .a7 = ABI_AS_UNMAP,
                                 .a0 = SPACE, .a1 = 4096};
     complete_frame(&frame, ABI_OK);
-    CHECK(!fixture.mapped);
+    CHECK(!harness.mapped);
 
     /* RECV 拿到一次性回复令牌；REPLY 只能使用一次。 */
     frame = (struct trap_frame){.scause = EXC_ECALL_U, .a7 = ABI_IPC_RECV, .a0 = ENDPOINT};
@@ -196,15 +217,24 @@ static void model_cases(void)
     /* CALL 进入 WAITING：重复分发不重入后端，续完只写一次调用帧。 */
     frame = (struct trap_frame){.scause = EXC_ECALL_U, .sepc = 100, .a7 = ABI_IPC_CALL,
                                 .a0 = ENDPOINT, .a1 = 0x32, .a2 = 0xdead};
-    unsigned before = fixture.invokes;
+    unsigned before = harness.invokes;
     CHECK(syscall_dispatch(&fake_call, &frame, CLIENT, &fake_backend) == SYSCALL_WAITING);
-    CHECK(frame.sepc == 104 && fixture.invokes == before + 1 && fixture.pins == 1);
-    CHECK(fixture.sent.tag == 0x32 && fixture.sent.words[0] == 0xdead);
+    CHECK(frame.sepc == 104 && harness.invokes == before + 1 && harness.pins == 1);
+    CHECK(harness.sent.tag == 0x32 && harness.sent.words[0] == 0xdead);
     CHECK(syscall_dispatch(&fake_call, &frame, CLIENT, &fake_backend) == SYSCALL_WAITING);
     CHECK(syscall_resume(&fake_call, ABI_OK, (struct abi_message){.tag = 55, .words = {12}}));
     CHECK(!syscall_resume(&fake_call, ABI_OK, (struct abi_message){0}));
-    CHECK(fixture.invokes == before + 1 && fixture.pins == 0);
+    CHECK(harness.invokes == before + 1 && harness.pins == 0);
     CHECK(frame.sepc == 104 && frame.a0 == 0 && frame.a1 == 55 && frame.a2 == 12);
+
+    /*
+     * 保留调用号空洞（12/18）必须返回 BAD_NR。曾因 entry_for() 只看范围
+     * 返回空槽、dispatch 直接调用 NULL handler 而把整个内核打崩。
+     */
+    frame = (struct trap_frame){.scause = EXC_ECALL_U, .a7 = 12};
+    complete_frame(&frame, ABI_BAD_NR);
+    frame = (struct trap_frame){.scause = EXC_ECALL_U, .a7 = 18};
+    complete_frame(&frame, ABI_BAD_NR);
     demo_log("dispatch: rejected frames, map/unmap, one-shot reply, delayed completion");
 }
 
@@ -320,7 +350,7 @@ static const struct cap_type frame_type = {
     .ops = &frame_ops,
 };
 
-struct kernel_fixture {
+struct kernel_harness {
     struct thread runner;
     struct as *space;
     pfn_t frame;
@@ -332,7 +362,7 @@ struct kernel_fixture {
     vaddr_t mapped_va;
 };
 
-static struct kernel_fixture kernel;
+static struct kernel_harness kernel;
 
 struct user_env {
     cap_handle_t endpoint;
@@ -471,7 +501,7 @@ static cap_rights_t cap_rights_for(enum syscall_kind kind, unsigned rights)
 static int64_t kernel_acquire(void *ctx, uint32_t caller, uint32_t handle,
                               enum syscall_kind kind, unsigned rights, uint32_t *ref)
 {
-    struct kernel_fixture *test = ctx;
+    struct kernel_harness *test = ctx;
     struct cap_info info;
 
     if (caller != CALLER)
@@ -490,7 +520,7 @@ static int64_t kernel_acquire(void *ctx, uint32_t caller, uint32_t handle,
 
 static void kernel_release(void *ctx, uint32_t ref)
 {
-    struct kernel_fixture *test = ctx;
+    struct kernel_harness *test = ctx;
 
     CHECK(ref != 0 && test->releases < test->acquires);
     test->releases++;
@@ -499,7 +529,7 @@ static void kernel_release(void *ctx, uint32_t ref)
 static enum syscall_phase kernel_invoke(void *ctx, const struct syscall_request *request,
                                         int64_t *status, struct abi_message *result)
 {
-    struct kernel_fixture *test = ctx;
+    struct kernel_harness *test = ctx;
     int rc;
 
     test->invokes++;
@@ -600,7 +630,7 @@ static _Alignas(16) uint8_t send_server_stack[4096];
 /* 服务线程：先应答复用 CALL，再接收一次 SEND，然后退出。 */
 static void call_server(void *argument)
 {
-    struct kernel_fixture *test = argument;
+    struct kernel_harness *test = argument;
     ipc_message request, reply;
 
     CHECK(ep_recv(test->endpoint, &request) == IPC_OK);
@@ -617,7 +647,7 @@ static void call_server(void *argument)
 /* 发送线程：在 RECV 到达前阻塞在 sendq，用来验证真实的唤醒路径。 */
 static void send_server(void *argument)
 {
-    struct kernel_fixture *test = argument;
+    struct kernel_harness *test = argument;
     ipc_message message = {.tag = TAG_RECV, .words = {0x55}};
 
     CHECK(ep_send(test->recv_endpoint, &message) == IPC_OK);
