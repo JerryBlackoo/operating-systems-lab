@@ -1,0 +1,20 @@
+# M6/M7 boot chain stabilize — 2026-11-25
+
+## Problem
+Half-migrated PM-only boot: `service_boot` dropped `out->vm/heaptest/heaptest2`, `kernel_init` stopped spawning M6 ELFs, `init` plan=6 targeted vm/heaptets instead of fs/console/shell; missing `heaptest2` initrd member; compile drift in `pager.c` / dual boot args for vm/heaptest.
+
+## Fix
+- Kernel spawn: sm, pm, vm, heaptest, heaptest2, init; init plan=3 → fs/console/shell via PM.
+- `userland/heaptest2/` ELF; initrd 9 members; `kernel_spawn` heaptest2 name `heaptest2`.
+- vm/heaptest: kernel boot (a0 vm cap, a1 role) vs PM boot (a2 sm) in entry code; vm registers on SM when `a4=sm_send`.
+- Removed unused `reject_current` in pager.
+
+## Verify (this machine)
+- `./tools/demo.sh` PASS
+- `./tools/m5_discriminate.sh` PASS
+- Manual QEMU: 2x `[heaptest] store ok`, distinct `frame=` for same `va=0x40020000`; role=1 `[fault] rejected`
+- `make BOOT_MODULES=capability check` PASS
+
+## Still open (objective)
+- Full PM spawn for vm/heaptest; heaptest PM path needs SM mint vm cap in `kernel_pm_spawn`.
+- Objective end-state audit: not complete.

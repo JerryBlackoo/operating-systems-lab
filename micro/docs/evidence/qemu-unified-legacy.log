@@ -1,0 +1,100 @@
+# command: make -C micro run BOOT_MODULES=syscall
+# build: make -C micro BOOT_MODULES=syscall all
+# cwd: repository root
+# exit code: 0
+# note: OpenSBI banner omitted; NUL padding from OpenSBI removed with `tr -d '\000'`.
+# note: real QEMU virt, not a host-side function-call demo. The run was wrapped in
+#       `timeout 25s`; rc=0 means the kernel shut QEMU down, not timeout 124.
+# note: `[err] ... expected` means the kernel accepted the U-B BAD_NR path only
+#       after checking source SID, status==ABI_BAD_NR, and illegal_calls==1.
+# note: `[iso] ... accepted` means source U-B, load page fault, stval==0x40200000,
+#       satp==B's root, and precheck showed A mapped / B unmapped.
+# note: `[usvc]` lines are a limited U-mode sm probe, NOT a completed SM service.
+#       Proven scope: U-CLI/U-SM run SPP=0, one IPC CALL/RECV/REPLY roundtrip, and
+#       one RECV-only cap used for SEND is denied with ABI_DENIED. U-SM pre-runs
+#       sm_register/sm_lookup before RECV (not a lookup driven by the client
+#       request). The grant is fixture token 0x101; it is not cap_root_install'ed
+#       and U-CLI never reuses it for another send/recv. U-SM runs at bare satp in
+#       the shared kernel mapping, not a separate AS/ELF server.
+
+[micro] boot: minimal model
+[boot] raw handoff: hartid=0 dtb=0x0000000087e00000
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x000000000005d000
+[boot] ram: 0x0000000080000000 + 0x0000000008000000
+[boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
+[boot] reserved[1]: 0x0000000080200000 + 0x000000000005d000 kernel
+[boot] reserved[2]: 0x0000000087e00000 + 0x0000000000001516 dtb
+[boot] arch: tp=&hart_local, stvec installed
+[boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
+[boot] handoff: kmain(&bootinfo)
+[kmain] handoff: BootInfo at 0x000000008025bf90, hartid=0
+[bootstrap] begin
+[syscall] start
+dispatch: rejected frames, map/unmap, one-shot reply, delayed completion
+[iso] precheck A_mapped=1
+[iso] precheck B_unmapped=1
+[as] satp switch 0x0000000000000000 -> 0x8000000000080262 root=0x0000000000080262 at timer U-A
+[as] satp switch 0x8000000000080262 -> 0x8000000000080268 root=0x0000000000080268 at timer U-B
+[as] satp switch 0x8000000000080268 -> 0x8000000000080262 root=0x0000000000080262 at timer U-A
+[as] satp switch 0x8000000000080262 -> 0x8000000000080268 root=0x0000000000080268 at timer U-B
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000040000138
+[ipc] U-B recv enter handle=0x0000000000000001
+[as] satp switch 0x8000000000080268 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[as] satp switch 0x0000000000000000 -> 0x8000000000080262 root=0x0000000000080262 at timer U-A
+[ipc] U-A call enter tag=0x0000000000000101
+[as] satp switch 0x8000000000080262 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[ipc] U-B recv woke tag=0x0000000000000101
+[ipc] U-B recv word0=0x5a5a5a5a5a5a5a5a
+[as] satp switch 0x0000000000000000 -> 0x8000000000080268 root=0x0000000000080268 at timer U-B
+[as] satp switch 0x8000000000080268 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[as] satp switch 0x0000000000000000 -> 0x8000000000080268 root=0x0000000000080268 at timer U-B
+[ipc] U-B reply sent tag=0x0000000000000102
+[err] U-B illegal syscall nr=99 -> status=0xffffffffffffffff sepc=0x00000000400001d8 expected
+[iso] U-B page fault scause=0x000000000000000d sepc=0x00000000400001e0 stval=0x0000000040200000 satp=0x8000000000080268 accepted
+[as] satp switch 0x8000000000080268 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[ipc] U-A call reply tag=0x0000000000000102
+[ipc] U-A call reply word0=0x5a5a5a5a5a5a5a5b
+[as] satp switch 0x0000000000000000 -> 0x8000000000080262 root=0x0000000000080262 at timer U-A
+[exit] U-A thread_exit=0
+[as] satp switch 0x8000000000080262 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[usvc] U-SM probe running in U-mode
+[usvc] U-SM pre-set register/lookup executed in U-mode
+[usvc] first U-mode ecall: scause=8 SPP=0
+[usvc] U-CLI running in U-mode
+[usvc] U-CLI wrong-rights send status=0xfffffffffffffffc
+[usvc] U-CLI wrong-rights send denied by cap
+[usvc] U-SM recv woke tag=0x0000000000000211
+[usvc] U-SM reply sent=0
+[usvc] U-SM replied from U-mode
+[exit] U-SM thread_exit=0
+[usvc] U-CLI call reply fixture=0x0000000000000101
+[usvc] U-CLI got sm fixture token from U-SM
+[exit] U-CLI thread_exit=0
+[unified] completed=2
+[unified] illegal_syscalls=1
+[unified] unexpected_errors=0
+[unified] sched_ticks=31
+[unified] sched_switches=23
+[unified] quantum_expired=5
+[unified] U-A root_pfn=0x0000000000080262
+[unified] U-B root_pfn=0x0000000000080268
+[unified] fault stval=0x0000000040200000
+[unified] fault satp=0x8000000000080268
+[usvc] client_exit=1
+[usvc] server_exit=1
+[usvc] denied=1
+[usvc] call=1
+[usvc] recv=1
+[usvc] reply=1
+[usvc] sm_fixture=0x0000000000000101
+[usvc] reply_fixture=0x0000000000000101
+[unified] timer preemption + U ecall + two AS satp switch + IPC call/reply + isolation fault
+[usvc] limited U-mode sm probe: SPP=0 + IPC roundtrip + cap denial (bare satp)
+U-mode ecall: legacy single-AS capability send/recv, real map/unmap and thread exit
+[syscall] PASS
+[bootstrap] PASS
+[kmain] shutting down

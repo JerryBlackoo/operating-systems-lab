@@ -1,0 +1,28 @@
+M5 virtio-blk regression restore — 2026-11-24
+
+Root cause (see .bugfix/ISSUE-20261124-VIRTIO-BLK-COMPLETION/):
+- legacy queue MMIO 接线回归 + split-page used ring 与 M5 成功单页基线不一致
+- virtio_complete_if_ready 在 used 前进但 status 仍为 0xff 时过早 block_complete(IO_ERROR)
+
+Fix:
+- 恢复 trace_backup 单页 virtio_map_queue（legacy: 0x020=GuestPageSize, 0x03c=QueueAlign, 0x028=QueuePFN）
+- 保留正确 feature 协商（legacy 0x024=0 + 0x020=feat0；modern 要求 VERSION_1）
+- complete 须 used 前进且 status != 0xff；IRQ sink 始终清 ISR
+
+$ make -s BOOT_MODULES=capability
+$ timeout 8s make -s run BOOT_MODULES=capability FS_IMAGE=build/micro-root-m1.img
+[virtio-blk] mmio ready
+[block] dev0: capacity=8192 blocks
+[ext4] mounted: block_size=4096 inodes=8192
+[ext4] read /motd: 20 bytes
+[fs] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[fs] ENOENT
+[kmain] idle: pool=0x000000008026e000+32146 frames free=32013
+[kmain] idle: heartbeat free=32013 ext_irqs=0 timer_ticks=2000
+[kmain] idle: heartbeat free=32013 ext_irqs=0 timer_ticks=4002
+[kmain] idle: heartbeat free=32013 ext_irqs=0 timer_ticks=6003
+EXIT=124
+
+Expected motd sha256: 74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18 — matches.
+
+M5 still not complete: U-mode fs endpoint+cap, IRQ completion evidence, discriminative cases (motd hash change, large file, busy), shell cat /motd.

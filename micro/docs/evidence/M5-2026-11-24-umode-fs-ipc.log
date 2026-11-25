@@ -1,0 +1,17 @@
+M5 U-mode FS IPC 接线进展 — 2026-11-24
+
+新增（未完整 QEMU 验收）：
+- `ABI_FS_READ=12`：仅 `SERVICE_SID_FS` 可读内核持久化 VFS（cookie 1=motd 2=largefile）
+- `kernel/storage/storage_bringup.c`：挂载后不 unmount；`g_vfs` 持久；largefile 首块日志
+- `service_boot`：`ep_fs`；init slot5 发 IPC；`service_fs_install_service_recv` 在 PM spawn fs 时安装 recv
+- `userland/servers/fs/user/`：真实 fs.elf（TAG_READY + TAG_FS_READ 服务循环 + `ABI_FS_READ`）
+- `init_main`：ready 后 `user_ipc_call(fs_ep, TAG_FS_READ/motd)`，期望 `[init] ipc read /motd ok bytes=`
+- `userland/stub` 仅构建 console.elf；fs 改由 `servers/fs/user` 构建
+
+阻塞：
+- 本机 `virtio_blk.c` 当前不可写（cp/StrReplace: 权限不够），与仓库内并行改版（split-page legacy + 0x040 QueuePFN）叠加后 QEMU 再次出现 `completion timeout`。
+- 在 virtio 恢复为 `trace_backup` 单页队列前，不得声称 M5 U-mode 路径已验收。
+
+恢复 virtio 后应重跑：
+  timeout 15s make -C micro run BOOT_MODULES=capability
+  # 期望：内核 motd sha256 + [fs-svc] read /motd via vfs + [init] ipc read /motd ok bytes=20

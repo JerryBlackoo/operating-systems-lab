@@ -1,0 +1,1553 @@
+make: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+[check] host: objects memory sched ipc
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/objects”
+./objects_test
+objects: lifecycle ok
+objects: generation ok
+objects: lock hook ok
+objects: duplicate registration ok
+objects: generation across reset ok
+objects: capacity ok
+objects: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/objects”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/memory”
+./memory_test
+memory: map/copy/unmap ok
+memory: kernel share ok
+memory: non-owned kernel map ok
+memory: reserve/exhaust ok
+memory: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/memory”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/sched”
+./sched_test
+sched: round robin ok
+sched: block/wake ok
+sched: idle/reap ok
+sched: idle-only fallback ok
+sched: create validation/capacity ok
+sched: waitq FIFO/remove ok
+sched: quantum carry ok
+sched: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/sched”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/ipc”
+./ipc_test
+ipc: message layout ok
+ipc: argument validation ok
+ipc: sender blocks, receiver receives ok
+ipc: receiver blocks, sender delivers ok
+ipc: endpoint destroy wakes waiter ok
+ipc: endpoint destroy wakes receiver ok
+ipc: endpoint slot generation ok
+ipc: endpoint pool exhaustion ok
+ipc: invalid reply ok
+ipc: reply delivery ok
+ipc: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/ipc”
+[check] standalone module ELFs
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/syscall”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c closure.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/closure.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory/frame.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/memory/frame.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory/as.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/memory/as.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched/sched.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/sched/sched.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/syscall.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/closure.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/objects/object.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/memory/frame.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/memory/as.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/sched/sched.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/clock/timebase.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/clock/timer.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/clock/event.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/ipc/ipc.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/capability/capability.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/capability/cap_arch_riscv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/userland/servers/sm/sm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/user_prog_asm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/sched/switch_rv64_asm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[syscall] start
+dispatch: rejected frames, map/unmap, one-shot reply, delayed completion
+[iso] precheck A_mapped=1
+[iso] precheck B_unmapped=1
+[as] satp switch 0x0000000000000000 -> 0x800000000008025f root=0x000000000008025f at timer U-A
+[as] satp switch 0x800000000008025f -> 0x8000000000080265 root=0x0000000000080265 at timer U-B
+[as] satp switch 0x8000000000080265 -> 0x800000000008025f root=0x000000000008025f at timer U-A
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000040000068
+[ipc] U-A call enter tag=0x0000000000000101
+[as] satp switch 0x800000000008025f -> 0x8000000000080265 root=0x0000000000080265 at timer U-B
+[ipc] U-B recv enter handle=0x0000000000000001
+[ipc] U-B recv woke tag=0x0000000000000101
+[ipc] U-B recv word0=0x5a5a5a5a5a5a5a5a
+[as] satp switch 0x8000000000080265 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[as] satp switch 0x0000000000000000 -> 0x8000000000080265 root=0x0000000000080265 at timer U-B
+[as] satp switch 0x8000000000080265 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[as] satp switch 0x0000000000000000 -> 0x8000000000080265 root=0x0000000000080265 at ecall U-B
+[ipc] U-B reply sent tag=0x0000000000000102
+[ipc] U-A call reply tag=0x0000000000000102
+[ipc] U-A call reply word0=0x5a5a5a5a5a5a5a5b
+[as] satp switch 0x8000000000080265 -> 0x800000000008025f root=0x000000000008025f at ecall U-A
+[exit] U-A thread_exit=0
+[as] satp switch 0x800000000008025f -> 0x8000000000080265 root=0x0000000000080265 at timer U-B
+[err] U-B illegal syscall nr=99 -> status=0xffffffffffffffff sepc=0x00000000400001d8 expected
+[iso] U-B page fault scause=0x000000000000000d sepc=0x00000000400001e0 stval=0x0000000040200000 satp=0x8000000000080265 accepted
+[as] satp switch 0x8000000000080265 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[usvc] U-SM probe running in U-mode
+[usvc] U-SM pre-set register/lookup executed in U-mode
+[usvc] first U-mode ecall: scause=8 SPP=0
+[usvc] U-CLI running in U-mode
+[usvc] U-CLI wrong-rights send status=0xfffffffffffffffc
+[usvc] U-CLI wrong-rights send denied by cap
+[usvc] U-SM recv woke tag=0x0000000000000211
+[usvc] U-SM reply sent=0
+[usvc] U-SM replied from U-mode
+[exit] U-SM thread_exit=0
+[usvc] U-CLI call reply fixture=0x0000000000000101
+[usvc] U-CLI got sm fixture token from U-SM
+[exit] U-CLI thread_exit=0
+[unified] completed=2
+[unified] illegal_syscalls=1
+[unified] unexpected_errors=0
+[unified] sched_ticks=34
+[unified] sched_switches=27
+[unified] quantum_expired=5
+[unified] U-A root_pfn=0x000000000008025f
+[unified] U-B root_pfn=0x0000000000080265
+[unified] fault stval=0x0000000040200000
+[unified] fault satp=0x8000000000080265
+[usvc] client_exit=1
+[usvc] server_exit=1
+[usvc] denied=1
+[usvc] call=1
+[usvc] recv=1
+[usvc] reply=1
+[usvc] sm_fixture=0x0000000000000101
+[usvc] reply_fixture=0x0000000000000101
+[unified] timer preemption + U ecall + two AS satp switch + IPC call/reply + isolation fault
+[usvc] limited U-mode sm probe: SPP=0 + IPC roundtrip + cap denial (bare satp)
+U-mode ecall: legacy single-AS capability send/recv, real map/unmap and thread exit
+[syscall] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/syscall”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/abi”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_abi  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[abi] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x000000008020005c
+v0 register vectors, meta, status codes and shared validation verified
+[abi] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/abi”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_init  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/init.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/kernel/capability/capability.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/kernel/capability/cap_arch_riscv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/userland/servers/pm/pm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/userland/servers/sm/sm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[init] start
+startup: validated plans, ordered readiness and PM/SM/capability cleanup
+[init] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_libs  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/runtime.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[libs] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x000000008020005c
+runtime: stack alignment, IPC wrappers, signed error and thread exit
+[libs] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/apps”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_apps  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/echo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/apps/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[apps] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000080200414
+echo: one request, full message check and endpoint release
+[apps] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/apps”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/pm”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_pm  -c demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_pm  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory/frame.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/memory/frame.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_pm  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory/as.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/memory/as.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_pm  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched/sched.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/sched/sched.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_pm  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/pm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/objects/object.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/memory/frame.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/memory/as.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/sched/sched.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/clock/timebase.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/clock/timer.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/clock/event.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/ipc/ipc.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/capability/capability.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/capability/cap_arch_riscv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/kernel/sched/switch_rv64_asm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/pm/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[pm] start
+process: rollback, multiple children, capacity and one-shot wait
+process: pm_port bound to kernel address space, thread and caps
+[pm] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/pm”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/sm”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_sm  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/sm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/sm/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[sm] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x000000008020169e
+registry: bounded names, scoped send grants, owner exit cleanup
+[sm] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/sm”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/vm”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_vm  -c demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_vm  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory/frame.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/kernel/memory/frame.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_vm  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory/as.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/kernel/memory/as.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_vm  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/vm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/kernel/objects/object.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/kernel/memory/frame.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/kernel/memory/as.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vm/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[vm] start
+vm: reserve rejects alignment, overflow, bad rights and overlap
+vm: demand-zero fault, resident reuse, MAP_ERROR rollback
+vm: frame and resident-table exhaustion are reported separately
+vm: release unmaps every resident page and frees the region
+vm: vm_port bound to kernel frame/Sv39 map, refs returned on release
+[vm] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/vm”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/vfs”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_vfs  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/vfs.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/vfs/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[vfs] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x000000008020167a
+vfs: per-client fd tables, independent offsets, short read, EOF and exhaustion
+[vfs] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/vfs”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/block”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_block  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/block.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/block/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[block] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000080201c98
+block: FIFO, single in-flight slot, busy retry, permanent rejection and delivery
+[block] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/block”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/fs/ext4”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_ext4  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/ext4.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/ext4/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[ext4] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000080201936
+ext4: superblock geometry, inode groups, directory records, split extents, sparse and unwritten reads
+[ext4] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/fs/ext4”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/net”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_net  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/udp.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/net/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[net] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000080201554
+UDP: IPv4/UDP checksums, datagram FIFO, ownership and packet rejection
+[net] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/net”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/drivers/storage/nvme”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_nvme  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/demo_support.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/nvme.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/nvme/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[nvme] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000080201240
+NVMe: validation, SQE encoding, CQ phase wrap, DMA lifetime and fault recovery
+[nvme] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/drivers/storage/nvme”
+make -C /home/jerry/Projects/from-scratch/operating-systems-lab/micro BOOT_MODULES=all all
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/boot/boot.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/boot/boot.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/boot/bootinfo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/boot/bootinfo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/boot/fdt_initrd.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/boot/fdt_initrd.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/boot/bootstrap.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/boot/bootstrap.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/arch/riscv/sbi.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/arch/riscv/sbi.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c shared/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/shared/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/capability/cap_arch_riscv.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/capability/cap_arch_riscv.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/capability/cap_selftest.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/capability/cap_selftest.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/capability/capability.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/capability/capability.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/capability/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/capability/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/clock/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/clock/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/clock/event.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/clock/event.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/clock/timebase.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/clock/timebase.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/clock/timer.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/clock/timer.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/interrupt/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/interrupt/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/interrupt/irq.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/interrupt/irq.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/ipc/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/ipc/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/ipc/ipc.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/ipc/ipc.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/memory/as.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/memory/as.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/memory/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/memory/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/memory/frame.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/memory/frame.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/objects/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/objects/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/objects/object.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/objects/object.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/sched/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/sched/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/sched/sched.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/sched/sched.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/syscall/closure.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/syscall/closure.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/syscall/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/syscall/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/syscall/syscall.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/syscall/syscall.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c shared/abi/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/shared/abi/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/apps/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/apps/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/apps/echo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/apps/echo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/init/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/init/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/init/init.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/init/init.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/libs/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/libs/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/libs/runtime.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/libs/runtime.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/block/block.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/block/block.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/block/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/block/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/drivers/storage/nvme/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/drivers/storage/nvme/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/drivers/storage/nvme/nvme.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/drivers/storage/nvme/nvme.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/fs/ext4/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/fs/ext4/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/fs/ext4/ext4.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/fs/ext4/ext4.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/net/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/net/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/net/udp.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/net/udp.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/pm/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/pm/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/pm/pm.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/pm/pm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/sm/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/sm/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/sm/sm.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/sm/sm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/vfs/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/vfs/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/vfs/vfs.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/vfs/vfs.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/vm/demo.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/vm/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c userland/servers/vm/vm.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/vm/vm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/arch/riscv/boot.S -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/arch/riscv/boot_asm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/arch/riscv/trap.S -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/arch/riscv/trap_asm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/arch/riscv/context.S -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/arch/riscv/context_asm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/sched/switch_rv64.S -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/sched/switch_rv64_asm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c kernel/syscall/user_prog.S -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/syscall/user_prog_asm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables -fno-unwind-tables -mno-relax -msmall-data-limit=0 -nostdlib -O2 -g -Wall -Wextra -Werror -MD -MP -Ikernel -Ikernel/boot -Ishared -Ikernel/objects -Ikernel/memory -Ikernel/sched -Ikernel/ipc -Ikernel/capability -Iuserland/servers/pm -Iuserland/servers/sm -isystem kernel/arch/riscv -c build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/bootstrap_plan.c -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/bootstrap_plan.o
+build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/ld.lld -T kernel/arch/riscv/link.ld --no-relax -o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel.elf build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/boot/boot.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/boot/bootinfo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/boot/fdt_initrd.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/boot/bootstrap.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/arch/riscv/sbi.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/shared/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/capability/cap_arch_riscv.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/capability/cap_selftest.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/capability/capability.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/capability/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/clock/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/clock/event.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/clock/timebase.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/clock/timer.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/interrupt/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/interrupt/irq.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/ipc/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/ipc/ipc.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/memory/as.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/memory/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/memory/frame.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/objects/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/objects/object.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/sched/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/sched/sched.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/syscall/closure.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/syscall/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/syscall/syscall.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/shared/abi/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/apps/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/apps/echo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/init/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/init/init.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/libs/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/libs/runtime.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/block/block.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/block/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/drivers/storage/nvme/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/drivers/storage/nvme/nvme.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/fs/ext4/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/fs/ext4/ext4.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/net/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/net/udp.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/pm/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/pm/pm.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/sm/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/sm/sm.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/vfs/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/vfs/vfs.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/vm/demo.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/userland/servers/vm/vm.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/arch/riscv/boot_asm.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/arch/riscv/trap_asm.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/arch/riscv/context_asm.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/sched/switch_rv64_asm.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel/syscall/user_prog_asm.o build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/bootstrap_plan.o
+built: build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel.elf
+   text	   data	    bss	    dec	    hex	filename
+ 179988	   4856	 778240	 963084	  eb20c	build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel.elf
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+make -C /home/jerry/Projects/from-scratch/operating-systems-lab/micro BOOT_MODULES=all run
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+
+[micro] boot: minimal model
+[boot] raw handoff: hartid=0 dtb=0x0000000087e00000
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x00000000000ec000
+[boot] ram: 0x0000000080000000 + 0x0000000008000000
+[boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
+[boot] reserved[1]: 0x0000000080200000 + 0x00000000000ec000 kernel
+[boot] reserved[2]: 0x0000000087e00000 + 0x0000000000001516 dtb
+[boot] arch: tp=&hart_local, stvec installed
+[boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
+[boot] handoff: kmain(&bootinfo)
+[kmain] handoff: BootInfo at 0x00000000802ebde0, hartid=0
+[bootstrap] begin
+[capability] start
+
+[cap] capability minimal model
+[cap] object create  OK
+[cap] root install  OK
+[cap] mint subset  OK
+[cap] mint superset rejected  OK
+[cap] badge mint needs grant  OK
+[cap] badge mint with grant  OK
+[cap] copy  OK
+[cap] cross-task move needs grant  OK
+[cap] cross-task move with grant  OK
+[cap] moved source handle stale  OK
+[cap] revoke root  OK
+[cap] root survives revoke  OK
+[cap] mint child gone  OK
+[cap] copy child gone  OK
+[cap] cross-task child gone  OK
+[cap] refs back to root  OK
+[cap] delete root  OK
+[cap] finalized once  OK
+[cap] deleted handle stale  OK
+[cap] object create 2  OK
+[cap] slot reuse new gen  OK
+[cap] mint task0 slot5  OK
+[cap] task isolation  OK
+[cap] mint read-only  OK
+[cap] invoke without write right  OK
+[cap] invoke with read right  OK
+[cap] limited object create  OK
+[cap] limited object install  OK
+[cap] unsupported op rejected  OK
+[cap] occupied slot rejected  OK
+[cap] occupied slot unchanged  OK
+[cap] object create 4  OK
+[cap] discard unreferenced  OK
+[cap] 100 mint/delete cycles  OK
+[cap] delete limited object  OK
+[cap] delete c5  OK
+[cap] delete c4  OK
+[cap] delete root2  OK
+[cap] borrow object create  OK
+[cap] borrow root install  OK
+[cap] acquire rejects missing right  OK
+[cap] acquire pins object  OK
+[cap] delete defers finalize  OK
+[cap] deleted borrow handle stale  OK
+[cap] release finalizes  OK
+[cap] all objects finalized  OK
+[cap] no live caps  OK
+[cap] no live objects  OK
+[cap] invariants  OK
+[cap] live caps=0 objects=0 finalized=5/5
+[cap] selftest ok
+capability: caps gate IPC call/reply, AS map and cross-CSpace revoke
+[capability] PASS
+[clock] start
+timer interrupts: canceled deadline and equal-deadline FIFO
+[clock] PASS
+[interrupt] start
+interrupt: one-shot model, real timer, IPC driver and ack
+[interrupt] PASS
+[objects] start
+objects: typed lookup, last-reference destruction and stale ID
+[objects] PASS
+[memory] start
+memory: Sv39 map/copy/unmap and frame reclamation
+[memory] PASS
+[sched] start
+[sched] timer: SBI one-shot tick source armed at 1 ms, sie.STIE=1
+[sched] worker-a running without yielding
+[sched] S-timer IRQ #1: scause=0x8000000000000005 tick=1161373
+[sched] S-timer IRQ #2: scause=0x8000000000000005 tick=1171175 delta=9802
+[sched] S-timer IRQ #3: scause=0x8000000000000005 tick=1181492 delta=10317
+[sched] sched_tick: worker-a time_left 1->0, need_resched set
+[sched] switch: worker-a -> worker-b, sched switches=2
+[sched] worker-a resumed after timer preemption
+[sched] integrated: irqs=16 ticks=15 switches=10 quantum_expired=2 preempt_switches=1
+sched: timer preemption, quantum, block/wake and IPC
+[sched] PASS
+[ipc] start
+IPC: rendezvous, blocked caller, one-shot reply and endpoint death
+[ipc] PASS
+[syscall] start
+dispatch: rejected frames, map/unmap, one-shot reply, delayed completion
+[iso] precheck A_mapped=1
+[iso] precheck B_unmapped=1
+[as] satp switch 0x0000000000000000 -> 0x80000000000802f1 root=0x00000000000802f1 at timer U-A
+[as] satp switch 0x80000000000802f1 -> 0x80000000000802f7 root=0x00000000000802f7 at timer U-B
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000040000068
+[as] satp switch 0x80000000000802f7 -> 0x80000000000802f1 root=0x00000000000802f1 at ecall U-A
+[ipc] U-A call enter tag=0x0000000000000101
+[as] satp switch 0x80000000000802f1 -> 0x80000000000802f7 root=0x00000000000802f7 at timer U-B
+[ipc] U-B recv enter handle=0x0000000000000001
+[ipc] U-B recv woke tag=0x0000000000000101
+[ipc] U-B recv word0=0x5a5a5a5a5a5a5a5a
+[as] satp switch 0x80000000000802f7 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[as] satp switch 0x0000000000000000 -> 0x80000000000802f7 root=0x00000000000802f7 at timer U-B
+[ipc] U-B reply sent tag=0x0000000000000102
+[err] U-B illegal syscall nr=99 -> status=0xffffffffffffffff sepc=0x00000000400001d8 expected
+[ipc] U-A call reply tag=0x0000000000000102
+[ipc] U-A call reply word0=0x5a5a5a5a5a5a5a5b
+[as] satp switch 0x80000000000802f7 -> 0x80000000000802f1 root=0x00000000000802f1 at ecall U-A
+[exit] U-A thread_exit=0
+[as] satp switch 0x80000000000802f1 -> 0x80000000000802f7 root=0x00000000000802f7 at timer U-B
+[iso] U-B page fault scause=0x000000000000000d sepc=0x00000000400001e0 stval=0x0000000040200000 satp=0x80000000000802f7 accepted
+[as] satp switch 0x80000000000802f7 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[usvc] U-SM probe running in U-mode
+[usvc] U-SM pre-set register/lookup executed in U-mode
+[usvc] first U-mode ecall: scause=8 SPP=0
+[usvc] U-CLI running in U-mode
+[usvc] U-CLI wrong-rights send status=0xfffffffffffffffc
+[usvc] U-CLI wrong-rights send denied by cap
+[usvc] U-SM recv woke tag=0x0000000000000211
+[usvc] U-SM reply sent=0
+[usvc] U-SM replied from U-mode
+[exit] U-SM thread_exit=0
+[usvc] U-CLI call reply fixture=0x0000000000000101
+[usvc] U-CLI got sm fixture token from U-SM
+[exit] U-CLI thread_exit=0
+[unified] completed=2
+[unified] illegal_syscalls=1
+[unified] unexpected_errors=0
+[unified] sched_ticks=25
+[unified] sched_switches=23
+[unified] quantum_expired=5
+[unified] U-A root_pfn=0x00000000000802f1
+[unified] U-B root_pfn=0x00000000000802f7
+[unified] fault stval=0x0000000040200000
+[unified] fault satp=0x80000000000802f7
+[usvc] client_exit=1
+[usvc] server_exit=1
+[usvc] denied=1
+[usvc] call=1
+[usvc] recv=1
+[usvc] reply=1
+[usvc] sm_fixture=0x0000000000000101
+[usvc] reply_fixture=0x0000000000000101
+[unified] timer preemption + U ecall + two AS satp switch + IPC call/reply + isolation fault
+[usvc] limited U-mode sm probe: SPP=0 + IPC roundtrip + cap denial (bare satp)
+U-mode ecall: legacy single-AS capability send/recv, real map/unmap and thread exit
+[syscall] PASS
+[abi] start
+v0 register vectors, meta, status codes and shared validation verified
+[abi] PASS
+[init] start
+startup: validated plans, ordered readiness and PM/SM/capability cleanup
+[init] PASS
+[libs] start
+runtime: stack alignment, IPC wrappers, signed error and thread exit
+[libs] PASS
+[apps] start
+echo: one request, full message check and endpoint release
+[apps] PASS
+[pm] start
+process: rollback, multiple children, capacity and one-shot wait
+process: pm_port bound to kernel address space, thread and caps
+[pm] PASS
+[sm] start
+registry: bounded names, scoped send grants, owner exit cleanup
+[sm] PASS
+[vm] start
+vm: reserve rejects alignment, overflow, bad rights and overlap
+vm: demand-zero fault, resident reuse, MAP_ERROR rollback
+vm: frame and resident-table exhaustion are reported separately
+vm: release unmaps every resident page and frees the region
+vm: vm_port bound to kernel frame/Sv39 map, refs returned on release
+[vm] PASS
+[vfs] start
+vfs: per-client fd tables, independent offsets, short read, EOF and exhaustion
+[vfs] PASS
+[block] start
+block: FIFO, single in-flight slot, busy retry, permanent rejection and delivery
+[block] PASS
+[ext4] start
+ext4: superblock geometry, inode groups, directory records, split extents, sparse and unwritten reads
+[ext4] PASS
+[net] start
+UDP: IPv4/UDP checksums, datagram FIFO, ownership and packet rejection
+[net] PASS
+[nvme] start
+NVMe: validation, SQE encoding, CQ phase wrap, DMA lifetime and fault recovery
+[nvme] PASS
+[bootstrap] PASS
+[kmain] shutting down
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared”
+[check] full kernel BOOT_MODULES=all
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel build/riscv-bootstrap/capability-clock-interrupt-objects-memory-sched-ipc-syscall-abi-init-libs-apps-pm-sm-vm-vfs-block-ext4-net-nvme/kernel.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+
+[micro] boot: minimal model
+[boot] raw handoff: hartid=0 dtb=0x0000000087e00000
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x00000000000ec000
+[boot] ram: 0x0000000080000000 + 0x0000000008000000
+[boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
+[boot] reserved[1]: 0x0000000080200000 + 0x00000000000ec000 kernel
+[boot] reserved[2]: 0x0000000087e00000 + 0x0000000000001516 dtb
+[boot] arch: tp=&hart_local, stvec installed
+[boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
+[boot] handoff: kmain(&bootinfo)
+[kmain] handoff: BootInfo at 0x00000000802ebde0, hartid=0
+[bootstrap] begin
+[capability] start
+
+[cap] capability minimal model
+[cap] object create  OK
+[cap] root install  OK
+[cap] mint subset  OK
+[cap] mint superset rejected  OK
+[cap] badge mint needs grant  OK
+[cap] badge mint with grant  OK
+[cap] copy  OK
+[cap] cross-task move needs grant  OK
+[cap] cross-task move with grant  OK
+[cap] moved source handle stale  OK
+[cap] revoke root  OK
+[cap] root survives revoke  OK
+[cap] mint child gone  OK
+[cap] copy child gone  OK
+[cap] cross-task child gone  OK
+[cap] refs back to root  OK
+[cap] delete root  OK
+[cap] finalized once  OK
+[cap] deleted handle stale  OK
+[cap] object create 2  OK
+[cap] slot reuse new gen  OK
+[cap] mint task0 slot5  OK
+[cap] task isolation  OK
+[cap] mint read-only  OK
+[cap] invoke without write right  OK
+[cap] invoke with read right  OK
+[cap] limited object create  OK
+[cap] limited object install  OK
+[cap] unsupported op rejected  OK
+[cap] occupied slot rejected  OK
+[cap] occupied slot unchanged  OK
+[cap] object create 4  OK
+[cap] discard unreferenced  OK
+[cap] 100 mint/delete cycles  OK
+[cap] delete limited object  OK
+[cap] delete c5  OK
+[cap] delete c4  OK
+[cap] delete root2  OK
+[cap] borrow object create  OK
+[cap] borrow root install  OK
+[cap] acquire rejects missing right  OK
+[cap] acquire pins object  OK
+[cap] delete defers finalize  OK
+[cap] deleted borrow handle stale  OK
+[cap] release finalizes  OK
+[cap] all objects finalized  OK
+[cap] no live caps  OK
+[cap] no live objects  OK
+[cap] invariants  OK
+[cap] live caps=0 objects=0 finalized=5/5
+[cap] selftest ok
+capability: caps gate IPC call/reply, AS map and cross-CSpace revoke
+[capability] PASS
+[clock] start
+timer interrupts: canceled deadline and equal-deadline FIFO
+[clock] PASS
+[interrupt] start
+interrupt: one-shot model, real timer, IPC driver and ack
+[interrupt] PASS
+[objects] start
+objects: typed lookup, last-reference destruction and stale ID
+[objects] PASS
+[memory] start
+memory: Sv39 map/copy/unmap and frame reclamation
+[memory] PASS
+[sched] start
+[sched] timer: SBI one-shot tick source armed at 1 ms, sie.STIE=1
+[sched] worker-a running without yielding
+[sched] S-timer IRQ #1: scause=0x8000000000000005 tick=1066878
+[sched] S-timer IRQ #2: scause=0x8000000000000005 tick=1076632 delta=9754
+[sched] S-timer IRQ #3: scause=0x8000000000000005 tick=1086607 delta=9975
+[sched] sched_tick: worker-a time_left 1->0, need_resched set
+[sched] switch: worker-a -> worker-b, sched switches=2
+[sched] worker-a resumed after timer preemption
+[sched] integrated: irqs=17 ticks=16 switches=11 quantum_expired=2 preempt_switches=1
+sched: timer preemption, quantum, block/wake and IPC
+[sched] PASS
+[ipc] start
+IPC: rendezvous, blocked caller, one-shot reply and endpoint death
+[ipc] PASS
+[syscall] start
+dispatch: rejected frames, map/unmap, one-shot reply, delayed completion
+[iso] precheck A_mapped=1
+[iso] precheck B_unmapped=1
+[as] satp switch 0x0000000000000000 -> 0x80000000000802f1 root=0x00000000000802f1 at timer U-A
+[as] satp switch 0x80000000000802f1 -> 0x80000000000802f7 root=0x00000000000802f7 at timer U-B
+[as] satp switch 0x80000000000802f7 -> 0x80000000000802f1 root=0x00000000000802f1 at timer U-A
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000040000068
+[ipc] U-A call enter tag=0x0000000000000101
+[as] satp switch 0x80000000000802f1 -> 0x80000000000802f7 root=0x00000000000802f7 at timer U-B
+[ipc] U-B recv enter handle=0x0000000000000001
+[ipc] U-B recv woke tag=0x0000000000000101
+[ipc] U-B recv word0=0x5a5a5a5a5a5a5a5a
+[as] satp switch 0x80000000000802f7 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[as] satp switch 0x0000000000000000 -> 0x80000000000802f7 root=0x00000000000802f7 at timer U-B
+[ipc] U-B reply sent tag=0x0000000000000102
+[err] U-B illegal syscall nr=99 -> status=0xffffffffffffffff sepc=0x00000000400001d8 expected
+[ipc] U-A call reply tag=0x0000000000000102
+[ipc] U-A call reply word0=0x5a5a5a5a5a5a5a5b
+[as] satp switch 0x80000000000802f7 -> 0x80000000000802f1 root=0x00000000000802f1 at timer U-A
+[exit] U-A thread_exit=0
+[iso] U-B page fault scause=0x000000000000000d sepc=0x00000000400001e0 stval=0x0000000040200000 satp=0x80000000000802f7 accepted
+[as] satp switch 0x80000000000802f1 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[usvc] U-SM probe running in U-mode
+[usvc] U-SM pre-set register/lookup executed in U-mode
+[usvc] first U-mode ecall: scause=8 SPP=0
+[usvc] U-CLI running in U-mode
+[usvc] U-CLI wrong-rights send status=0xfffffffffffffffc
+[usvc] U-CLI wrong-rights send denied by cap
+[usvc] U-SM recv woke tag=0x0000000000000211
+[usvc] U-SM reply sent=0
+[usvc] U-SM replied from U-mode
+[exit] U-SM thread_exit=0
+[usvc] U-CLI call reply fixture=0x0000000000000101
+[usvc] U-CLI got sm fixture token from U-SM
+[exit] U-CLI thread_exit=0
+[unified] completed=2
+[unified] illegal_syscalls=1
+[unified] unexpected_errors=0
+[unified] sched_ticks=25
+[unified] sched_switches=19
+[unified] quantum_expired=4
+[unified] U-A root_pfn=0x00000000000802f1
+[unified] U-B root_pfn=0x00000000000802f7
+[unified] fault stval=0x0000000040200000
+[unified] fault satp=0x80000000000802f7
+[usvc] client_exit=1
+[usvc] server_exit=1
+[usvc] denied=1
+[usvc] call=1
+[usvc] recv=1
+[usvc] reply=1
+[usvc] sm_fixture=0x0000000000000101
+[usvc] reply_fixture=0x0000000000000101
+[unified] timer preemption + U ecall + two AS satp switch + IPC call/reply + isolation fault
+[usvc] limited U-mode sm probe: SPP=0 + IPC roundtrip + cap denial (bare satp)
+U-mode ecall: legacy single-AS capability send/recv, real map/unmap and thread exit
+[syscall] PASS
+[abi] start
+v0 register vectors, meta, status codes and shared validation verified
+[abi] PASS
+[init] start
+startup: validated plans, ordered readiness and PM/SM/capability cleanup
+[init] PASS
+[libs] start
+runtime: stack alignment, IPC wrappers, signed error and thread exit
+[libs] PASS
+[apps] start
+echo: one request, full message check and endpoint release
+[apps] PASS
+[pm] start
+process: rollback, multiple children, capacity and one-shot wait
+process: pm_port bound to kernel address space, thread and caps
+[pm] PASS
+[sm] start
+registry: bounded names, scoped send grants, owner exit cleanup
+[sm] PASS
+[vm] start
+vm: reserve rejects alignment, overflow, bad rights and overlap
+vm: demand-zero fault, resident reuse, MAP_ERROR rollback
+vm: frame and resident-table exhaustion are reported separately
+vm: release unmaps every resident page and frees the region
+vm: vm_port bound to kernel frame/Sv39 map, refs returned on release
+[vm] PASS
+[vfs] start
+vfs: per-client fd tables, independent offsets, short read, EOF and exhaustion
+[vfs] PASS
+[block] start
+block: FIFO, single in-flight slot, busy retry, permanent rejection and delivery
+[block] PASS
+[ext4] start
+ext4: superblock geometry, inode groups, directory records, split extents, sparse and unwritten reads
+[ext4] PASS
+[net] start
+UDP: IPv4/UDP checksums, datagram FIFO, ownership and packet rejection
+[net] PASS
+[nvme] start
+NVMe: validation, SQE encoding, CQ phase wrap, DMA lifetime and fault recovery
+[nvme] PASS
+[bootstrap] PASS
+[kmain] shutting down
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+make: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+EXIT=0

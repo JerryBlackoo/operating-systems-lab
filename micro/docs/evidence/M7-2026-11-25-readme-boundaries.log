@@ -1,0 +1,30 @@
+# M7 README「已知边界」复核 — 2026-11-25
+
+## 已更新（≥10）
+
+| 模块 | 路径 |
+| --- | --- |
+| syscall | kernel/syscall/README.md |
+| loader | kernel/loader/README.md |
+| ipc | kernel/ipc/README.md |
+| sched | kernel/sched/README.md |
+| memory | kernel/memory/README.md（已有 pager 行，未改） |
+| capability | kernel/capability/README.md |
+| boot | kernel/boot/README.md（前序） |
+| block | userland/servers/block/README.md（已有，未改） |
+| vfs | userland/servers/vfs/README.md（已有） |
+| ext4 | userland/servers/fs/ext4/README.md（已有） |
+| vm | userland/servers/vm/README.md（已有） |
+| pm | userland/servers/pm/README.md |
+| sm | userland/servers/sm/README.md |
+| shell | userland/shell/README.md（已有「边界」） |
+| 设计 | docs/design/M7-integration.md §4 |
+
+## 仍属模型/非主线
+
+- net、nvme：替身 demo；未删 README 声明。
+- PM-only `*_m6.*`：实验，非默认验收。
+
+## 回归
+
+`./tools/verify_capability_wiring.sh` + `./tools/demo.sh` 应在修改后仍 PASS（仅文档变更）。

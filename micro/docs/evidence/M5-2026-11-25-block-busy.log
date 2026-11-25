@@ -1,0 +1,21 @@
+# M5 evidence — block 队列满 busy 判别（2026-11-25）
+
+## 命令
+
+```bash
+bash tools/m5_discriminate.sh
+```
+
+## 观测
+
+```
+[block] busy discriminate ok
+[ext4] read /largefile: 204800 bytes
+[fs] largefile sha256=d60c9f8a016b8f4ac40ce4dc1813fc70f6bfa21cf47be8bc26ce612413bac594
+[m5] PASS
+```
+
+## 实现
+
+- `storage_busy_discriminate()`：填满 `BLOCK_PENDING` 后第 5 次 `block_submit` 得 `BLOCK_BUSY`，再排空队列
+- `storage_read_path_full()`：bringup 读满 200KiB largefile 并打哈希

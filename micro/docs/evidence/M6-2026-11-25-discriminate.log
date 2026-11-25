@@ -1,0 +1,21 @@
+# M6 evidence — 双进程同 VA 不同 frame（2026-11-25）
+
+## 命令
+
+```bash
+bash tools/m6_discriminate.sh
+```
+
+## 结果
+
+```
+[vm] map tid=65551 va=0000000040020000 frame=000000000008035b ok
+[vm] map tid=65553 va=0000000040020000 frame=000000000008035c ok
+[m6] PASS same_va=va=0000000040020000 frames frame=000000000008035b vs frame=000000000008035c
+```
+
+## 备注
+
+- initrd 9 成员（`heaptest2.elf`）
+- `USER_LAUNCH_MAX=16`（避免 launch table full）
+- `pager_authorize_map` 约束 `ABI_VM_MAP`

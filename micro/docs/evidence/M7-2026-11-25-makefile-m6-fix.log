@@ -1,0 +1,18 @@
+# Makefile M6 实验接线误用 — 2026-11-25
+
+## Bug
+capability 镜像误链：
+- kernel/boot/kernel_init_m6.c（vm/heaptest loader 空操作）
+- kernel/boot/service_boot_m6.c（plan=6、无 vm/heaptest layout）
+- userland/init 曾链 init_main_m6.o
+
+症状：demo poweroff 失败；m6 无 [vm] serving in U-mode。
+
+## Fix
+Makefile：kernel_init.c + service_boot.c；make demo → tools/demo.sh
+init：init_main.o + 注释
+
+## Verify (2026-11-25T01:23+)
+./tools/demo.sh PASS
+./tools/m6_discriminate.sh PASS
+make run QEMU_TIMEOUT=45s → micro> 无 shutting down（EXIT=124/timeout 预期）

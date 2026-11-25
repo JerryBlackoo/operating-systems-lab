@@ -1,0 +1,465 @@
+make: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+[check] host: objects memory sched ipc interrupt loader
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/objects”
+./objects_test
+objects: lifecycle ok
+objects: generation ok
+objects: lock hook ok
+objects: duplicate registration ok
+objects: generation across reset ok
+objects: capacity ok
+objects: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/objects”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/memory”
+./memory_test
+memory: map/copy/unmap ok
+memory: kernel share ok
+memory: non-owned kernel map ok
+memory: reserve/exhaust ok
+memory: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/memory”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/sched”
+./sched_test
+sched: round robin ok
+sched: block/wake ok
+sched: idle/reap ok
+sched: idle-only fallback ok
+sched: create validation/capacity ok
+sched: waitq FIFO/remove ok
+sched: quantum carry ok
+sched: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/sched”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/ipc”
+./ipc_test
+ipc: message layout ok
+ipc: argument validation ok
+ipc: sender blocks, receiver receives ok
+ipc: receiver blocks, sender delivers ok
+ipc: endpoint destroy wakes waiter ok
+ipc: endpoint destroy wakes receiver ok
+ipc: endpoint slot generation ok
+ipc: endpoint pool exhaustion ok
+ipc: invalid reply ok
+ipc: reply delivery ok
+ipc: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/ipc”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/interrupt”
+./test_irq
+ALL TESTS PASSED
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/interrupt”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/loader”
+./loader_test
+loader: bad machine rc=-1
+loader: bad type rc=-1
+loader: bad phdr size rc=-1
+loader: filesz exceeds memsz rc=-1
+loader: W+X rc=-1
+loader: non-executable entry rc=-1
+loader: MIRD five-member/version/truncation ok
+loader: partial/shared pages and bss ok
+loader: reject bad machine ok
+loader: reject bad type ok
+loader: reject bad phdr size ok
+loader: reject filesz exceeds memsz ok
+loader: reject W+X ok
+loader: reject non-executable entry ok
+loader: second-page allocation failure rolls back mappings and frames
+loader: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/loader”
+[check] standalone module ELFs
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/syscall”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.o
+demo.c:88:13: error: enumeration value 'ABI_CAP_DELETE' not handled in switch [-Werror,-Wswitch]
+   88 |     switch (request->nr) {
+      |             ^~~~~~~~~~~
+1 error generated.
+make[2]: *** [../../shared/demo.mk:59：/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.o] 错误 1
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/syscall”
+make[1]: *** [Makefile:10：run] 错误 2
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared”
+make: *** [Makefile:192：check] 错误 2
+make: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+
+EXIT=2
+make: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+[check] host: objects memory sched ipc interrupt loader
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/objects”
+./objects_test
+objects: lifecycle ok
+objects: generation ok
+objects: lock hook ok
+objects: duplicate registration ok
+objects: generation across reset ok
+objects: capacity ok
+objects: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/objects”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/memory”
+./memory_test
+memory: map/copy/unmap ok
+memory: kernel share ok
+memory: non-owned kernel map ok
+memory: reserve/exhaust ok
+memory: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/memory”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/sched”
+./sched_test
+sched: round robin ok
+sched: block/wake ok
+sched: idle/reap ok
+sched: idle-only fallback ok
+sched: create validation/capacity ok
+sched: waitq FIFO/remove ok
+sched: quantum carry ok
+sched: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/sched”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/ipc”
+./ipc_test
+ipc: message layout ok
+ipc: argument validation ok
+ipc: sender blocks, receiver receives ok
+ipc: receiver blocks, sender delivers ok
+ipc: endpoint destroy wakes waiter ok
+ipc: endpoint destroy wakes receiver ok
+ipc: endpoint slot generation ok
+ipc: endpoint pool exhaustion ok
+ipc: invalid reply ok
+ipc: reply delivery ok
+ipc: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/ipc”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/interrupt”
+./test_irq
+ALL TESTS PASSED
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/interrupt”
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/loader”
+./loader_test
+loader: bad machine rc=-1
+loader: bad type rc=-1
+loader: bad phdr size rc=-1
+loader: filesz exceeds memsz rc=-1
+loader: W+X rc=-1
+loader: non-executable entry rc=-1
+loader: MIRD five-member/version/truncation ok
+loader: partial/shared pages and bss ok
+loader: reject bad machine ok
+loader: reject bad type ok
+loader: reject bad phdr size ok
+loader: reject filesz exceeds memsz ok
+loader: reject W+X ok
+loader: reject non-executable entry ok
+loader: second-page allocation failure rolls back mappings and frames
+loader: all tests passed
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/loader”
+[check] standalone module ELFs
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/syscall”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c syscall.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/syscall.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c closure.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/closure.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_syscall  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability/capability.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/capability/capability.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/syscall.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/closure.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/objects/object.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/memory/frame.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/memory/as.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/sched/sched.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/clock/timebase.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/clock/timer.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/clock/event.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/ipc/ipc.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/capability/capability.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/capability/cap_arch_riscv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/userland/servers/sm/sm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/user_prog_asm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/kernel/sched/switch_rv64_asm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/syscall/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___/_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[syscall] start
+dispatch: rejected frames, map/unmap, one-shot reply, delayed completion
+[iso] precheck A_mapped=1
+[iso] precheck B_unmapped=1
+[as] satp switch 0x0000000000000000 -> 0x8000000000080256 root=0x0000000000080256 at timer U-A
+[as] satp switch 0x8000000000080256 -> 0x800000000008025c root=0x000000000008025c at timer U-B
+[as] satp switch 0x800000000008025c -> 0x8000000000080256 root=0x0000000000080256 at timer U-A
+[as] satp switch 0x8000000000080256 -> 0x800000000008025c root=0x000000000008025c at timer U-B
+[as] satp switch 0x800000000008025c -> 0x8000000000080256 root=0x0000000000080256 at timer U-A
+[as] satp switch 0x8000000000080256 -> 0x800000000008025c root=0x000000000008025c at timer U-B
+[as] satp switch 0x800000000008025c -> 0x0000000000000000 root=0x0000000000000000 at timer
+[as] satp switch 0x0000000000000000 -> 0x8000000000080256 root=0x0000000000080256 at timer U-A
+[as] satp switch 0x8000000000080256 -> 0x800000000008025c root=0x000000000008025c at timer U-B
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x0000000040000138
+[ipc] U-B recv enter handle=0x0000000000000001
+[as] satp switch 0x800000000008025c -> 0x0000000000000000 root=0x0000000000000000 at timer
+[as] satp switch 0x0000000000000000 -> 0x8000000000080256 root=0x0000000000080256 at timer U-A
+[ipc] U-A call enter tag=0x0000000000000101
+[as] satp switch 0x8000000000080256 -> 0x0000000000000000 root=0x0000000000000000 at timer
+[ipc] U-B recv woke tag=0x0000000000000101
+[ipc] U-B recv word0=0x5a5a5a5a5a5a5a5a
+[as] satp switch 0x0000000000000000 -> 0x800000000008025c root=0x000000000008025c at timer U-B
+[ipc] U-B reply sent tag=0x0000000000000102
+[err] U-B illegal syscall nr=99 -> status=0xffffffffffffffff sepc=0x00000000400001d8 expected
+[ipc] U-A call reply tag=0x0000000000000102
+[ipc] U-A call reply word0=0x5a5a5a5a5a5a5a5b
+[as] satp switch 0x800000000008025c -> 0x8000000000080256 root=0x0000000000080256 at timer U-A
+[exit] U-A thread_exit=0
+[as] satp switch 0x8000000000080256 -> 0x800000000008025c root=0x000000000008025c at timer U-B
+[iso] U-B page fault scause=0x000000000000000d sepc=0x00000000400001e0 stval=0x0000000040200000 satp=0x800000000008025c accepted
+[as] satp switch 0x800000000008025c -> 0x0000000000000000 root=0x0000000000000000 at timer
+[unified] completed=2
+[unified] illegal_syscalls=1
+[unified] unexpected_errors=0
+[unified] sched_ticks=54
+[unified] sched_switches=21
+[unified] quantum_expired=10
+[unified] U-A root_pfn=0x0000000000080256
+[unified] U-B root_pfn=0x000000000008025c
+[unified] fault stval=0x0000000040200000
+[unified] fault satp=0x800000000008025c
+[unified] timer preemption + U ecall + two AS satp switch + IPC call/reply + isolation fault
+[unified] U-mode SM cap denial moved to M3 resident path (docs/evidence/M3-2026-11-24-run.log)
+U-mode ecall: legacy single-AS capability send/recv, real map/unmap and thread exit
+[syscall] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/kernel/syscall”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/abi”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_abi  -c demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/abi/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___/_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[abi] start
+[umode] first ecall: scause=0x0000000000000008 SPP=0 sepc=0x000000008020005c
+v0 register vectors, meta, status codes and shared validation verified
+[abi] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/abi”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_init  -c demo.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_init  -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability/capability.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/kernel/capability/capability.o
+/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/ld.lld -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv/link.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/init.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/kernel/capability/capability.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/kernel/capability/cap_arch_riscv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/userland/servers/pm/pm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/userland/servers/sm/sm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo_support.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/boot_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/trap_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/context_rv.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/sbi.o
+timeout 15s qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default -kernel /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/init/demo.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___/_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[init] start
+startup: validated plans, ordered readiness and PM/SM/capability cleanup
+[init] PASS
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init”
+make[2]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax -msmall-data-limit=0 -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables -O2 -g -Wall -Wextra -Werror -MD -MP -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/objects -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/memory -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/sched -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/ipc -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/capability -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/pm -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../userland/servers/sm -isystem /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../kernel/arch/riscv -DDEMO_SYMBOL=demo_libs  -c runtime.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/runtime.o
+runtime.c:32:39: error: use of undeclared identifier 'NULL'
+   32 |     if (status == ABI_OK && handle != NULL) {
+      |                                       ^
+runtime.c:44:42: error: unknown type name 'size_t'
+   44 | void *memcpy(void *dst, const void *src, size_t n)
+      |                                          ^
+runtime.c:49:10: error: use of undeclared identifier 'size_t'; did you mean 'sizeof'?
+   49 |     for (size_t i = 0; i < n; i++) {
+      |          ^~~~~~
+      |          sizeof
+runtime.c:49:19: error: expression is not assignable
+   49 |     for (size_t i = 0; i < n; i++) {
+      |          ~~~~~~~~ ^
+runtime.c:49:17: error: use of undeclared identifier 'i'
+   49 |     for (size_t i = 0; i < n; i++) {
+      |                 ^
+runtime.c:49:24: error: use of undeclared identifier 'i'
+   49 |     for (size_t i = 0; i < n; i++) {
+      |                        ^
+runtime.c:49:31: error: use of undeclared identifier 'i'
+   49 |     for (size_t i = 0; i < n; i++) {
+      |                               ^
+runtime.c:50:13: error: use of undeclared identifier 'i'
+   50 |         out[i] = in[i];
+      |             ^
+runtime.c:50:21: error: use of undeclared identifier 'i'
+   50 |         out[i] = in[i];
+      |                     ^
+runtime.c:55:36: error: unknown type name 'size_t'
+   55 | void *memset(void *dst, int value, size_t n)
+      |                                    ^
+runtime.c:59:10: error: use of undeclared identifier 'size_t'; did you mean 'sizeof'?
+   59 |     for (size_t i = 0; i < n; i++) {
+      |          ^~~~~~
+      |          sizeof
+runtime.c:59:19: error: expression is not assignable
+   59 |     for (size_t i = 0; i < n; i++) {
+      |          ~~~~~~~~ ^
+runtime.c:59:17: error: use of undeclared identifier 'i'
+   59 |     for (size_t i = 0; i < n; i++) {
+      |                 ^
+runtime.c:59:24: error: use of undeclared identifier 'i'
+   59 |     for (size_t i = 0; i < n; i++) {
+      |                        ^
+runtime.c:59:31: error: use of undeclared identifier 'i'
+   59 |     for (size_t i = 0; i < n; i++) {
+      |                               ^
+runtime.c:60:13: error: use of undeclared identifier 'i'
+   60 |         out[i] = (uint8_t)value;
+      |             ^
+runtime.c:65:49: error: unknown type name 'size_t'
+   65 | int memcmp(const void *left, const void *right, size_t n)
+      |                                                 ^
+runtime.c:70:10: error: use of undeclared identifier 'size_t'; did you mean 'sizeof'?
+   70 |     for (size_t i = 0; i < n; i++) {
+      |          ^~~~~~
+      |          sizeof
+runtime.c:70:19: error: expression is not assignable
+   70 |     for (size_t i = 0; i < n; i++) {
+      |          ~~~~~~~~ ^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+20 errors generated.
+make[2]: *** [../../shared/demo.mk:59：/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared/../build/models/libs/runtime.o] 错误 1
+make[2]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs”
+make[1]: *** [Makefile:10：run] 错误 2
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared”
+make: *** [Makefile:192：check] 错误 2
+make: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+
+RECHECK_EXIT=2

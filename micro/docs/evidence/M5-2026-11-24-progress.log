@@ -1,0 +1,39 @@
+M5 progress, not completion
+Date: 2026-11-24
+
+Host image facts:
+$ dumpe2fs -h micro/build/micro-root-m1.img
+Filesystem features before the fix included 64bit and Group descriptor size 64; the parser supports 32-byte descriptors, so the image generator now uses -O extent,^64bit.
+$ debugfs -R 'stat /motd' micro/build/micro-root-m1.img
+Inode: 13 Type: regular Flags: 0x80000 Size: 20
+EXTENTS: (0):1599
+$ debugfs -R 'cat /motd' micro/build/micro-root-m1.img
+microkernel motd v1
+
+Diagnostic facts retained:
+- legacy-v1 was identified from the actual MMIO version register; QueueNotify trace reached QEMU before GuestPageSize was fixed, with no virtio_blk_handle_read.
+- The driver now writes GuestPageSize=4096, QueueAlign=4096 and QueuePFN for legacy v1. Modern v2 uses QueueDesc=0x080, QueueAvail=0x090, QueueUsed=0x0a0 and VERSION_1 negotiation.
+- Invalid fence spelling and intermediate build failures were fixed rather than removing the build checks.
+
+$ timeout 8s make -C micro run FS_IMAGE=build/micro-root-m1.img
+[virtio-blk] mmio ready legacy-v1
+[block] dev0: capacity=8192 blocks
+[ext4] mounted: block_size=4096 inodes=8192
+[ext4] read /motd: 20 bytes
+[fs] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[fs] ENOENT
+[kmain] idle: pool=0x000000008026e000+32146 frames free=32023
+[kmain] idle: heartbeat free=32023 ext_irqs=0 timer_ticks=2000
+[kmain] idle: heartbeat free=32023 ext_irqs=0 timer_ticks=4001
+[kmain] idle: heartbeat free=32023 ext_irqs=0 timer_ticks=6002
+EXIT=124
+
+Expected motd hash from mkext4image.py:
+74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+Actual hash matches.
+
+Still incomplete for M5:
+1. kernel_storage_bringup performs this read in the kernel boot path; no U-mode client endpoint+capability FS request yet.
+2. blk_io_read uses bounded polling through pump_irq/virtio_blk_poll; interrupt-driven completion and busy retry evidence are still required.
+3. No changed-motd hash pair, 200 KiB/depth-1 read, or block pending-full run has been recorded yet.
+4. The real U-mode fs service is still a ready-only stub. M5 is therefore not marked complete.

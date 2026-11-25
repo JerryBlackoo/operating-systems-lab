@@ -1,0 +1,37 @@
+# M7 shell 初版（2026-11-24）
+
+## 命令
+
+```bash
+cd /home/jerry/Projects/from-scratch/operating-systems-lab/micro
+make -s BOOT_MODULES=capability user initrd
+(sleep 12; printf 'help\nps\npoweroff\n') | timeout 30s env QEMU_TIMEOUT=28s \
+  make -s run BOOT_MODULES=capability FS_IMAGE=build/micro-root-m1.img 2>&1 | strings
+```
+
+## 摘录
+
+```
+[init] ipc read /motd ok bytes=20
+[init] spawn shell ok pid=12
+[init] shell ready
+micro> 
+commands: help cat ps echo poweroff
+pid=1 init
+pid=2 sm
+pid=3 pm
+pid=10 fs
+pid=11 console
+pid=12 shell
+[kmain] shutdown requested by shell
+```
+
+## 说明
+
+- 独立 `shell.elf`（initrd 6 成员）；`ABI_CONSOLE_READ/WRITE`、`ABI_POWEROFF` 仅 `SERVICE_SID_SHELL`。
+- `cat` 经 FS IPC 路径协议；`ps` 经 PM IPC 或核内 `kernel_spawn_register` 记账。
+- `tools/demo.sh` 需 `QEMU_TIMEOUT≥50s` 且在 `[init] shell ready` 后喂 stdin。
+
+## 未闭合
+
+- `demo.sh` 全绿仍受时序影响；M5 判别、M6、独立 console 服务仍缺。

@@ -1,0 +1,23 @@
+# M7 console 服务回归 — 2026-11-25
+
+## 现象
+
+- `./tools/demo.sh` 构建失败：`console_main.c` 引用未定义的 `ABI_SHARED_IPC_*`、`TAG_SM_REGISTER_OK`、`user_console_read_line`、`TAG_CONSOLE_READ_BUSY`（半成品共享页改版未合入 ABI/loader）。
+- 修复编译后 demo 仍 FAIL：`micro>` 未出现；QEMU log 显示内核 UART irq 直接吃 demo stdin，无 `[console-svc] serving`。
+
+## 根因
+
+1. **协议**：shell/fs 仍用 **24 字节内联 IPC**（`service_proto.h`），非共享页；`console_main.c` 须与 `shell_main.c` 对齐。
+2. **启动参数**：`loader_boot_args` 对 console 与 fs 相同（`a0..a2` cap，`a3=sid`，`a4=sm_send`），但 `console_start` 仅收 4 参，**`sm_send` 落在未使用的 `a4`**，导致 SM/IPC 错句柄。
+
+## 修复
+
+- `userland/servers/console/user/console_main.c`：重写 `TAG_CONSOLE_WRITE/READ/MORE`；`console_start(..., sid, sm_send)` 与 fs 一致。
+
+## 验收
+
+```bash
+make -s user initrd
+./tools/verify_capability_wiring.sh   # PASS
+./tools/demo.sh                       # PASS
+```

@@ -1,0 +1,384 @@
+$ make -C micro user BUILD=$PWD/micro/build/user-m2-clean
+make: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+make -C userland/init/user
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init/user”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c init.S -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/init.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c init_main.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/init_main.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs/user_io.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_user_io.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c /home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs/runtime.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_runtime.o
+ln -sf "/home/jerry/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld" /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/ld.lld
+"/home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/ld.lld" -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init/user/user.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/init.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/init.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/init_main.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_user_io.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_runtime.o
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init/user”
+make -C userland/servers/sm/user
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/sm/user”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c sm.S -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/sm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c sm_main.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/sm_main.o
+"/home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/ld.lld" -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init/user/user.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/sm.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/sm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/sm_main.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_user_io.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_runtime.o
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/sm/user”
+make -C userland/servers/pm/user
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/pm/user”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c pm.S -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/pm.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c pm_main.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/pm_main.o
+"/home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/ld.lld" -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init/user/user.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/pm.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/pm.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/pm_main.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_user_io.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_runtime.o
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/servers/pm/user”
+make -C userland/stub
+make[1]: 进入目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/stub”
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c stub.S -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/stub.o
+clang --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -ffreestanding -fno-builtin -nostdlib -O2 -g -Wall -Wextra -Werror -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/shared -I/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/libs -c stub_main.c -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/stub_main.o
+"/home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/ld.lld" -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init/user/user.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/fs.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/stub.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/stub_main.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_runtime.o
+"/home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/ld.lld" -T /home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/init/user/user.ld --no-relax -o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/console.elf /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/stub.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/stub_main.o /home/jerry/Projects/from-scratch/operating-systems-lab/micro/build/user-m2-clean/lib_runtime.o
+make[1]: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro/userland/stub”
+make: 离开目录“/home/jerry/Projects/from-scratch/operating-systems-lab/micro”
+ELF Header:
+  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  ABI Version:                       0
+  Type:                              EXEC (Executable file)
+  Machine:                           RISC-V
+  Version:                           0x1
+  Entry point address:               0x40000000
+  Start of program headers:          64 (bytes into file)
+  Start of section headers:          32304 (bytes into file)
+  Flags:                             0x1, RVC
+  Size of this header:               64 (bytes)
+  Size of program headers:           56 (bytes)
+  Number of program headers:         2
+  Size of section headers:           64 (bytes)
+  Number of section headers:         16
+  Section header string table index: 14
+OK: init_main absent from kernel ELF
+EXIT=0
+$ timeout 8s qemu-system-riscv64 ... -initrd micro/build/user/initrd.img -kernel micro/build/riscv/kernel.elf
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+
+[micro] boot: minimal model
+[boot] raw handoff: hartid=0 dtb=0x0000000087e00000
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x000000000006e000
+[boot] ram: 0x0000000080000000 + 0x0000000008000000
+[boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
+[boot] reserved[1]: 0x0000000080200000 + 0x000000000006e000 kernel
+[boot] reserved[2]: 0x0000000087e00000 + 0x000000000000155a dtb
+[boot] reserved[3]: 0x0000000084200000 + 0x000000000001f9a4 initrd
+[boot] arch: tp=&hart_local, stvec installed
+[boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
+[boot] handoff: kmain(&bootinfo)
+[kmain] handoff: BootInfo at 0x000000008026d150, hartid=0
+[bootstrap] begin
+[capability] start
+
+[cap] capability minimal model
+[cap] object create  OK
+[cap] root install  OK
+[cap] mint subset  OK
+[cap] mint superset rejected  OK
+[cap] badge mint needs grant  OK
+[cap] badge mint with grant  OK
+[cap] copy  OK
+[cap] cross-task move needs grant  OK
+[cap] cross-task move with grant  OK
+[cap] moved source handle stale  OK
+[cap] revoke root  OK
+[cap] root survives revoke  OK
+[cap] mint child gone  OK
+[cap] copy child gone  OK
+[cap] cross-task child gone  OK
+[cap] refs back to root  OK
+[cap] delete root  OK
+[cap] finalized once  OK
+[cap] deleted handle stale  OK
+[cap] object create 2  OK
+[cap] slot reuse new gen  OK
+[cap] mint task0 slot5  OK
+[cap] task isolation  OK
+[cap] mint read-only  OK
+[cap] invoke without write right  OK
+[cap] invoke with read right  OK
+[cap] limited object create  OK
+[cap] limited object install  OK
+[cap] unsupported op rejected  OK
+[cap] occupied slot rejected  OK
+[cap] occupied slot unchanged  OK
+[cap] object create 4  OK
+[cap] discard unreferenced  OK
+[cap] 100 mint/delete cycles  OK
+[cap] delete limited object  OK
+[cap] delete c5  OK
+[cap] delete c4  OK
+[cap] delete root2  OK
+[cap] borrow object create  OK
+[cap] borrow root install  OK
+[cap] acquire rejects missing right  OK
+[cap] acquire pins object  OK
+[cap] delete defers finalize  OK
+[cap] deleted borrow handle stale  OK
+[cap] release finalizes  OK
+[cap] all objects finalized  OK
+[cap] no live caps  OK
+[cap] no live objects  OK
+[cap] invariants  OK
+[cap] live caps=0 objects=0 finalized=5/5
+[cap] selftest ok
+capability: caps gate IPC call/reply, AS map and cross-CSpace revoke
+[capability] PASS
+[bootstrap] preempt: 1 ms SBI timer armed on unified trap path
+[bootstrap] preempt: worker-a starts without yielding
+[bootstrap] preempt: worker-b starts before worker-a done
+[bootstrap] preempt: worker-a resumed after timer switch
+[bootstrap] preempt: worker-b resumed after timer switch
+[bootstrap] preempt: ticks=60 switches=7 quantum_expired=4 workers=2
+[bootstrap] PASS
+[kmain] pool: base=0x000000008026e000 bytes=131670016 frames=32146 reserved=34 free=32112
+[kmain] reserve: firmware 0x0000000080000000 +2097152
+[kmain] reserve: kernel 0x0000000080200000 +450560
+[kmain] reserve: dtb 0x0000000087e00000 +5466
+[kmain] reserve: initrd 0x0000000084200000 +129444
+[console] uart0 mmio ready (divisor=2)
+[console] switched from SBI putchar
+[virtio-blk] probe: no mmio block device
+[storage] virtio-blk init failed
+[kmain] storage bringup failed (no virtio drive?)
+[loader] initrd pinned
+[loader] initrd=0x0000000084200000 size=129444
+[loader] elf: 1 PT_LOAD, entry=0x0000000040000000
+[loader] initrd=0x0000000084200000 size=129444
+[loader] elf: 1 PT_LOAD, entry=0x0000000040000000
+[loader] initrd=0x0000000084200000 size=129444
+[loader] elf: 1 PT_LOAD, entry=0x0000000040000000
+[kmain] idle: pool=0x000000008026e000+32146 frames free=32027
+[sm] serving
+[cap] denied: missing right SEND
+[init] boot: caps=2 plan=2
+[init] spawn fs ok pid=10
+[init] spawn console ok pid=11
+[init] ready
+[init] hello from initrd
+[kmain] idle: heartbeat free=32027 ext_irqs=0 timer_ticks=2001
+[kmain] idle: heartbeat free=32027 ext_irqs=0 timer_ticks=4002
+[kmain] idle: heartbeat free=32027 ext_irqs=0 timer_ticks=6003
+qemu-system-riscv64: terminating on signal 15 from pid 296468 (timeout)
+EXIT=124
+$ bad-machine: init e_machine=62; timeout 8s qemu-system-riscv64 ... -initrd micro/build/user/bad-machine/initrd.img
+
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___ /_____|
+        | |
+        |_|
+
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+
+[micro] boot: minimal model
+[boot] raw handoff: hartid=0 dtb=0x0000000087e00000
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x000000000006e000
+[boot] ram: 0x0000000080000000 + 0x0000000008000000
+[boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
+[boot] reserved[1]: 0x0000000080200000 + 0x000000000006e000 kernel
+[boot] reserved[2]: 0x0000000087e00000 + 0x000000000000155a dtb
+[boot] reserved[3]: 0x0000000084200000 + 0x000000000001f9a4 initrd
+[boot] arch: tp=&hart_local, stvec installed
+[boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
+[boot] handoff: kmain(&bootinfo)
+[kmain] handoff: BootInfo at 0x000000008026d150, hartid=0
+[bootstrap] begin
+[capability] start
+
+[cap] capability minimal model
+[cap] object create  OK
+[cap] root install  OK
+[cap] mint subset  OK
+[cap] mint superset rejected  OK
+[cap] badge mint needs grant  OK
+[cap] badge mint with grant  OK
+[cap] copy  OK
+[cap] cross-task move needs grant  OK
+[cap] cross-task move with grant  OK
+[cap] moved source handle stale  OK
+[cap] revoke root  OK
+[cap] root survives revoke  OK
+[cap] mint child gone  OK
+[cap] copy child gone  OK
+[cap] cross-task child gone  OK
+[cap] refs back to root  OK
+[cap] delete root  OK
+[cap] finalized once  OK
+[cap] deleted handle stale  OK
+[cap] object create 2  OK
+[cap] slot reuse new gen  OK
+[cap] mint task0 slot5  OK
+[cap] task isolation  OK
+[cap] mint read-only  OK
+[cap] invoke without write right  OK
+[cap] invoke with read right  OK
+[cap] limited object create  OK
+[cap] limited object install  OK
+[cap] unsupported op rejected  OK
+[cap] occupied slot rejected  OK
+[cap] occupied slot unchanged  OK
+[cap] object create 4  OK
+[cap] discard unreferenced  OK
+[cap] 100 mint/delete cycles  OK
+[cap] delete limited object  OK
+[cap] delete c5  OK
+[cap] delete c4  OK
+[cap] delete root2  OK
+[cap] borrow object create  OK
+[cap] borrow root install  OK
+[cap] acquire rejects missing right  OK
+[cap] acquire pins object  OK
+[cap] delete defers finalize  OK
+[cap] deleted borrow handle stale  OK
+[cap] release finalizes  OK
+[cap] all objects finalized  OK
+[cap] no live caps  OK
+[cap] no live objects  OK
+[cap] invariants  OK
+[cap] live caps=0 objects=0 finalized=5/5
+[cap] selftest ok
+capability: caps gate IPC call/reply, AS map and cross-CSpace revoke
+[capability] PASS
+[bootstrap] preempt: 1 ms SBI timer armed on unified trap path
+[bootstrap] preempt: worker-a starts without yielding
+[bootstrap] preempt: worker-b starts before worker-a done
+[bootstrap] preempt: worker-a resumed after timer switch
+[bootstrap] preempt: worker-b resumed after timer switch
+[bootstrap] preempt: ticks=61 switches=7 quantum_expired=5 workers=2
+[bootstrap] PASS
+[kmain] pool: base=0x000000008026e000 bytes=131670016 frames=32146 reserved=34 free=32112
+[kmain] reserve: firmware 0x0000000080000000 +2097152
+[kmain] reserve: kernel 0x0000000080200000 +450560
+[kmain] reserve: dtb 0x0000000087e00000 +5466
+[kmain] reserve: initrd 0x0000000084200000 +129444
+[console] uart0 mmio ready (divisor=2)
+[console] switched from SBI putchar
+[virtio-blk] probe: no mmio block device
+[storage] virtio-blk init failed
+[kmain] storage bringup failed (no virtio drive?)
+[loader] initrd pinned
+[loader] initrd=0x0000000084200000 size=129444
+[loader] elf: 1 PT_LOAD, entry=0x0000000040000000
+[loader] initrd=0x0000000084200000 size=129444
+[loader] elf: 1 PT_LOAD, entry=0x0000000040000000
+[loader] initrd=0x0000000084200000 size=129444
+[loader] reject: bad machine
+[loader] init not started (missing initrd or bad image)
+[kmain] idle: pool=0x000000008026e000+32146 frames free=32032
+[sm] serving
+[kmain] idle: heartbeat free=32032 ext_irqs=0 timer_ticks=2000
+[kmain] idle: heartbeat free=32032 ext_irqs=0 timer_ticks=4001
+[kmain] idle: heartbeat free=32032 ext_irqs=0 timer_ticks=6002
+qemu-system-riscv64: terminating on signal 15 from pid 297361 (timeout)
+EXIT=124

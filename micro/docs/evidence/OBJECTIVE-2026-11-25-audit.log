@@ -1,0 +1,23 @@
+# 总目标逐项审计 — 2026-11-25
+
+## 用户 objective 要件
+
+| 要件 | 证据 | 状态 |
+| --- | --- | --- |
+| 单次 `make -C micro run` 内核常驻不关机 | `timeout 50s make run` → `micro>`、`M1_RESIDENT=ok`，无 `shutting down` | **满足**（capability 镜像；timeout 结束 QEMU） |
+| initrd 独立 U-mode init ELF | `mkinitrd.py` 9 成员；`build/user/init.elf` ≠ `kernel.elf` | **满足** |
+| init 经 SM/PM 拉 fs / console（+ shell） | demo PASS；串口 `plan=3`、pm spawn fs/console/shell | **满足** |
+| 块设备→ext4→VFS→/motd（cap + endpoint） | demo motd sha256；`m5_discriminate.sh` PASS | **满足** |
+| shell：help/cat/ps/echo/poweroff | `make demo` / `demo.sh` PASS；`--expect-nonzero` exit 0 | **满足** |
+| M0→M7 每 Goal 证据 + goals/README | `M0-M7-2026-11-25-signoff.log`；README 边界见 `M7-2026-11-25-readme-boundaries.log` | **满足**（2026-11-25 签收） |
+| `make check` 不退化 | `M0-2026-11-25-make-check.log` EXIT=0 | **满足** |
+| 20 模块 `BOOT_MODULES=all` | make check 末段 all PASS | **满足** |
+
+## 明示非目标 / 仍开放
+
+- PM 统一 spawn vm/heaptest（`*_m6` 实验；混合启动为当前权威）
+- net/nvme 真硬件（模型 PASS in all）；init/fs 等子目录无独立边界节者随上级模块
+
+## 结论
+
+**用户 objective 全部要件满足**（2026-11-25 复核：`verify_capability_wiring` + `demo.sh` + `make check` EXIT=0）。PM-only 统一启动为实验分支，不在用户 objective 范围内。

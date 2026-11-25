@@ -1,0 +1,72 @@
+# M7 shell 基础 — 未完成（并发覆盖阻断）
+
+日期：2026-11-24/25
+范围：micro/；未 git commit。
+
+## 结论
+
+**未完成。** 独立 `userland/shell`、真实 console 服务、PM/FS endpoint
+调用链曾在工作树中实现并做过冒烟/交互测试，但另一个外部进程在同一树上
+持续改写为带 M6 VM 的另一套实现，最终树不是本记录验证的代码。
+
+## 曾跑通的部分（实际日志）
+
+`make -C micro user` / `make -C micro` / `make -C micro initrd` 均 EXIT=0；
+默认镜像出现：
+
+```text
+[console-svc] registered console
+[console-svc] serving
+[init] spawn shell ok pid=65555
+[init] shell ready
+[shell] ready
+micro>
+```
+
+python select 驱动的真实 stdin 结果：
+
+```text
+help        ok   commands: help cat <path> ps echo <text> poweroff
+cat /motd   ok   [shell] cat /motd / microkernel motd v1
+echo hello  ok   hello
+ps          FAIL unknown: pst
+poweroff    FAIL unknown: powerofflo
+```
+
+`ps`/`poweroff` 失败原因：console 行读取没有把 NUL 写回 shell 的复用缓冲
+区，残留上一命令尾部字符。之后修复版（shell 经 console endpoint 读行，
+并在 `console_read()` 内显式 `buf[n] = '\0'`）被外部进程覆盖，未能在最终
+树上复跑。
+
+## 最终树与目标的差异（仅记录事实，不作为通过）
+
+最终树由外部 M6/M7 工作生成，其 demo 日志显示：
+
+```text
+[init] boot: caps=3 plan=3
+[pm] spawn pid=10
+[pm] spawn pid=11
+[pm] spawn pid=12
+pid 1 init 1
+pid 2 sm 1
+pid 3 pm 1
+pid 10 fs 1
+pid 11 console 1
+pid 12 shell 1
+```
+
+- PM 的 init/sm/pm 记录是硬编码 1/2/3，spawn 返回 10/11/12，不满足
+  “真实 thread/pid，不能假 pid”的要求。
+- 该树没有 `ABI_SHARED_IPC_VA` 共享页；字节走内联消息字。
+- 该树新增 M6 VM 与 pager，本任务明确要求“不宣称 M6”，因此不能把该
+  树的结果当作本任务完成。
+- 本会话多次尝试的 `[cap] denied: bad handle`、SM lookup fs、init 读
+  /motd 日志，在最终树中不存在。
+
+## 未完成项
+
+- 修复后的 shell 交互（ps/poweroff）未在稳定树复跑。
+- 最终树不满足 shared IPC page 与真实 pid 要求。
+- 未对最终树执行 `make -C micro run BOOT_MODULES=capability/sm/pm/block/ext4`
+  的稳定回归并形成本阶段证据。
+- 未 git commit。

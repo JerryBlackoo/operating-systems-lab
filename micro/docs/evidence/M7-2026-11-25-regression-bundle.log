@@ -1,0 +1,25 @@
+# M7 回归束 — 2026-11-25
+
+## 命令与结果
+
+```
+./tools/verify_capability_wiring.sh  → PASS
+./tools/demo.sh                      → PASS
+./tools/m6_discriminate.sh           → PASS (deny status=-4)
+./tools/m5_discriminate.sh           → PASS
+./tools/demo.sh --expect-nonzero     → exit 0（负向 ENOENT 确认）
+make -C micro check                  → EXIT=0 (M0-2026-11-25-make-check.log)
+make -C micro run QEMU_TIMEOUT=50s   → micro> 无 shutting down
+```
+
+## 接线
+- Makefile: kernel_init.c + service_boot.c（非 *_m6.c）
+- init: init_main.o（plan=3）
+- capability 默认 QEMU_TIMEOUT=45s
+
+## 目标对照（未收官项）
+- [x] initrd 独立 init ELF；init→SM/PM→fs/console/shell
+- [x] shell help/cat/ps/echo/poweroff（demo.sh）
+- [x] virtio→ext4→/motd（demo + m5）
+- [ ] PM 统一 spawn vm/heaptest（实验 *_m6 路径）
+- [ ] 全 M0–M7 逐 Goal 证据审计与 README 边界清扫

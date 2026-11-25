@@ -1,0 +1,33 @@
+# M7 regression 2026-11-25T00:01:25+08:00
+## demo positive
+hello
+micro> [demo] echo       ok
+[demo] stdin: poweroff
+poweroff[console] irq: line=10
+
+[console] line="poweroff"
+[kmain] shutdown requested by shell[demo] poweroff   ok
+[demo] PASS
+EXIT=0
+## demo negative
+poweroff[console] irq: line=10
+
+[console] line="poweroff"
+[kmain] shutdown requested by shell[demo] negative cat /nonexistent -> not found (assertions are real)
+[demo] PASS (negative mode)
+EXIT=0
+## make check
+[nvme] PASS
+[bootstrap] PASS
+[kmain] shutting down
+EXIT=0
+## shared check
+[bootstrap] PASS
+[kmain] shutting down
+EXIT=0
+## capability run (18s)
+[mkext4image] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[fs] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[init] shell ready
+micro> qemu-system-riscv64: terminating on signal 15 from pid 441725 (timeout)
+RUN_EXIT=0

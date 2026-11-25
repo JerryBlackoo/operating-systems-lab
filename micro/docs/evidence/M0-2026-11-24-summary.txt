@@ -1,0 +1,20 @@
+# M0 acceptance 2026-11-24
+
+command: make -C /home/jerry/Projects/from-scratch/operating-systems-lab/micro check
+exit: 0
+
+host:
+  objects: all tests passed (lock hook + generation across reset fixed)
+  memory: all tests passed
+  sched: all tests passed
+  ipc: all tests passed
+
+qemu:
+  shared/check: all standalone module ELFs + BOOT_MODULES=all → [bootstrap] PASS
+
+recheck after M3 ABI additions:
+  first run: EXIT=2; kernel/syscall/demo.c did not handle ABI_CAP_MINT_TO/ABI_PM_SPAWN under -Wswitch
+  fix: fake backend returns ABI_BAD_NR for both new calls; no assertion changed
+  second run: make -C micro check EXIT=0; objects/memory/sched/ipc all tests passed; 13 standalone + 20-module [bootstrap] PASS
+
+note: full baseline capture in M0-2026-11-24.log (contains QEMU binary control chars; use strings/tail)

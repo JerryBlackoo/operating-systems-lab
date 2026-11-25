@@ -1,0 +1,28 @@
+# M7 evidence — tools/demo.sh PASS (2026-11-24)
+
+## Commands
+
+```bash
+cd /home/jerry/Projects/from-scratch/operating-systems-lab/micro
+python3 tools/demo.sh
+make -C micro check   # after loader_test unused fix
+```
+
+## Result
+
+- `python3 tools/demo.sh` → exit 0, `[demo] PASS`
+- Boot: `caps=4 plan=2`, init sm register, spawn fs/console, SM lookup fs, read `/motd`, spawn shell, `[init] shell ready`
+- Kernel bringup: `[fs] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18`
+- Shell via console service IPC: `help`, `cat /motd`, `ps` (6 procs: init/sm/pm/fs/console/shell), `echo hello`, `poweroff` → `[kmain] shutdown requested by shell`
+
+## Key fixes this session
+
+- Shell I/O through console U-mode service (not denied `ABI_CONSOLE_*` on shell SID)
+- `cat` marker printed before FS read so console staging does not clobber `ABI_SHARED_IPC_VA`
+- `demo.sh` waits for `micro> ` before stdin; `cat /motd` waits for exact motd bytes
+
+## Still open (not M7-complete per GLOBAL-CONTRACT)
+
+- M5 discrimination: largefile, busy, IRQ negative cases
+- M6 VM server
+- `python3 tools/demo.sh --expect-nonzero` → exit 0, `[demo] PASS (negative mode)`（见 `M7-2026-11-24-regression.log`）

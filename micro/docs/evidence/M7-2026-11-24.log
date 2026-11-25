@@ -1,0 +1,209 @@
+# M7 综合验收证据（2026-11-24/25）
+
+仓库：`/home/jerry/Projects/from-scratch/operating-systems-lab`
+目标：`micro/docs/goals/M7-integration.md`
+结论：**M7 主路径通过**。默认 `capability` 镜像由 init 经 SM lookup 得到 FS/console cap，
+再由 PM 拉起独立 U-mode `shell.elf`；demo.sh 以真实 stdin 逐条执行
+`help / cat /motd / ps / echo hello / poweroff`，正向 exit 0；负向 `cat /nonexistent`
+按设计返回明确 `not found`，负向模式自身 exit 1（证明断言不是无条件 PASS）。
+M6 未完成，本记录不宣称 M6。
+
+---
+
+## 1. 先修复的 init → fs 回执失败（根因）
+
+### 1.1 初始现象：virtio completion timeout
+
+命令（第一次默认镜像，历史失败）：
+
+```text
+timeout 180s make -C micro run QEMU_TIMEOUT=20s
+EXIT=2
+```
+
+原样关键行（`/tmp/m7-baseline-run.log`）：
+
+```text
+[virtio-blk] mmio ready legacy-v1
+[block] dev0: capacity=8192 blocks
+
+[block] completion timeout
+[ext4] mount failed
+[kmain] storage bringup failed (no virtio drive?)
+...
+[init] ready
+[init] hello from initrd
+```
+
+### 1.2 修复 virtio 完成判定竞态
+
+`virtio_complete_if_ready()` 原先在 `used->idx` 未推进、仅 status 变化时就清 `busy`；
+下一次 submit 会和设备仍在处理的旧请求重叠。现改为**只有 used->idx 推进才完成**：
+
+```c
+if (dev->used->idx == dev->last_used) {
+    return;
+}
+dev->last_used = dev->used->idx;
+fence r,r
+if (*dev->status == 0) st = BLOCK_OK;
+```
+
+### 1.3 更深根因：U-mode AS 没有映射设备 MMIO
+
+修完 1.2 后，存储 bringup 通过，但 `[init] ready` 后仍没有
+`[fs-svc] read /motd` / `[init] ipc read /motd ok`。用内核诊断（真实运行，
+`/tmp/m7-dbg7.log`）定位到：
+
+```text
+[dbg] FS_READ caller=4
+[dbg] FS_READ cookie=1
+[dbg] FS_READ max=127
+[dbg] vfs_read_user path=10
+[dbg] storage open path stage=10
+[dbg] block submit status=0
+[dbg] before dispatch block=35
+（此后无输出；QEMU trace 中没有新的 virtio_queue_notify）
+```
+
+原因：`loader_spawn_user()` 只调用 `as_share_kernel(as, kernel_root, 2)`，共享
+`0x80000000` 以上的内核 RAM 顶层表项；UART/PLIC/virtio 位于
+`0x0c000000` / `0x10000000`，顶层索引 0，**没有进入用户 AS**。FS 服务在内核代其
+执行 `ABI_VFS_READ_AT` 时仍运行在 FS 的 satp 下，`virtio_blk_submit()` 写
+QueueNotify 触发缺页；错误打印又写 UART MMIO，同样缺页，形成静默挂死。
+
+修复：`kernel/loader/loader.c` 在 `as_share_kernel` 之后为每个用户 AS 建立
+UART0 / PLIC / virtio-mmio 的**内核恒等映射**（无 U 位，U-mode 不可访问）：
+
+```c
+static int loader_map_kernel_devices(struct as *as)
+{
+    as_map_kernel_range(as, UART0_BASE, PAGE_SIZE);
+    as_map_kernel_range(as, PLIC_BASE, 0x400000UL);
+    for (base = 0x10001000; base <= 0x10008000; base += 0x1000)
+        as_map_kernel_range(as, base, PAGE_SIZE);
+}
+```
+
+修复后真实运行出现：
+
+```text
+[fs-svc] read /motd via vfs
+[init] ipc read /motd ok bytes=20
+```
+
+---
+
+## 2. 最终正向验收（实际命令与退出码）
+
+```text
+make -C micro user initrd                        EXIT=0
+make -C micro BOOT_MODULES=capability            EXIT=0
+./micro/tools/demo.sh                            EXIT=0
+```
+
+`/tmp/m7-postdocs-positive.log`（最终代码）关键行：
+
+```text
+[demo] build kernel + user + initrd + fs-image
+[demo] expected motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[demo] shell prompt ok
+[demo] help ok
+[demo] cat motd ok (sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18)
+[demo] ps ok
+[demo] echo ok
+[demo] poweroff ok
+[demo] PASS
+```
+
+串口侧同时有：
+
+```text
+[init] shell ready
+micro> help
+commands: help cat ps echo poweroff
+[shell] cat /motd
+microkernel motd v1
+[shell] ps
+pid=... init
+pid=... sm
+pid=... pm
+pid=... fs
+pid=... console
+pid=... shell
+[kmain] shutdown requested by shell
+```
+
+demo 只在收到 `[kmain] shutdown requested by shell` 后接受关机，并等待 QEMU 退出。
+
+## 3. 判别性负向验收（证明断言不是无条件 PASS）
+
+```text
+./micro/tools/demo.sh --expect-nonzero          EXIT=1
+```
+
+最终脚本的 `--expect-nonzero` 等价于 `--cat-path /nonexistent`。关键行：
+
+```text
+[demo] cat FAIL (sha256 mismatch actual=355a204c638a01cb454dcca911172c50f85e27cab9d824af515a0edc300b087a expected=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18)
+[demo] FAIL
+```
+
+对应 QEMU 串口（`.artifacts/demo-20261125-001543.log`，去 NUL 后）：
+
+```text
+micro> cat /nonexistent
+----- cat /nonexistent -----
+cat: /nonexistent: not found
+----- end cat -----
+```
+
+即 shell 明确收到 `TAG_FS_NOT_FOUND` 并打印 not found；demo 仍按 `/motd` 哈希断言，
+因此该负向模式必然 FAIL 并 exit 1。启动期 `[fs] ENOENT` 来自 `/largefile` 探测，
+不是本负向路径的判定依据。
+
+## 4. 回归（最终代码）
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| `make -C micro check` | 0 | `/tmp/m7-final-check.log`：`ALL TESTS PASSED`、`[check] full kernel BOOT_MODULES=all`、各模块 PASS |
+| `make -C micro run BOOT_MODULES=all` | 0 | `/tmp/m7-final-all.log`：capability/clock/interrupt/objects/memory/sched/ipc/syscall/abi/init/libs/apps/pm/sm/vm/vfs/block/ext4/net/nvme 全 PASS |
+| `make -C micro/shared check` | 0 | `/tmp/m7-shared-check.log`：13 单模块镜像 PASS |
+| `make -C micro run BOOT_MODULES=block` | 0 | `/tmp/m7-mod-block.log`：`[block] PASS` |
+| `make -C micro run BOOT_MODULES=ext4` | 0 | `/tmp/m7-mod-ext4.log`：`[ext4] PASS` |
+| `make -C micro run BOOT_MODULES=fs` | N/A | `fs` 不是 `BOOT_MODULES` 单模块（见 `make list-modules`）；FS 服务由 M7 demo 端到端覆盖 |
+| `make -C micro run BOOT_MODULES=vfs` | 0 | `/tmp/m7-mod-vfs.log`：`[vfs] PASS` |
+| `make -C micro run BOOT_MODULES=init` | 0 | `/tmp/m7-mod-init.log`：`[init] PASS` |
+| `make -C micro run BOOT_MODULES=pm` | 0 | `/tmp/m7-mod-pm.log`：`[pm] PASS` |
+| `make -C micro run BOOT_MODULES=sm` | 0 | `/tmp/m7-mod-sm.log`：`[sm] PASS` |
+| 默认镜像（交互 shell） | 外层 timeout 终止 | `/tmp/m7-default-run.log`：`[init] shell ready` + `micro> `；无 panic/断言失败；make 把 QEMU 的 124 映射为 2，属超时路径 |
+
+## 5. 新 API / 接线（本记录覆盖）
+
+- `ABI_CONSOLE_READ`：有界行队列 `console_read_line()`，**仅 SERVICE_SID_SHELL**；
+  空队列返回 `ABI_BUSY`，shell 以 `ABI_YIELD` 轮询，不忙等死锁。
+- `ABI_CONSOLE_WRITE`：shell/console/init 可用于输出；resident 下走
+  `console_puts()`（MMIO 优先）；panic 路径保留 SBI。
+- `ABI_VFS_READ_AT`：**仅 SERVICE_SID_FS**，真实路径 + offset，数据写入
+  `ABI_SHARED_IPC_VA` 共享页；不存在返回 `ABI_NOT_FOUND`。
+- `ABI_PID_SELF`：PM/服务读取真实 thread object id。
+- `ABI_POWEROFF`：**仅 SERVICE_SID_SHELL**；内核打印
+  `[kmain] shutdown requested by shell` 后调用 `sbi_shutdown()`（SRST）。
+- `ABI_PM_LIST` 旧内核字符串表路径不再使用；PM 在 U-mode 维护自己的进程表，
+  shell 经 PM endpoint 逐条取记录（`TAG_PM_LIST_RECORD` / `TAG_PM_LIST_END`）。
+- `service_boot`：SM 持有 FS/console 的 WRITE|GRANT 源 cap；init 经 SM lookup
+  得到真实 cap；FS/console 启动后先向 SM 注册再回执 ready。
+- `loader`：共享 IPC 页 `0x60000000` + 设备 MMIO 映射进入每个用户 AS。
+
+## 6. 仍存缺口（不冒充完成）
+
+- **M6 未完成**：`kernel/pager/`、`userland/servers/vm/user`、`userland/heaptest`
+  代码存在，但 M7 默认启动路径不再拉起 vm/heaptest（避免占用 loader launch
+  槽并触发 M6 未闭合的缺页路径）。M6 的 reserve/拒绝/双进程判别仍由后续任务负责。
+- shell `cat` 的路径参数上限 24 字节（含 NUL）；文件内容通过共享页按 4096 字节
+  分块，内核 `storage_read_path_client` 的临时缓冲为 4096 字节，超过该大小的
+  文件在 shell cat 中会被截断（M5 的 largefile 判别由内核 bringup 另行覆盖）。
+- console 服务的 `TAG_CONSOLE_READ` 分支保留但未在 M7 shell 路径使用：按需求
+  `ABI_CONSOLE_READ` 只允许 shell SID，shell 直接读内核行队列；console 服务
+  仍作为真实注册服务存活，供 ps 与写路径使用。
+- `block` 在途槽耗尽的 busy 重试判别仍未闭合（既有 M5 README 边界保留）。

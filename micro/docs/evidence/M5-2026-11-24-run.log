@@ -1,0 +1,21 @@
+# M5 partial — 2026-11-24
+#
+# Command:
+#   make fs-image && make BOOT_MODULES=capability
+#   cp -f build/micro-root.img build/micro-root-run.img
+#   timeout 20s qemu-system-riscv64 ... -drive file=build/micro-root-run.img,readonly=on ...
+#
+# mkext4image:
+[mkext4image] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+#
+# Resident bringup (excerpt):
+[console] uart0 mmio ready (divisor=2)
+[console] switched from SBI putchar
+[virtio-blk] mmio ready
+[block] dev0: capacity=8192 blocks
+[block] completion timeout
+[ext4] mount failed
+[kmain] storage bringup failed (no virtio drive?)
+# ... init still reaches [init] ready; EXIT=124 on full run
+#
+# Gap: virtqueue completion not observed in poll path — no [ext4] mounted / [fs] motd sha256

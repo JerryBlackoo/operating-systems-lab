@@ -1,0 +1,16 @@
+M5 block dispatch 与 virtio 联调 — 2026-11-24
+
+现象：virtio 队列接线恢复后仍 `[block] completion timeout`。
+根因：新版 `block_dispatch` 在 `submit` 前出队；与 virtio 在 notify 后同步 `virtio_complete_if_ready` 组合不匹配。
+修复：恢复 `trace_backup/block.c` 语义——先置 `in_flight` 再 `submit`，成功后再出队。
+
+$ timeout 18s make -s run BOOT_MODULES=capability FS_IMAGE=build/micro-root-m1.img
+[virtio-blk] mmio ready legacy-v1
+[block] dev0: capacity=8192 blocks
+[ext4] mounted: block_size=4096 inodes=8192
+[ext4] read /motd: 20 bytes
+[fs] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[ext4] read /largefile: 4096 bytes
+同次 18s run 尚缺 [init] ipc / [fs-svc] 行（U-mode 打印或 IPC 待查）；内核侧 motd/largefile/ENOENT 已出现。
+
+virtio_blk.c：可写后保持 trace_backup 单页 legacy（0x020/0x028）+ complete 防 0xff 提前完成 + 正确 feature 协商。

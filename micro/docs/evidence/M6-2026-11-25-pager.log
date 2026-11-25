@@ -1,0 +1,33 @@
+# M6 evidence — U-mode VM + 缺页 pager（2026-11-25）
+
+## 命令
+
+```bash
+timeout 40s make -C micro run BOOT_MODULES=capability QEMU_TIMEOUT=45s 2>&1 \
+  | strings | rg 'vm\]|fault|heaptest'
+```
+
+## 观测（节选）
+
+```
+[vm] serving in U-mode
+[heaptest] probing unmapped page
+[fault] va=0000000040020000 access=0000000000000003 -> pager request
+[vm] map va=... frame=... ok tid=...
+[fault] resumed
+[heaptest] store ok
+```
+
+## 交付摘要
+
+- initrd +8 成员：`vm.elf`、`heaptest.elf`
+- `kernel/pager/pager.c`：`ep_deliver_recv` 投递 `TAG_VM_FAULT`，缺页线程在 `pager_waitq` 阻塞
+- `ABI_VM_MAP` / `ABI_PAGER_DONE` 仅 `SERVICE_SID_VM`
+- `shared/demo.c`：resident U-mode 缺页走 pager（不 panic）
+
+## 仍缺（M6 goal 正文）
+
+- `vm_reserve` 与 `vm.c` 完整 region 策略接入
+- 两进程同 VA 不同物理帧判别
+- vm 拒绝路径 / 容量耗尽
+- 未改 PM spawn 拉起 vm（当前内核 spawn）

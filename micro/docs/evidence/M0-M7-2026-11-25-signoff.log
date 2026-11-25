@@ -1,0 +1,39 @@
+# M0–M7 当日签收索引 — 2026-11-25
+
+权威回归束：`M7-2026-11-25-regression-bundle.log`  
+总目标审计：`OBJECTIVE-2026-11-25-audit.log`
+
+## M0 baseline
+- `make -C micro check` → EXIT=0 → `M0-2026-11-25-make-check.log`
+- 首步：`tools/verify_capability_wiring.sh` PASS
+
+## M1 resident
+- `timeout 50s make -C micro run BOOT_MODULES=capability` → `micro>`，无 `[kmain] shutting down`
+- 详见 OBJECTIVE 审计表
+
+## M2 initrd + ELF
+- `make initrd` → 9 members（init/sm/pm/fs/console/shell/vm/heaptest/heaptest2）
+- `build/user/init.elf` 与 `build/riscv/kernel.elf` 分离
+
+## M3 SM/PM/init IPC
+- demo 日志：`[init] boot: plan=3`，pm spawn fs/console/shell
+- wiring 禁止误链 `init_main_m6` / `kernel_init_m6`
+
+## M4 console
+- demo 经 console 服务读 stdin；历史 irq 验收 `M4-2026-11-24-current-recheck.log`
+- resident：`tools/console_irq_test.py`（未本日重跑）
+
+## M5 storage
+- `./tools/m5_discriminate.sh` → PASS（2026-11-25 bundle）
+
+## M6 VM
+- `./tools/m6_discriminate.sh` → PASS（`m6-discriminate-20261125-012648.log`）
+- 混合启动：内核 spawn vm/heaptest；非 PM-only
+
+## M7 integration
+- `make demo` / `demo.sh` → PASS；`--expect-nonzero` → exit 0
+- `Makefile` `demo` 目标；`QEMU_TIMEOUT=45s`（capability）
+
+## 非 objective 外扩
+- PM 统一 spawn vm/heaptest（实验 `*_m6.*`）
+- README 边界：`M7-2026-11-25-readme-boundaries.log`

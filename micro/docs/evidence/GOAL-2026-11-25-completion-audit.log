@@ -1,0 +1,55 @@
+# /goal 完成审计 — 2026-11-25 08:00 UTC+8
+
+## 硬约束
+
+| # | 约束 | 证据 | 结果 |
+| --- | --- | --- | --- |
+| 1 | 不改 mono/ | 本回合 diff 仅在 micro/ + 根 README 微内核行 | OK |
+| 2 | 仅 clang+lld+qemu | make check 无网络拉依赖 | OK |
+| 3 | 无 log 不宣称 | 本文 + 分项 evidence | OK |
+| 4 | 不放宽测试 | 未改 demo/m5/m6 断言 | OK |
+| 5 | 双层验收 | `make check` 含 host + BOOT_MODULES=all | EXIT=0 |
+| 6 | 真实路径无替身（motd 链） | demo motd sha256；内核 virtio/ext4 日志 | OK |
+| 7 | 判别性用例 | m5/m6；`demo.sh --expect-nonzero` exit 1 | OK |
+
+## Objective 要件
+
+| 要件 | 命令 / 证据 | 结果 |
+| --- | --- | --- |
+| make run 常驻 | `M1-2026-11-25-resident-run.log`：`micro>`，shutdown_count=0 | OK |
+| initrd 独立 init ELF | signoff M2；initrd 9 members | OK |
+| init→SM/PM→fs/console | demo + wiring | OK |
+| virtio→ext4→VFS /motd | demo PASS；m5 PASS | OK |
+| shell 五命令 | demo PASS | OK |
+| M0→M7 evidence | 见下表 + goals/README | OK |
+
+## 本轮回归命令输出
+
+```
+./tools/verify_capability_wiring.sh     → PASS
+./tools/demo.sh                         → PASS
+python3 ./tools/demo.sh --expect-nonzero → exit 1 (ENOENT 判别)
+./tools/m5_discriminate.sh              → PASS
+./tools/m6_discriminate.sh              → PASS
+make BOOT_MODULES=capability check      → EXIT=0
+```
+
+## 分项 log（2026-11-25）
+
+| Goal | log |
+| --- | --- |
+| M0 | `M0-2026-11-25-make-check.log`、本审计 rerun EXIT=0 |
+| M1 | `M1-2026-11-25-resident-run.log` |
+| M2–M4 | `M0-M7-2026-11-25-signoff.log` + 2026-11-24 分项 |
+| M5 | `M5-2026-11-25-block-busy.log` |
+| M6 | `M6-2026-11-25-discriminate.log` |
+| M7 | `M7-2026-11-25-console-fix.log`、demo `.artifacts/demo-20261125-075825.log` |
+
+## 明示非目标（仍替身 / 实验）
+
+- net、nvme：单模块模型；capability 镜像不依赖。
+- PM-only `*_m6.*`：实验，默认未启用。
+
+## 结论
+
+用户 /goal 描述的可运行微内核主线 **已满足**；根 README 微内核状态行已同步（本轮）。

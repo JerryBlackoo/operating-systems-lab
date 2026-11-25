@@ -1,0 +1,31 @@
+# M7 regression 2026-11-25
+
+## 命令
+
+```bash
+bash tools/demo.sh
+bash tools/m5_discriminate.sh
+bash tools/m6_discriminate.sh
+make -C micro check BOOT_MODULES=capability
+```
+
+## 结果
+
+```
+[demo] PASS
+[m5] PASS
+[m6] PASS same_va=va=0000000040020000 frames frame=... vs frame=...
+make check → bootstrap PASS
+```
+
+## 本日修复
+
+- `kernel_init`：`heaptest2` initrd 名修正；initrd 9 成员
+- `heaptest2`：与 `TAG_VM_RESERVE` 流程对齐（`a0=vm_ep`）
+- `demo.sh`：`MICRO_BOOT_TIMEOUT` 默认 45s（M6 先于 init 启动）
+- 模块 README 边界复核：block/ext4/vfs/memory/boot/loader/syscall
+
+## 仍开放
+
+- M6：PM spawn vm；内核缺页排队（非 yield 规避）
+- net/nvme 真硬件

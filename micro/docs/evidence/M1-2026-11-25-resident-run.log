@@ -1,0 +1,262 @@
+mke2fs 1.47.0 (5-Feb-2023)
+ 64 
+ "-O 64bit" 
+    0/8192
+         
+                            
+ 8192 
+ 8192 
+ inode 
+ 0/1
+                            
+ inode
+ 0/1
+                            
+1024 
+ 0/1
+[mkext4image] /usr/sbin/mke2fs -t ext4 -b 4096 -O extent,^64bit -F -d /tmp/micro-ext4-4o38nlth/root build/micro-root.img 32M
+[mkext4image] wrote build/micro-root.img (33554432 bytes)
+[mkext4image] image sha256=e3356b0f93b0cc03c95f260dbdb36b5b1f2a9647dc8cf073df7b75e7d98eb150
+[mkext4image] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[mkinitrd] wrote build/user/initrd.img (630852 bytes, 9 members)
+OpenSBI v1.3
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|___
+/_____|
+        | |
+        |_|
+Platform Name             : riscv-virtio,qemu
+Platform Features         : medeleg
+Platform HART Count       : 1
+Platform IPI Device       : aclint-mswi
+Platform Timer Device     : aclint-mtimer @ 10000000Hz
+Platform Console Device   : uart8250
+Platform HSM Device       : ---
+Platform PMU Device       : ---
+Platform Reboot Device    : sifive_test
+Platform Shutdown Device  : sifive_test
+Platform Suspend Device   : ---
+Platform CPPC Device      : ---
+Firmware Base             : 0x80000000
+Firmware Size             : 322 KB
+Firmware RW Offset        : 0x40000
+Firmware RW Size          : 66 KB
+Firmware Heap Offset      : 0x48000
+Firmware Heap Size        : 34 KB (total), 2 KB (reserved), 9 KB (used), 22 KB (free)
+Firmware Scratch Size     : 4096 B (total), 760 B (used), 3336 B (free)
+Runtime SBI Version       : 1.0
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+Domain0 Region02          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+Domain0 Region03          : 0x0000000000000000-0xffffffffffffffff M: (R,W,X) S/U: (R,W,X)
+Domain0 Next Address      : 0x0000000080200000
+Domain0 Next Arg1         : 0x0000000087e00000
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+Domain0 SysSuspend        : yes
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART Priv Version    : v1.12
+Boot HART Base ISA        : rv64imafdch
+Boot HART ISA Extensions  : time,sstc
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 16
+Boot HART MIDELEG         : 0x0000000000001666
+Boot HART MEDELEG         : 0x0000000000f0b509
+[micro] boot: minimal model
+[boot] raw handoff: hartid=0 dtb=0x0000000087e00000
+[boot] entry: bss=0, satp=0, SIE=0, sscratch=0
+[boot] console: SBI legacy putchar OK
+[boot] fdt: header OK
+[boot] bootinfo: v1 size=448
+[boot] kernel: 0x0000000080200000 + 0x00000000000be000
+[boot] ram: 0x0000000080000000 + 0x0000000008000000
+[boot] reserved[0]: 0x0000000080000000 + 0x0000000000200000 firmware
+[boot] reserved[1]: 0x0000000080200000 + 0x00000000000be000 kernel
+[boot] reserved[2]: 0x0000000087e00000 + 0x000000000000155a dtb
+[boot] reserved[3]: 0x0000000084200000 + 0x000000000009a044 initrd
+[boot] arch: tp=&hart_local, stvec installed
+[boot] arch: satp=0x0000000000000000 sstatus=0x8000000200006000
+[boot] handoff: kmain(&bootinfo)
+[kmain] handoff: BootInfo at 0x00000000802bcea0, hartid=0
+[bootstrap] begin
+[capability] start
+[cap] capability minimal model
+[cap] object create  OK
+[cap] root install  OK
+[cap] mint subset  OK
+[cap] mint superset rejected  OK
+[cap] badge mint needs grant  OK
+[cap] badge mint with grant  OK
+[cap] copy  OK
+[cap] cross-task move needs grant  OK
+[cap] cross-task move with grant  OK
+[cap] moved source handle stale  OK
+[cap] cross-task mint needs grant  OK
+[cap] cross-task mint with grant  OK
+[cap] revoke root  OK
+[cap] root survives revoke  OK
+[cap] mint child gone  OK
+[cap] copy child gone  OK
+[cap] cross-task child gone  OK
+[cap] cross-task mint child gone  OK
+[cap] refs back to root  OK
+[cap] delete root  OK
+[cap] finalized once  OK
+[cap] deleted handle stale  OK
+[cap] object create 2  OK
+[cap] slot reuse new gen  OK
+[cap] mint task0 slot5  OK
+[cap] task isolation  OK
+[cap] mint read-only  OK
+[cap] invoke without write right  OK
+[cap] invoke with read right  OK
+[cap] limited object create  OK
+[cap] limited object install  OK
+[cap] unsupported op rejected  OK
+[cap] occupied slot rejected  OK
+[cap] occupied slot unchanged  OK
+[cap] object create 4  OK
+[cap] discard unreferenced  OK
+[cap] 100 mint/delete cycles  OK
+[cap] delete limited object  OK
+[cap] delete c5  OK
+[cap] delete c4  OK
+[cap] delete root2  OK
+[cap] borrow object create  OK
+[cap] borrow root install  OK
+[cap] acquire rejects missing right  OK
+[cap] acquire pins object  OK
+[cap] delete defers finalize  OK
+[cap] deleted borrow handle stale  OK
+[cap] release finalizes  OK
+[cap] all objects finalized  OK
+[cap] no live caps  OK
+[cap] no live objects  OK
+[cap] invariants  OK
+[cap] live caps=0 objects=0 finalized=5/5
+[cap] selftest ok
+capability: caps gate IPC call/reply, AS map and cross-CSpace revoke
+[capability] PASS
+[bootstrap] preempt: 1 ms SBI timer armed on unified trap path
+[bootstrap] preempt: worker-a starts without yielding
+[bootstrap] preempt: worker-b starts before worker-a done
+[bootstrap] preempt: worker-a resumed after timer switch
+[bootstrap] preempt: worker-b resumed after timer switch
+[bootstrap] preempt: ticks=61 switches=7 quantum_expired=5 workers=2
+[bootstrap] PASS
+[kmain] pool: base=0x00000000802be000 bytes=131342336 frames=32066 reserved=157 free=31909
+[kmain] reserve: firmware 0x0000000080000000 +2097152
+[kmain] reserve: kernel 0x0000000080200000 +778240
+[kmain] reserve: dtb 0x0000000087e00000 +5466
+[kmain] reserve: initrd 0x0000000084200000 +630852
+[console] uart0 mmio ready (divisor=2)
+[console] switched from SBI putchar
+[virtio-blk] mmio ready legacy-v1
+[block] dev0: capacity=8192 blocks
+[block] busy discriminate ok
+[ext4] mounted: block_size=4096 inodes=8192
+[ext4] read /motd: 20 bytes
+[fs] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[ext4] read /largefile: 204800 bytes
+[fs] largefile sha256=d60c9f8a016b8f4ac40ce4dc1813fc70f6bfa21cf47be8bc26ce612413bac594
+[fs] ENOENT
+[loader] initrd pinned
+[loader] initrd=0x0000000084200000 size=630852
+[loader] elf: 2 PT_LOAD, entry=0x0000000040000000
+[loader] initrd=0x0000000084200000 size=630852
+[loader] elf: 2 PT_LOAD, entry=0x0000000040000000
+[loader] initrd=0x0000000084200000 size=630852
+[loader] elf: 1 PT_LOAD, entry=0x0000000040000000
+[loader] initrd=0x0000000084200000 size=630852
+[loader] elf: 1 PT_LOAD, entry=0x0000000040000000
+[loader] initrd=0x0000000084200000 size=630852
+[loader] elf: 1 PT_LOAD, entry=0x0000000040000000
+[loader] initrd=0x0000000084200000 size=630852
+[loader] elf: 2 PT_LOAD, entry=0x0000000040000000
+[kmain] idle: pool=0x00000000802be000+32066 frames free=31778
+[sm] serving
+[vm] serving in U-mode as=000000000008031b
+[cap] denied: missing right SEND
+[init] boot: plan=3
+[init] sid=1
+[sm] register sid=3
+[sm] lookup sid=1
+[pm] registered with sm
+[vm] reserve tid=65551 va=0000000040020000 len=4096 ok
+[vm] reserve tid=65553 va=0000000040020000 len=4096 ok
+[heaptest] probing unmapped page
+[fault] tid=65551 va=0000000040020000 access=0000000000000003 -> pager request
+[sm] lookup sid=1
+[heaptest] probing unmapped page
+[fault] tid=65553 va=0000000040020000 access=0000000000000003 -> pager request
+[vm] map tid=65551 va=0000000040020000 frame=0000000000080341 ok
+[loader] initrd=0x0000000084200000 size=630852
+[loader] elf: 2 PT_LOAD, entry=0x0000000040000000
+[pm] spawn pid=10
+[fault] resumed
+[vm] map tid=65553 va=0000000040020000 frame=000000000008034c ok
+[fault] resumed
+[init] spawn ok pid=10
+[heaptest] store ok
+[heaptest] store ok
+[sm] register sid=4
+[loader] initrd=0x0000000084200000 size=630852
+[loader] elf: 2 PT_LOAD, entry=0x0000000040000000
+[pm] spawn pid=11
+[vm] reserve tid=65553 va=0000000050000000 len=4096 ok
+[sm] register sid=5
+[init] spawn ok pid=11
+console
+[loader] initrd=0x0000000084200000 size=630852
+[loader] elf: 1 PT_LOAD, entry=0x0000000040000000
+[pm] spawn pid=12
+[heaptest] probing read-only page with store
+[fault] tid=65553 va=0000000050000000 access=0000000000000003 -> pager request
+[console-svc] registered console
+[init] spawn ok pid=12
+[vm] deny tid=65553 va=0000000050000000 reason=rights
+shell
+[init] ready
+[fault] rejected tid=65553 status=-4
+[fs-svc] ready
+[console-svc] serving
+[sm] lookup sid=6
+[sm] lookup sid=6
+[sm] lookup sid=6
+[sm] lookup sid=6
+micro> [kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=2001
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=4002
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=6003
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=8004
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=10005
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=12006
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=14007
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=16008
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=18009
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=20010
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=22011
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=24012
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=26013
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=28014
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=30015
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=32016
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=34017
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=36018
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=38019
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=40020
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=42021
+[kmain] idle: heartbeat free=31764 ext_irqs=0 timer_ticks=44022
+qemu-system-riscv64: terminating on signal 15 from pid 808497 (timeout)
+make: *** [Makefile:192
+run] 
+ 124

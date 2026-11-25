@@ -1,0 +1,26 @@
+# M5 判别验收（2026-11-25）
+
+## 命令
+
+```bash
+bash micro/tools/m5_discriminate.sh
+echo EXIT=$?
+```
+
+## 结果
+
+- exit 0，`[m5] PASS`
+- 默认镜像：`[ext4] read /largefile: 204800 bytes`
+- `[fs] largefile sha256=d60c9f8a016b8f4ac40ce4dc1813fc70f6bfa21cf47be8bc26ce612413bac594`（200KiB `'L'` 与宿主一致）
+- 改 `/motd` 为 `microkernel motd v2-changed\n` 后：`[fs] motd sha256=86b469bfdd489e7334fb0ee384ec4668da37efdfba40eb84af635a5c1cd141c9`（非默认哈希）
+
+## 代码
+
+- `kernel/storage/storage_bringup.c`：`storage_read_path_full` + bringup 全量 largefile 哈希
+- `tools/mkext4image.py` 打印 `largefile sha256=`
+- `tools/m5_discriminate.sh`（直接 QEMU，避免 `make run` 覆盖 alt 镜像）
+
+## 仍缺（M5 goal 正文）
+
+- block 在途槽占满时的 busy 重试路径实测
+- U-mode shell `cat /largefile` 全量（当前 IPC 按共享页分块可读，未单独验收）

@@ -1,0 +1,109 @@
+# M3 服务化集成 — 未完成（并发覆盖阻断）
+
+日期：2026-11-24/25
+工作树：/home/jerry/Projects/from-scratch/operating-systems-lab/micro
+范围：只尝试修改 micro/；未 git commit；未修改 mono/。
+
+## 结论
+
+**未完成，不能宣称 M3 闭环通过。** 本会话期间另一个外部进程持续在同一个
+micro/ 工作树上编辑源码、构建并启动 QEMU（证据：多次观察到
+`bash -x micro/tools/m6_discriminate.sh`、`python3 tools/demo.sh`、
+`make -C micro run`、`qemu-system-riscv64`；源码 mtime 在本会话中从
+23:45 持续变化到 00:24）。本实现的多份关键文件被覆盖为另一套 M6/M7
+实现，最终树不是本记录的代码状态。
+
+因此本文件只保留**实际跑到的快照结果**和**未完成项**，不把之后的树混入
+本阶段结论。
+
+## 曾达到过的真实结果（快照，非最终树）
+
+命令：
+
+```sh
+make -C micro user
+make -C micro
+make -C micro initrd
+cd micro && timeout 25s make run
+```
+
+退出码：`USER_EXIT=0`、`KERNEL_EXIT=0`、`INITRD_EXIT=0`；`make run`
+由内层 `QEMU_TIMEOUT=15s` 结束，make 报 124，非内核 panic。
+
+关键串口行（该快照）：
+
+```text
+[loader] shared ipc page va=0x0000000060000000 pfn=524985 u/r/w
+[sm] serving
+[cap] denied: missing right SEND
+[cap] denied: bad handle
+[init] boot: caps=4 plan=2
+[pm] serving
+[pm] table init=65546
+[pm] table sm=65544
+[pm] table pm=65548
+[sm] register init
+[init] sm register ok
+[pm] spawn fs pid=65551
+[sm] register fs
+[init] spawn fs ok pid=65551
+[fs-svc] registered fs
+[pm] spawn console pid=65553
+[sm] register console
+[init] spawn console ok pid=65553
+[console-svc] registered console
+[console-svc] serving
+[init] ready
+[sm] lookup fs ok handle=0
+[init] sm lookup fs ok handle=0
+[init] fs read /motd bytes=20
+[init] motd: microkernel motd v1
+[pm] spawn shell pid=65555
+[init] spawn shell ok pid=65555
+[init] shell ready
+[shell] ready
+micro>
+```
+
+该快照的缺陷：SM lookup 自动占用 init 的 slot 0，产生 handle=0；
+随后已改为把 init 的只读 deny cap 放在 slot 0，但该修复版本被外部进程
+覆盖，未能在最终树上验证。
+
+## 交互测试（混合版本，非最终树）
+
+用 python select 真实 stdin 逐步喂入：
+
+```text
+help        -> commands: help cat <path> ps echo <text> poweroff
+cat /motd   -> [shell] cat /motd / microkernel motd v1
+ps          -> unknown: pst
+echo hello  -> hello
+poweroff    -> unknown: powerofflo
+```
+
+根因：当时使用的 `ABI_CONSOLE_READ` 只 copyout `n` 字节、不复制 NUL，
+而 shell 没有写 `line[n] = '\0'`，导致复用行缓冲区残留上一命令末字符
+（`cat /motd` 的 `t`、`echo hello` 的 `lo`）。这暴露了交互闭环尚未通过，
+不是通过。
+
+## 未完成项
+
+- init 经 SM lookup fs 后使用共享页读取 /motd：快照中 handle=0，最终树被
+  替换为另一套实现（无共享页）。
+- shell `ps` 与 `poweroff` 的真实交互复跑：未在修复版本上通过。
+- 最终树（外部 M6/M7 实现）使用 pid 10/11/12 与硬编码 1/2/3，不满足
+  “真实 thread/pid”要求；不能作为本阶段结果。
+- 最终树 `[cap] denied: bad handle` 判别用例未保留。
+- 未写出与最终代码一致的 M3 证据；本文件是失败/阻断记录。
+
+## 回归
+
+在外部进程改写前，以下曾成功：
+
+```sh
+make -C micro/kernel/memory test    # EXIT=0
+make -C micro/kernel/loader test    # EXIT=0
+```
+
+单模块 `BOOT_MODULES=sm`、`pm`、`block`、`ext4` 的最终回归未能在稳定树上
+完成。

@@ -1,0 +1,74 @@
+M1 integrated recheck
+Date: 2026-11-24
+
+$ make -B -C micro/kernel/memory test
+cc -I. -I../objects -std=c11 -Wall -Wextra -Werror -O2 -g -ffreestanding -fno-builtin frame.c as.c memory_test.c ../objects/object.c -o memory_test
+memory: map/copy/unmap ok
+memory: kernel share ok
+memory: non-owned kernel map ok
+memory: reserve/exhaust ok
+memory: all tests passed
+EXIT=0
+
+$ llvm-nm -n micro/build/riscv/kernel.elf | rg '(__kernel_start|__kernel_end)$'
+0000000080200000 T __kernel_start
+000000008026e000 B __kernel_end
+EXIT=0
+The kernel end is page aligned. An earlier llvm-readelf -l run showed 0x1000-aligned PT_LOAD segments.
+
+$ make -C micro check
+[check] host: objects memory sched ipc interrupt
+objects: all tests passed
+memory: all tests passed
+sched: all tests passed
+ipc: all tests passed
+ALL TESTS PASSED
+[check] standalone module ELFs
+[ext4] PASS
+[check] full kernel BOOT_MODULES=all
+[capability] PASS
+[clock] PASS
+[interrupt] PASS
+[objects] PASS
+[memory] PASS
+[sched] PASS
+[ipc] PASS
+[syscall] PASS
+[abi] PASS
+[init] PASS
+[libs] PASS
+[apps] PASS
+[pm] PASS
+[sm] PASS
+[vm] PASS
+[vfs] PASS
+[block] PASS
+[ext4] PASS
+[net] PASS
+[nvme] PASS
+[bootstrap] PASS
+[kmain] shutting down
+EXIT=0
+
+$ timeout 8s make -C micro run FS_IMAGE=build/micro-root-m1.img
+[kmain] pool: base=0x000000008026e000 bytes=131670016 frames=32146 reserved=34 free=32112
+[kmain] reserve: firmware 0x0000000080000000 +2097152
+[kmain] reserve: kernel 0x0000000080200000 +450560
+[kmain] reserve: dtb 0x0000000087e00000 +5466
+[kmain] reserve: initrd 0x0000000084200000 +129444
+[kmain] idle: pool=0x000000008026e000+32146 frames free=32023
+[kmain] idle: heartbeat free=32023 ext_irqs=0 timer_ticks=2000
+[kmain] idle: heartbeat free=32023 ext_irqs=0 timer_ticks=4001
+[kmain] idle: heartbeat free=32023 ext_irqs=0 timer_ticks=6002
+qemu-system-riscv64: terminating on signal 15 from pid ... (timeout)
+EXIT=124
+Absent: [kmain] shutting down
+
+Intermediate failures retained:
+1. A concurrent ext4 cache edit initially failed compilation on missing bool and const-discard errors; later corrected. EXIT=2.
+2. The first shared writable-drive run failed with Failed to get write lock. EXIT=2. Drive flags were then scoped to the default system image, made read-only, and old BOOT_MODULES entries no longer carry a drive.
+3. make check failed in the ext4 standalone demo because a failed mount left fs.image non-NULL. The implementation was fixed to clear mount state on failure; no assertion was removed.
+4. The legacy unsupported-depth vector used eh_depth=1, which became supported under M5 and was malformed as an index tree. The vector was changed to eh_depth=2 while preserving the original EXT4_UNSUPPORTED assertion.
+5. Early virtio revisions timed out before idle or failed ext4 mount. Fixes included legacy GuestPageSize/QueueAlign/QueuePFN, contiguous queue frames, modern queue register offsets, feature negotiation, and a bounded completion timeout. The final run above reaches idle and also reads /motd successfully.
+
+Boundary: this log completes M1 only. The integrated storage lines are M5 progress and do not prove U-mode IPC storage, interrupt-driven completion, a pager, or a shell.

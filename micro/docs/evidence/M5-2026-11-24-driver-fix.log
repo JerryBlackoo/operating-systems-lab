@@ -1,0 +1,216 @@
+# M5 / virtio-blk → block → ext4 → VFS 修复正向证据
+
+日期：2026-11-24
+范围：micro/ 下真实存储链 P0 修复与 ext4 depth=1 支持。
+结论：默认 `make -C micro run` 已能经 legacy-v1 virtio-blk 读出 `/motd` 且哈希与宿主一致；idle 心跳仍在。**M5 整体未完成**（见第 9 节）。
+
+## 1. 最终验证时的源码哈希
+
+```text
+f6f168668f2e1cfde87ee717fedfc66167b57fa4cf80f742a93df6756eb59b81  micro/userland/servers/drivers/storage/virtio_blk/virtio_blk.c
+e490fd87f78ea02563d67afac7a7de0ee89dd113b35590cadb96a0bcd9aa32bb  micro/userland/servers/fs/ext4/ext4.c
+9a869e049732ddaa7e1fdf0ca071e3f672bbd76d2989902970d174ccfbc75884  micro/userland/init/user/init_main.c
+```
+
+上述哈希在最终 `make -C micro run` 前后一致。
+
+## 2. 失败证据
+
+修复前失败日志：`micro/docs/evidence/M5-2026-11-24-driver-rootcause.log`
+关键失败行：
+
+```text
+[virtio-blk] mmio ready legacy-v1
+[block] dev0: capacity=8192 blocks
+[block] completion timeout
+[ext4] mount failed
+```
+
+修复前 QEMU trace 显示 legacy 寄存器写错：`0x020=PAGE_SIZE` 覆盖 GuestFeatures、`0x028=PFN`、`0x03c=PAGE_SIZE`、从未写 `0x040 QueuePFN`，且 `virtio_blk_handle_read` 为 0 次。
+
+## 3. 默认运行（最终源码）
+
+命令：
+
+```sh
+timeout 30s make -C micro run
+```
+
+外层退出码：`2`。
+原因：Makefile 的 `run` 目标内部使用 `timeout 15s qemu...`，QEMU 被 SIGTERM 终止后返回 124，make 将内层 124 转为非零；这是预期形状，不是构建失败。日志末尾原样：
+
+```text
+qemu-system-riscv64: terminating on signal 15 ... (timeout)
+make: *** [Makefile:182：run] 错误 124
+```
+
+关键正向行（原样）：
+
+```text
+[virtio-blk] mmio ready legacy-v1
+[block] dev0: capacity=8192 blocks
+[ext4] mounted: block_size=4096 inodes=8192
+[ext4] read /motd: 20 bytes
+[fs] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[ext4] read /largefile: 4096 bytes
+[fs] ENOENT
+[init] ready
+[init] hello from initrd
+[fs-svc] ABI_FS_READ /motd ok (u-mode)
+[fs-svc] read /motd via vfs
+[init] ipc read /motd ok bytes=20
+[kmain] idle: heartbeat free=31981 ext_irqs=0 timer_ticks=2000
+[kmain] idle: heartbeat free=31981 ext_irqs=0 timer_ticks=4002
+[kmain] idle: heartbeat free=31981 ext_irqs=0 timer_ticks=6003
+[kmain] idle: heartbeat free=31981 ext_irqs=0 timer_ticks=8004
+[kmain] idle: heartbeat free=31981 ext_irqs=0 timer_ticks=10006
+[kmain] idle: heartbeat free=31981 ext_irqs=0 timer_ticks=12007
+[kmain] idle: heartbeat free=31981 ext_irqs=0 timer_ticks=14008
+```
+
+`grep -c heartbeat` = **7**。
+`completion failed` = **0**，`completion timeout` = **0**。
+
+## 4. 宿主侧 /motd 期望值核对
+
+命令：
+
+```sh
+debugfs -R 'stat /motd' micro/build/micro-root.img
+debugfs -R 'cat /motd' micro/build/micro-root.img | sha256sum
+debugfs -R 'cat /motd' micro/build/micro-root.img | wc -c
+```
+
+结果：
+
+```text
+Inode: 13   Type: regular    Flags: 0x80000   Size: 20
+74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18  -
+20
+```
+
+与运行日志中的 `[fs] motd sha256` 和 `[ext4] read /motd: 20 bytes` 一致。
+
+## 5. 双路径 MMIO trace
+
+### 5.1 legacy v1（`-global virtio-mmio.force-legacy=true`）
+
+```text
+virtio_mmio_write_offset virtio_mmio_write offset 0x20 value 0x1006ef4   # GuestFeatures
+virtio_mmio_write_offset virtio_mmio_write offset 0x28 value 0x1000      # GuestPageSize
+virtio_mmio_guest_page guest page size 0x1000 shift 12
+virtio_mmio_write_offset virtio_mmio_write offset 0x3c value 0x4         # QueueAlign（单页 used@148）
+virtio_mmio_write_offset virtio_mmio_write offset 0x40 value 0x802b6     # QueuePFN
+```
+
+- `offset 0x24` 写入次数：**0**（legacy 不写 DriverFeaturesSel）
+- `virtio_blk_handle_read`：**16 次**
+- 控制台：`[virtio-blk] mmio ready legacy-v1`、`[ext4] mounted`、`read /motd`、`[fs-svc]`、`[init] ipc read /motd ok bytes=20`、7 条心跳
+- `completion failed`：**0**
+
+### 5.2 modern v2（`-global virtio-mmio.force-legacy=false`）
+
+```text
+virtio_mmio_write_offset virtio_mmio_write offset 0x44 value 0x0
+virtio_mmio_write_offset virtio_mmio_write offset 0x80 value 0x802b6000   # QueueDesc
+virtio_mmio_write_offset virtio_mmio_write offset 0x84 value 0x0
+virtio_mmio_write_offset virtio_mmio_write offset 0x90 value 0x802b6080   # QueueAvail
+virtio_mmio_write_offset virtio_mmio_write offset 0x94 value 0x0
+virtio_mmio_write_offset virtio_mmio_write offset 0xa0 value 0x802b6098   # QueueUsed
+virtio_mmio_write_offset virtio_mmio_write offset 0xa4 value 0x0
+virtio_mmio_write_offset virtio_mmio_write offset 0x44 value 0x1
+```
+
+- `virtio_blk_handle_read`：**16 次**
+- 控制台：`[virtio-blk] mmio ready`、`[ext4] mounted`、`read /motd`、`[fs-svc]`、`[init] ipc read /motd ok bytes=20`、7 条心跳
+- `completion failed`：**0**
+
+说明：`include/uapi/linux/virtio_mmio.h` 实测定义
+`QUEUE_DESC_LOW=0x080`、`QUEUE_AVAIL_LOW=0x090`、`QUEUE_USED_LOW=0x0a0`；
+原实现的 `0x088/0x090` 在 QEMU 8.2 上不可用。
+
+## 6. ext4 depth=1 正向与拒绝测试
+
+命令与结果：
+
+```sh
+make -C micro run BOOT_MODULES=ext4      # EXIT=0
+make -C micro/userland/servers/fs/ext4 run  # EXIT=0
+```
+
+关键输出：
+
+```text
+ext4: depth-0/1 extents, multi-leaf, split/unwritten/hole reads, geometry and corruption
+[ext4] PASS
+```
+
+新增正向用例（`micro/userland/servers/fs/ext4/demo.c:190-201`）：
+- inode 4（depth=1）两个索引项指向叶 27 / 叶 31；
+- 叶 27 含 3 个 extent：逻辑 0→块28、1→块29、2→块30（unwritten）；
+- 叶 31 含逻辑 3→块24，逻辑 4 为空洞；
+- 读 `EXT4_BLOCK-2..+4` 得到 `MNOP`，跨两个已初始化 extent；
+- 逻辑 2 未初始化 extent 读 0；逻辑 4 空洞读 0；末尾读 0 字节；
+- 叶块 `eh_max = (4096-12)/12 = 340`，不是内联根的 4。
+
+拒绝路径（`demo.c:296-324`）：
+- 根 depth=2 → `EXT4_UNSUPPORTED`；
+- 根索引项 leaf 越界 → `EXT4_FORMAT`；
+- 根索引项 count=5 > max=4 → `EXT4_FORMAT`；
+- 叶 `eh_max=341 > 340` → `EXT4_FORMAT`；
+- 叶 depth=1 → `EXT4_UNSUPPORTED`。
+
+## 7. host 自测
+
+```text
+make -C micro/kernel/loader test   -> LOADER_RC=0，loader: all tests passed
+make -C micro/kernel/memory test   -> MEMORY_RC=0，memory: all tests passed
+```
+
+## 8. 修改点与行号
+
+### `micro/userland/servers/drivers/storage/virtio_blk/virtio_blk.c`
+
+- `:228-258` `virtio_map_queue`：
+  - legacy 写 `0x028=GuestPageSize`、`0x03c=QueueAlign(4)`、`0x040=QueuePFN`；
+  - 不再写 `0x020=PAGE_SIZE`，不再把 PFN 写入 `0x028`；
+  - 不写 `QueuePFN=0`（会触发 QEMU soft reset）；
+  - modern 写 `0x080/0x090/0x0a0`（QueueDesc/Avail/Used），`0x044=1` 使能队列。
+- `:262-327` `virtio_blk_submit`：只在 avail ring 入队并 notify，**不内联完成**。
+- `:329-360` `virtio_complete_if_ready`：仅在设备推进 `used->idx` 后完成当前请求，**不调用 `block_dispatch`**；下一次派发由 `blk_io_read` 等待方驱动。
+- `:427-452` feature 协商：
+  - legacy 只写 `0x020 GuestFeatures`，不写 `0x024`；
+  - modern 先写 `0x014` 选 word，读 `0x010`，再按 `0x024` 选、`0x020` 写值；强制协商 `VERSION_1`。
+
+### `micro/userland/servers/fs/ext4/ext4.c`
+
+- `:95-214`：新增 `parse_extent_entries`（节点容量、eh_max、逻辑区间、物理范围、跨叶不重叠校验）与 depth=1 多索引项/多叶遍历；索引叶子地址修正为
+  `leaf = le32(idx+4) | ((uint64_t)le16(idx+8) << 32)`。
+- `:14`：叶容量 `EXTENT_LEAF_MAX=(4096-12)/12=340`，与内联根 `EXTENT_INLINE_MAX=4` 分开。
+- `:364-428`：`map_file_block` 按 depth0/depth1 映射；返回错误与空洞/未初始化区分，不再把元数据错误静默填零。
+- `:432-478` / `:480-518`：`ext4_lookup` / `ext4_read_at` 使用 `map_file_block` 并传播错误。
+
+### `micro/userland/servers/fs/ext4/demo.c`
+
+- `:5-6` 新增 `DEEP_INO=4`、`DEEP_BYTES=5*EXT4_BLOCK`、`LEAF_MAX=340`。
+- `:49-80` 新增 `make_index_root` / `make_index` / `make_leaf`。
+- `:118-140` 构造 depth=1 的 inode 4、两个叶块和跨 extent 数据。
+- `:190-201` 增加 depth=1 正向读；`:296-324` 增加 5 条 depth=1 拒绝断言。
+
+### `micro/userland/init/user/init_main.c`（最终工作区）
+
+当前最终工作区在 init 中调用 fs 服务并观察到 `[fs-svc]` / `[init] ipc read /motd ok bytes=20`；该 U-mode 只读探测不是本任务声称完成的通用 U-mode FS 服务化。为避免把 U-mode 服务混入 kernel bringup 的验收结论，报告只把 kernel bringup / 默认运行作为 M5 存储链证据。
+
+### 证据文件
+
+- 失败证据：`micro/docs/evidence/M5-2026-11-24-driver-rootcause.log`
+- 正向证据：本文件
+
+## 9. 仍未完成项（不得声称 M5 完成）
+
+1. `make -C micro run` 的外层 `MAKE_RC=2` 来自内层 `timeout 15s` 杀死 QEMU；证据以日志和 QEMU 是否被 timeout 终止为准。
+2. `/largefile` 当前只读 **4096 字节**（镜像中文件为 204800 字节），尚未完成 200 KiB 全量读取与哈希。
+3. `blk_io_read` 仍使用有界 `pump_irq()` / `virtio_blk_poll()` 轮询等待；纯中断驱动完成、busy 重试压力证据仍不完整。
+4. ext4 只读、支持 depth 0/1；depth>=2 返回 `EXT4_UNSUPPORTED`；无写路径、无日志恢复、忽略 `metadata_csum`。
+5. U-mode FS 服务只观察到 `/motd` 只读探测；通用服务化、写路径、并发与错误恢复未完成。
+6. 因此 **M5 整体未完成**，本日志只证明默认 kernel bringup 路径的 virtio-blk → block → ext4 → VFS `/motd` 读取和 depth=1 模型修复。

@@ -1,0 +1,19 @@
+# M1 acceptance 2026-11-24
+
+command: timeout 7s make -C micro run   # default BOOT_MODULES=capability
+exit: 124
+
+required lines (present):
+  [bootstrap] PASS
+  [kmain] pool: base=0x000000008026b000 bytes=131682304 frames=32149 free=32115
+  [kmain] reserve: firmware 0x0000000080000000 +2097152
+  [kmain] reserve: kernel 0x0000000080200000 +438272
+  [kmain] reserve: dtb 0x0000000087e00000 +5466
+  [kmain] idle: pool free=31999
+  [kmain] idle: heartbeat free=31999 ext_irqs=0 timer_ticks=2001
+  [kmain] idle: heartbeat free=31999 ext_irqs=0 timer_ticks=4002
+  [kmain] idle: heartbeat free=31999 ext_irqs=0 timer_ticks=6003
+absent:
+  [kmain] shutting down
+
+note: BOOT_MODULES=all still shuts down (no MICRO_POST_BOOT_RESIDENT); make -C micro check rechecked EXIT=0 after preserving ABI_BAD_NR for new calls in the legacy syscall fake backend.

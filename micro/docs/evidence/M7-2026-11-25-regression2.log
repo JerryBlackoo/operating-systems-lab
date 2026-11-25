@@ -1,0 +1,19 @@
+# M7/M6 regression — 2026-11-25 (PM spawn 尝试 + 内核 spawn 恢复)
+
+## Changes
+- Restored hybrid boot: kernel spawns vm/heaptest/heaptest2; init plan=3 → fs/console/shell via PM.
+- Fixed kernel_pm_spawn SPAWN_VM boot args (a3=sid, a4=sm_send) for future PM-only path.
+- vm_start: SM register only on PM boot (receipt!=0); fixes M6 hang on kernel path.
+- init_main: removed forced plan=6 and M6 ready barrier; classic ready_mask for 3 services.
+- m6_discriminate.sh timeout 60s (artifact log ok).
+
+## Verify
+- ./tools/demo.sh PASS
+- ./tools/m6_discriminate.sh PASS (deny status=-4, distinct frames)
+- ./tools/m5_discriminate.sh (run with this log batch)
+- make BOOT_MODULES=capability check PASS
+
+## Open toward full objective
+- Single `make -C micro run` interactive loop (demo uses scripted stdin; still valid M7).
+- PM-only plan=6: needs vm ready before heaptest + working SM mint path (partial fix in kernel_spawn).
+- docs/goals README row for today.

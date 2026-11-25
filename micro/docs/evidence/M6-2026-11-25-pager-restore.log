@@ -1,0 +1,36 @@
+# M6 evidence — pager 集成恢复（2026-11-25）
+
+## 命令
+
+```bash
+make -C micro BOOT_MODULES=capability user initrd
+timeout 55s make -C micro run BOOT_MODULES=capability QEMU_TIMEOUT=60s 2>&1 \
+  | strings | rg '\[vm\]|\[fault\]|\[heaptest\]'
+make -C micro check BOOT_MODULES=capability
+```
+
+## 观测
+
+```
+[vm] serving in U-mode
+[heaptest] probing unmapped page
+[fault] va=0000000040020000 access=0000000000000003 -> pager request
+[vm] map ok
+[fault] resumed
+[heaptest] store ok
+```
+
+`make check`（capability）：PASS。
+
+## 恢复项
+
+- Makefile：`pager.c`、initrd 8 成员（vm + heaptest）
+- `ep_deliver_recv`、`TAG_VM_FAULT`、`ABI_VM_MAP`/`ABI_PAGER_DONE`/`ABI_PID_SELF`
+- `service_boot`：`SERVICE_SID_VM` + `pager_init`
+- `kernel_init`：内核 spawn vm/heaptest
+- `shared/demo.c`：resident U-mode 缺页 → pager
+
+## 仍缺
+
+- 双进程同 VA 不同 frame 判别（`tools/m6_discriminate.sh`）
+- `vm_reserve` / 拒绝路径 / PM spawn vm

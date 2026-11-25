@@ -1,0 +1,67 @@
+# M7 失败保留：修复前的真实运行（2026-11-24）
+
+本文件保留 M7 修复前的失败证据；最终通过记录见 `M7-2026-11-24.log`。
+
+## A. 第一次默认镜像：virtio completion timeout
+
+命令：
+
+```text
+timeout 180s make -C micro run QEMU_TIMEOUT=20s
+EXIT=2
+```
+
+原样关键行（`/tmp/m7-baseline-run.log`）：
+
+```text
+[virtio-blk] mmio ready legacy-v1
+[block] dev0: capacity=8192 blocks
+
+[block] completion timeout
+[ext4] mount failed
+[kmain] storage bringup failed (no virtio drive?)
+...
+[init] ready
+[init] hello from initrd
+```
+
+根因：`virtio_complete_if_ready()` 在 used->idx 未推进、仅 status 变化时提前清 busy，
+下一次 submit 与设备仍在处理的旧请求重叠。修复：完成只由 used->idx 推进触发。
+
+## B. 修复 A 之后：init→FS 读取静默挂死
+
+现象：打印 `[init] ready` 后没有 `[fs-svc] read /motd` / `[init] ipc read /motd ok`。
+内核诊断（真实运行，`/tmp/m7-dbg7.log`）：
+
+```text
+[dbg] FS_READ caller=4
+[dbg] FS_READ cookie=1
+[dbg] FS_READ max=127
+[dbg] vfs_read_user path=10
+[dbg] storage open path stage=10
+[dbg] block submit status=0
+[dbg] before dispatch block=35
+（此后无输出；QEMU trace 中没有新的 virtio_queue_notify）
+```
+
+根因：`loader_spawn_user()` 只 `as_share_kernel(..., 2)`，共享 0x80000000 以上
+内核 RAM；UART/PLIC/virtio 在 0x0c/0x10 顶层索引 0，未映射进用户 AS。FS 服务在
+内核代其执行 syscall 时仍使用 FS satp，virtio notify 缺页；错误打印又写 UART
+MMIO，再次缺页，形成静默挂死。
+
+修复：`kernel/loader/loader.c` 的 `loader_map_kernel_devices()` 为每个用户 AS
+建立 UART0、PLIC、virtio-mmio 的内核恒等映射（无 U 位）。修复后真实输出：
+
+```text
+[fs-svc] read /motd via vfs
+[init] ipc read /motd ok bytes=20
+```
+
+## C. 其他失败/边界（已保留或已明确）
+
+- 某次增量构建使用 stale `lib_runtime.o`，出现 `undefined symbol: user_pm_list`；
+  清理 `micro/build/user/*.o` 后恢复。
+- M6 的 `vm/heaptest` 若进入默认启动会占满 `loader` launch 槽并触发未闭合缺页
+  路径；M7 默认路径已不启动它们，M6 仍未完成。
+- 负向 demo 早期版本曾以 exit 0 结束；最终 `--expect-nonzero`（等价
+  `--cat-path /nonexistent`）以真实 motd 哈希断言失败返回 1。

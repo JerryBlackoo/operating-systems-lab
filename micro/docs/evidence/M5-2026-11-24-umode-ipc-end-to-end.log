@@ -1,0 +1,39 @@
+# M5 U-mode init → fs IPC → /motd（2026-11-24）
+
+## 命令
+
+```bash
+cd /home/jerry/Projects/from-scratch/operating-systems-lab/micro
+make -s BOOT_MODULES=capability
+make -C userland/init/user -s all
+make -C userland/servers/fs/user -s all
+python3 tools/mkinitrd.py build/user/initrd.img build/user/init.elf build/user/sm.elf build/user/pm.elf build/user/fs.elf build/user/console.elf
+timeout 18s make -s run BOOT_MODULES=capability FS_IMAGE=build/micro-root-m1.img 2>&1 | strings
+```
+
+退出码 124（timeout，内核 idle 常驻）。
+
+## 串口关键行（摘录）
+
+```
+[ext4] mounted: block_size=4096 inodes=8192
+[ext4] read /motd: 20 bytes
+[fs] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[init] boot: caps=2 plan=2
+[init] spawn fs ok pid=10
+[init] spawn console ok pid=11
+[init] ready
+[init] hello from initrd
+[fs-svc] read /motd via vfs
+[init] ipc read /motd ok bytes=20
+```
+
+## 结论
+
+- init 经 PM 拉起 U-mode fs/console，`TAG_READY` 后 `IPC_CALL` fs `TAG_FS_READ`（cookie=1）闭环成立。
+- fs 用户态服务经 `ABI_FS_READ` 读 `/motd` 并 `IPC_REPLY`；init 得到 20 字节。
+
+## 已知缺口（仍属 M5 后续）
+
+- U-mode `ABI_FS_READ` / 路径 IPC 使用 VFS **client 2**（与 bringup client 1 分离）。
+- 判别：改 motd 哈希、eh_depth、block busy、IRQ 路径仍待验收。

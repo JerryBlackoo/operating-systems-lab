@@ -1,0 +1,16 @@
+[mkinitrd] wrote build/user/initrd.img (128180 bytes, 5 members)
+--- basic ---
+	build/user/init.elf build/user/sm.elf build/user/pm.elf build/user/fs.elf build/user/console.elf
+[boot] console: SBI legacy putchar OK
+[console] uart0 mmio ready (divisor=2)
+[console] switched from SBI putchar
+[init] spawn console ok pid=11
+--- stdin ---
+	build/user/init.elf build/user/sm.elf build/user/pm.elf build/user/fs.elf build/user/console.elf
+[boot] console: SBI legacy putchar OK
+[console] uart0 mmio ready (divisor=2)
+[console] switched from SBI putchar
+[init] spawn console ok pid=11
+abc[console] irq: line=10
+[console] line="abc"
+EXIT=124

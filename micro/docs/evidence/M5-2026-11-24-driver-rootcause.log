@@ -1,0 +1,140 @@
+# M5 / virtio-blk + ext4 P0 失败证据（修复前）
+
+日期：2026-11-24
+仓库 HEAD：d05227e（工作区含未提交改动）
+范围：仅记录 micro/ 下真实存储链的修复前失败，不作为完成证据。
+
+## 1. 失败命令
+
+```sh
+# 删除旧对象，确保从当前源码重新编译驱动
+rm -f micro/build/riscv/userland/servers/drivers/storage/virtio_blk/virtio_blk.o \
+      micro/build/riscv/kernel.elf
+timeout 40s make -C micro run
+```
+
+编译确实使用了当前源码：
+
+```text
+clang ... -DMICRO_POST_BOOT_RESIDENT=1 -c userland/servers/drivers/storage/virtio_blk/virtio_blk.c \
+  -o build/riscv/userland/servers/drivers/storage/virtio_blk/virtio_blk.o
+built: build/riscv/kernel.elf
+```
+
+外层退出码：`MAKE_RC=2`
+（内部 `timeout 15s` 杀掉 QEMU 后 make 报 124；本次日志以 QEMU 是否被杀和串口内容为准，因为外层 make 会把内层 124 转成非零退出码。）
+
+## 2. 宿主侧 /motd 期望值
+
+```text
+[mkext4image] wrote build/micro-root.img (33554432 bytes)
+[mkext4image] image sha256=575a70d221bb3e5463ccfa03e45e86f9b7b3186b8d398901f6a209dd16e14a32
+[mkext4image] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+```
+
+`/motd` 内容为 20 字节：`microkernel motd v1\n`。
+
+## 3. QEMU 串口失败关键行
+
+QEMU 参数（默认 make run）：
+
+```text
+qemu-system-riscv64 -machine virt -m 128M -smp 1 -nographic -monitor none -bios default \
+  -drive file=build/micro-root-run.img,if=none,format=raw,readonly=on,id=d0 \
+  -device virtio-blk-device,drive=d0 \
+  -initrd build/user/initrd.img -kernel build/riscv/kernel.elf
+```
+
+实际输出：
+
+```text
+[virtio-blk] mmio ready legacy-v1
+[block] dev0: capacity=8192 blocks
+[block] completion timeout
+[ext4] mount failed
+[kmain] storage bringup failed (no virtio drive?)
+[kmain] idle: heartbeat free=32014 ext_irqs=0 timer_ticks=2000
+```
+
+失败点：`capacity` 已经读到，但块请求从未完成，因此 ext4 超级块读取失败。
+期望值应出现：
+
+```text
+[ext4] mounted: block_size=4096 inodes=8192
+[ext4] read /motd: 20 bytes
+[fs] motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+```
+
+## 4. QEMU MMIO trace（同一内核）
+
+```sh
+timeout 12s qemu-system-riscv64 ... \
+  -trace enable=virtio_mmio_read \
+  -trace enable=virtio_mmio_write_offset \
+  -trace enable=virtio_mmio_guest_page \
+  -trace enable=virtio_blk_handle_read
+```
+
+关键 trace：
+
+```text
+virtio_mmio_write_offset virtio_mmio_write offset 0x70 value 0x3      # ACK|DRIVER
+virtio_mmio_write_offset virtio_mmio_write offset 0x14 value 0x0
+virtio_mmio_write_offset virtio_mmio_write offset 0x24 value 0x0
+virtio_mmio_write_offset virtio_mmio_write offset 0x20 value 0x1006ef4 # GuestFeatures
+virtio_mmio_write_offset virtio_mmio_write offset 0x70 value 0xb      # ACK|DRIVER|FEATURES_OK
+virtio_mmio_write_offset virtio_mmio_write offset 0x30 value 0x0      # QueueSel
+virtio_mmio_write_offset virtio_mmio_write offset 0x38 value 0x8      # QueueNum
+virtio_mmio_write_offset virtio_mmio_write offset 0x20 value 0x1000   # 错误：覆盖了 GuestFeatures
+virtio_mmio_write_offset virtio_mmio_write offset 0x3c value 0x1000   # 错误：QueueAlign=4096
+virtio_mmio_write_offset virtio_mmio_write offset 0x28 value 0x0
+virtio_mmio_guest_page guest page size 0x0 shift 0
+virtio_mmio_write_offset virtio_mmio_write offset 0x28 value 0x802b4  # 错误：PFN 写进了 GuestPageSize
+virtio_mmio_guest_page guest page size 0x802b4 shift 2
+virtio_mmio_write_offset virtio_mmio_write offset 0x70 value 0xf      # ACK|DRIVER|FEATURES_OK|DRIVER_OK
+```
+
+结果：
+
+```text
+virtio_blk_handle_read 事件数量 = 0
+```
+
+即 QEMU 从未消费 available ring，因为 legacy 队列根本没有被正确启用。
+
+## 5. 代码锚点（修复前）
+
+`micro/userland/servers/drivers/storage/virtio_blk/virtio_blk.c:228-236`：
+
+```c
+mmio_write(dev->mmio, 0x020, PAGE_SIZE);                 /* 错：覆盖 GuestFeatures */
+mmio_write(dev->mmio, 0x03c, PAGE_SIZE);                 /* 错：QueueAlign=4096，单页环 used 在 148 */
+mmio_write(dev->mmio, 0x028, 0);                         /* 错：0x028 是 GuestPageSize */
+mmio_write(dev->mmio, 0x028, (uint32_t)(dev->desc_pa >> 12));
+                                                          /* 错：QueuePFN 应为 0x040 */
+```
+
+`virtio_blk.c:405-407`：
+
+```c
+mmio_write(devp->mmio, 0x024, 0);   /* legacy v1 没有 DriverFeaturesSel 语义 */
+mmio_write(devp->mmio, 0x020, feat0);
+```
+
+`virtio_blk.c:336`：完成回调里再次调用 `block_dispatch`，存在完成→派发的重入链（当前 block.c 已先把队首移入 in_flight，但驱动侧仍应让等待方推进下一次派发）。
+
+## 6. 根因结论（本日志确认的部分）
+
+1. legacy v1 的 MMIO 寄存器偏移写错：
+   - `GuestPageSize` 应为 `0x028`，被写成了 `0x028 = desc_pa >> 12`；
+   - `QueuePFN` 应为 `0x040`，从未写入；
+   - `0x020` 是 `GuestFeatures`，被 `PAGE_SIZE` 覆盖；
+   - 单页 legacy 环的 `QueueAlign` 应为 4（used ring 位于页内偏移 148），写成 4096 会让 QEMU 把 used ring 放到页外。
+2. `0x028=0x802b4` 使 QEMU 记录 `guest page size 0x802b4 shift 2`，队列地址空间彻底错位。
+3. 因 `virtio_blk_handle_read=0`，块请求无法完成，表现为 `completion failed/timeout` 与 `[ext4] mount failed`。
+
+注：modern v2 的 `QueueDesc/QueueAvail/QueueUsed = 0x080/0x088/0x090` 与
+`DriverFeaturesSel=0x024`、`DriverFeatures=0x020` 的顺序按 virtio-mmio 规范核对；
+本次失败发生在默认 QEMU 选择的 legacy v1 路径。修复后需同时用
+`-global virtio-mmio.force-legacy=false` 验证 modern，不能把 modern 地址改成
+0x090/0x0a0（该说法与 `include/uapi/linux/virtio_mmio.h` 不符）。
