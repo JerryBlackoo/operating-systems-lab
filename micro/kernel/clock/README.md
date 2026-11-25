@@ -7,6 +7,42 @@
 
 墙钟、RTC、时区、NTP、POSIX timer、CPU 计费、调度策略都不在这里。
 
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `clock_ns_t` | `clock.h` | 单调纳秒时间轴（自 `clock_init()` 起）；`clock_deadline_after(base, delta)` 做溢出饱和 |
+| `clock_ticks_t` | `clock.h` | 硬件 timebase 计数（QEMU virt 为 10 MHz） |
+| `struct clock_timer` | `clock.h` | 一个绝对 deadline 的定时器：`next`（队列链）、`deadline`、`callback`、`arg`、`seq`（插入序号，用于同 deadline 的 FIFO 稳定性）、`state` |
+| `enum clock_timer_state` | `clock.h` | `INACTIVE` / `ENQUEUED` / `RUNNING` |
+| `struct clock_hart` | `timer.c` | per-hart 队列状态：`head`（按 deadline 升序）、`running`（正在执行回调的定时器）、`programmed`（已写入比较器的值） |
+
+`struct clock_timer` 是**侵入式**的：调用者把定时器嵌在自己的结构里（例如
+`struct pager_pending.watchdog`），模块只保存指针。因此调用者必须保证
+「cancel 返回 true 或回调返回」之前不释放该对象。
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 | 具体接口 |
+| --- | --- | --- |
+| `sched` | 唯一的时间片来源 | `sched_start_tick()` 武装 one-shot 定时器；`clock_handle_interrupt()` 里的回调调 `sched_tick()`，trap 返回前 `sched_check()` 完成切换 |
+| `pager` | 缺页超时看门狗 | `pending_add()` 里 `clock_timer_init` + `clock_timer_arm(PAGER_TIMEOUT_NS)`；`pending_complete_locked` / `pending_remove_tid` 里 `clock_timer_cancel` |
+| `arch/riscv`（`plic.c`） | 定时器中断的硬件适配 | `port_complete(IRQ_TIMER)` 与 `port_mask` / `port_unmask` 都通过 `sbi_set_timer` 重新编程比较器 |
+| `shared/demo.c`（trap glue） | 中断入口 | S 态 timer 中断里先 `clock_handle_interrupt()`，再 `sched_check()` |
+| `thread_sleep_ns` / `thread_sleep_until` | 由本模块驱动 | `sched` 提供的睡眠原语把线程挂在内部 waitq 上，由 clock 的 one-shot deadline 唤醒 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 只用 `rdtime` | 直接读计数器，自己换算 | 单模块 demo 需要一个单调时间 |
+| 2. epoch + 频率换算 | `timebase.c`：boot 时记 `epoch`，`clock_now()` 返回 ns | 单位泄漏给所有调用者；每个用户自己除以频率容易写错 |
+| 3. 单槽比较器 | 只有一个 `sbi_set_timer` 槽 | 硬件只有一个 mtimecmp，必须有人把「多个 deadline」排序后复用这一个槽 |
+| 4. 有序队列 | `q_insert` 按 deadline 升序插入，同 deadline 按 `seq` FIFO | 多个等待者必须能共存；同刻到期的回调需要确定的顺序 |
+| 5. 回调内禁止释放自己 | `RUNNING` 状态；只有当前回调可以 re-arm 自己 | 回调执行期间对象生命周期归 clock 管；提前释放会破坏队列链接 |
+| 6. 先撤防再派发 | `clock_handle_interrupt` 先写 `CLOCK_DISARM` | QEMU 在 `mtimecmp <= mtime` 时会立刻再次拉高中断，不撤防就形成中断风暴 |
+| 7. pager 超时接入 | `pager` 用 `clock_timer` 做 200 ms 看门狗 | VM 服务卡住时缺页线程必须能被唤醒，不能永远阻塞 |
+
 ## 文件
 
 | 文件 | 职责 | 对应模型 |

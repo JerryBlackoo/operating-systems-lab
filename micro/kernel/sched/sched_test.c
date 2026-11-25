@@ -304,6 +304,89 @@ static void test_quantum_carry(void)
     printf("sched: quantum carry ok\n");
 }
 
+static void test_discard_ready(void)
+{
+    struct thread *t;
+
+    object_system_init();
+    sched_init();
+    t = thread_create(0, worker, 0, stack_a, sizeof(stack_a), "discard");
+    assert(t != 0);
+    assert(sched_ready_count() == 1);
+    assert(sched_thread_discard(t) == 0);
+    assert(sched_ready_count() == 0);
+    printf("sched: discard ready thread ok\n");
+}
+
+static void test_terminate_blocked(void)
+{
+    struct waitq wq;
+    struct thread *t;
+
+    object_system_init();
+    sched_init();
+    waitq_init(&wq);
+    t = thread_create(0, worker, 0, stack_a, sizeof(stack_a), "term");
+    assert(t != 0);
+
+    /* 阻塞在普通 waitq 上：terminate 应当场摘除，不需要延迟退出。 */
+    t->state = THREAD_BLOCKED;
+    waitq_push(&wq, t);
+    assert(sched_thread_terminate(t) == 0);
+    assert(waitq_empty(&wq));
+    assert(!sched_thread_kill_pending(t));
+    printf("sched: terminate blocked thread ok\n");
+}
+
+static void test_terminate_running_defers(void)
+{
+    struct thread *t;
+
+    object_system_init();
+    sched_init();
+    t = thread_create(0, worker, 0, stack_a, sizeof(stack_a), "running");
+    assert(t != 0);
+
+    /*
+     * RUNNING 线程不能当场释放（它正用着自己的栈与 AS）：terminate 只登记
+     * 延迟退出，实际退出由 resident_trap / syscall_wait_park 兑现。
+     */
+    t->state = THREAD_RUNNING;
+    assert(sched_thread_terminate(t) == 0);
+    assert(sched_thread_kill_pending(t));
+    assert(t->state == THREAD_RUNNING);
+
+    sched_thread_clear_kill(t);
+    assert(!sched_thread_kill_pending(t));
+    t->state = THREAD_READY;
+    assert(sched_thread_discard(t) == 0);
+    printf("sched: terminate running defers ok\n");
+}
+
+static void test_async_parked_blocks_discard(void)
+{
+    struct thread *t;
+
+    object_system_init();
+    sched_init();
+    t = thread_create(0, worker, 0, stack_a, sizeof(stack_a), "parked");
+    assert(t != 0);
+
+    /*
+     * 停在 syscall_wait_park 的线程，其 trap 帧被在途 reply 引用：
+     * 直接 discard 必须失败，否则 ep_reply 会写进已释放的栈。
+     */
+    t->state = THREAD_BLOCKED;
+    t->async_parked = true;
+    assert(sched_thread_discard(t) == -1);
+
+    /* 放弃在途 reply 后（清 async_parked）才允许摘除。 */
+    t->async_parked = false;
+    waitq_push(&t->syscall_wq, t);
+    assert(sched_thread_discard(t) == 0);
+    printf("sched: async parked thread is protected ok\n");
+}
+
 int main(void)
 {
     test_round_robin();
@@ -313,6 +396,10 @@ int main(void)
     test_create_limits();
     test_waitq_order();
     test_quantum_carry();
+    test_discard_ready();
+    test_terminate_blocked();
+    test_terminate_running_defers();
+    test_async_parked_blocks_discard();
     printf("sched: all tests passed\n");
     return 0;
 }

@@ -1,11 +1,54 @@
 # sched：线程状态机与时间片调度
 
-本目录实现微内核最小模型里的“时间层”：Thread 状态机、就绪队列、每线程时间片、
+本目录实现微内核最小模型里的「时间层」：Thread 状态机、就绪队列、每线程时间片、
 上下文切换，以及给 IPC 使用的 block/wake 原语。
 
-内核不定义“进程”。调度单位是 Thread；AddressSpace 是独立对象，由 Thread 持有引用。
+内核不定义「进程」。调度单位是 Thread；AddressSpace 是独立对象，由 Thread 持有引用。
 
 其他路径的代码没有修改；本目录可以独立编译和自测（主机自测使用 fake 切换）。
+
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct thread`（TCB） | `sched.h` | 一个可调度实体：`object` 头、`cpu_context`、状态、`as` 引用、`time_left`、消息寄存器、等待队列指针、`cap_sid` |
+| `struct cpu_context` | `sched.h` | 只保存 callee-saved 寄存器（`ra, sp, s0-s11`，14 字）；`switch_rv64.S` 里的偏移由 `_Static_assert` 锁定 |
+| `enum thread_state` | `sched.h` | `READY` / `RUNNING` / `BLOCKED` / `DEAD` |
+| `struct waitq` | `sched.h` | 侵入式单链表等待队列（`head`/`tail`）；线程用 `wait_next` 挂链，用 `waitq` 指回所属队列 |
+| `struct thread_msg` | `sched.h` | TCB 内的消息寄存器（`tag` + `reply_id` + 4 words），IPC 直接复用这块内存，不额外分配 |
+| 就绪队列 | `sched.c` | FIFO 单链表 `ready_head`/`ready_tail`；`in_ready` 防止重复入队 |
+| `idle_thread` | `sched.c` | 兜底线程；不在就绪队列里参与 FIFO，只在无其它就绪线程时运行 |
+| `active_as` | `sched.c` | 当前 `satp` 指向的 AS；`NULL` 表示内核 bare 映射 |
+| `kill_pending` / `async_parked` | `sched.h` | 延迟终止标记，与「trap 帧被在途 reply 引用」的保护标记 |
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 | 具体接口 |
+| --- | --- | --- |
+| `objects` | 注册 `OBJ_THREAD`；**注入锁** | `thread_create` 注册；`sched_init()` 调 `object_set_lock(sched_lock, sched_unlock)` |
+| `memory` | AS 引用与切换 | `thread_create` 做 `as_ref`；`sched()` 里 `as_activate(next->as)` 或 `as_activate(0)`；`reap_dead`/`sched_thread_discard` 做 `as_unref` |
+| `ipc` | 阻塞原语与消息存储 | `thread_block_locked` / `thread_wake_locked` 是 `ep_send`/`ep_recv`/`ep_post` 的原子性基础；消息体存在 `thread.msg` |
+| `syscall` | 异步 syscall 停泊 | `syscall_wait_park` 用 `self->syscall_wq` 阻塞；`syscall_resume` 用 `thread_wake_locked` 唤醒 |
+| `pager` | 缺页阻塞 | `pager_waitq` + `fault_status`；超时看门狗回调里用 `sched_thread_by_id_locked` 定位线程 |
+| `clock` | tick 源 | `sched_start_tick()` 武装 one-shot 定时器；回调里 `sched_tick()` 扣时间片、`sched_check()` 触发切换 |
+| `loader` | 创建用户线程 | `user_launch_entry` 是首次运行的入口；`sched_thread_set_cap_sid` 设置身份；销毁时通过弱钩子 `loader_release_launch_for_thread` 归还内核栈 |
+| `kernel_spawn` / `pm` | 撤销 spawn | `sched_thread_discard`（未运行）与 `sched_thread_terminate`（已运行，可延迟） |
+| `capability` | SID 载体 | `sched_thread_set_cap_sid` / `sched_thread_cap_sid`；`request->caller` 就取自它 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 协作式轮转 | 只有 `thread_yield` + FIFO 就绪队列 | 单模块 demo 证明上下文切换可用 |
+| 2. 时间片与抢占 | `sched_tick` 扣 `time_left`，置 `need_resched`；`sched_check` 在 trap 返回前切换 | 需要公平性：一个死循环线程不能饿死其他线程 |
+| 3. block/wake 原子化 | `thread_block_locked` / `thread_wake_locked` 与调用方的队列操作放在同一关中断区间 | IPC 的「检查队列 + 阻塞」若中间被抢占会丢失唤醒 |
+| 4. idle 兜底 | `sched_set_idle`；无就绪线程时切到 idle 而不是空转 | 所有线程都阻塞时必须还有东西可跑，否则 `sched()` 会把控制流丢进空指针 |
+| 5. 死线程安全点回收 | `reap_dead()` 在 `sched()` 里统一处理，先切回 bare 再 `as_unref` | 死线程的页表可能正是当前 satp；立刻释放会让下一次 TLB miss 走进已归还的物理页 |
+| 6. `sched_thread_discard` | 摘下就绪队列、释放 AS、回收对象 | PM spawn 失败时需要撤回一个尚未运行的子线程 |
+| 7. `sched_thread_terminate` | 分三种状态处理：READY/普通 BLOCKED 直接 discard；`async_parked` 先撤销在途 reply；RUNNING 只置 `kill_pending` | 子进程可能已经跑起来（`ABI_PM_DISCARD`），但 RUNNING 线程不能当场释放自己的栈与 AS |
+| 8. `kill_pending` 兑现点 | `resident_trap` 在下次 ecall 进入内核时退出；`syscall_wait_park` 返回后退出 | 让「延迟终止」有确定的执行点，而不是靠轮询 |
+| 9. 销毁弱钩子 | `loader_release_launch_for_thread` / `ipc_release_thread` | 线程销毁要归还 loader 的 launch 槽（含内核栈）、清掉 endpoint 队列里的悬空引用，但 `sched` 不能反向依赖那两个模块 |
+| 10. `sched_thread_by_id_locked` | 按 object id 在 TCB 池里查线程 | pager 的定时器看门狗在中断上下文里需要从 tid 定位缺页线程 |
 
 ## 最小模型
 
@@ -117,11 +160,36 @@ sched: idle-only fallback ok
 sched: create validation/capacity ok
 sched: waitq FIFO/remove ok
 sched: quantum carry ok
+sched: discard ready thread ok
+sched: terminate blocked thread ok
+sched: terminate running defers ok
+sched: async parked thread is protected ok
 sched: all tests passed
 ```
 
 主机自测的 `cpu_switch` 只记录调用，不真正切栈；因此它验证的是状态机、队列和
 时间片决策，不是实际寄存器切换。RISC-V 真实切换由 `switch_rv64.S` 提供。
+
+## 线程终止的两级语义
+
+| 函数 | 适用状态 | 语义 |
+| --- | --- | --- |
+| `sched_thread_discard(t)` | READY / 普通 BLOCKED | 当场摘除并释放 AS/对象；RUNNING 或 `async_parked` 时返回 -1 |
+| `sched_thread_terminate(t)` | 任意 | READY/BLOCKED 走 discard；`async_parked` 先 `user_syscall_abandon_async` 撤销在途 reply 再 discard；RUNNING 只置 `kill_pending` |
+
+`kill_pending` 的兑现点有两处，都在线程即将返回用户态之前：
+
+1. `resident_trap`：任何新的 ecall 进入内核时先检查，命中就 `thread_exit()`；
+2. `syscall_wait_park`：异步调用被续完或被放弃后检查。
+
+这样 RUNNING 线程不需要被强行切走，也不会在终止请求之后继续执行用户代码。
+
+两个销毁回调（弱符号，主机自测里为 NULL）：
+
+- `loader_release_launch_for_thread(t)`：归还 loader 的 launch 槽（含内核栈）。
+  必须在**真正销毁**时做，不能在请求终止时做——RUNNING 线程还在用那块栈。
+- `ipc_release_thread(t)`：把线程从 endpoint 的 sendq/recvq 摘除并清空 TCB
+  里的消息体。阻塞在 `ep_send` 的线程，其消息体就在 TCB 里，接收者会直接读。
 
 ## QEMU 接线：真实 S 态定时器 → 调度
 
@@ -249,3 +317,5 @@ RISC-V 细节：
   `clock_timer` 实现线程睡眠，不改变 `waitq` 的阻塞/唤醒语义。
 - 不做进程对象；`waitpid`、信号、fd 表等属于用户态 PM/VFS。
 - `thread_exit()` 依赖 idle 线程兜底；启动代码必须创建 idle。
+- capability 常驻：`kernel_init` 创建 idle 后 `loader_spawn_user` 拉起多路
+  U-mode 服务；`heaptest` 退出后仍由 idle 与其它服务共存至 shell poweroff。

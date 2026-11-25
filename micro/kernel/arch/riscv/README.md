@@ -14,6 +14,49 @@
 
 **运行三个时刻的独立自检**：在本目录执行 `make run`；命令、调用链、输出与验证范围见[第八节](#八独立自检运行与验收输出)。`micro/` 目录下的 `make run` 是另一条正式 boot 路径。
 
+## 本目录的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct trap_frame` | `trap.h` | 288 字节的完整陷阱帧：32 个通用寄存器 + `sstatus`/`sepc`/`scause`/`stval` 等；`trap.S` 的布局由 `_Static_assert` 与之锁定 |
+| `_start` | `boot.S` | 建栈、清零 `.bss`、`mv a0/a1` 后 `j boot_main` |
+| `trap_entry` / `trap_return` | `trap.S` | 一条指令换栈进入内核；`trap_return` 恢复全部寄存器并 `sret` |
+| `struct cpu_context` 的汇编侧 | `context.S` | `cpu_switch` / `cpu_switch_to` 保存/恢复 14 个 callee-saved 寄存器；偏移与 `sched.h` 的 `_Static_assert` 对齐 |
+| `csr.h` | `csr.h` | CSR 读写内联封装（`csr_read` / `csr_write` / `csr_set` / `csr_clear` / `irq_disable`） |
+| `hart.h` | `hart.h` | `hart_local_get()`——通过 `tp` 取 per-hart 指针 |
+| `struct irq_port` 实现 | `plic.c` | PLIC 的 claim/complete/mask/unmask + `sstatus.SIE` 保存恢复（`plic_irq_port()`） |
+| `platform.h` | `platform.h` | QEMU virt 的地址常量：RAM、PLIC、UART、CLINT、virtio-mmio、`PLIC_NDEV`、`UART0_IRQ` |
+| `link.ld` | `link.ld` | 内核链接布局（`__kernel_start` / `__kernel_end` / 段对齐） |
+| `sbi.c` | `sbi.c` | SBI legacy putchar / set_timer / SRST 关机 |
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 |
+| --- | --- |
+| `boot` | `boot.S` 交出 `(hartid, dtb)`；`trap.S` 的 `trap_entry` 被 `shared/demo.c` 的 glue 使用 |
+| `sched` | `cpu_switch` 是上下文切换的唯一实现；`sched.h` 的 `CPU_CTX_ASSERT` 锁定 `context.S` 的偏移 |
+| `interrupt` | `plic_irq_port()` 提供唯一的 `irq_port` 实现；`platform.h` 的 `PLIC_NDEV` / `IRQ_LINE_MAX` 必须一致 |
+| `console` | `platform.h` 的 `UART0_BASE` / `UART0_IRQ`；`sbi.c` 用于 boot 早期输出 |
+| `clock` | `sbi.c` 的 `sbi_set_timer`；`platform.h` 的 timebase 频率 |
+| `memory` | `link.ld` 的 `__kernel_start` / `__kernel_end` 是内核 AS 恒等映射的范围 |
+| `loader` | `map_user_stack` 后 `user_launch_entry` 直接 `j trap_return`，依赖本模块的帧布局 |
+| `capability` | `cap_arch_riscv.c` 的 `sstatus.SIE` 保存/恢复与 `csr.h` 同源 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 能进 C | `boot.S` 建栈 + 清 bss + 跳 `boot_main` | 上电后第一件事：让 C 代码有栈可用 |
+| 2. 单模块自检 trap | `trap.c` 里一个最小的 S 态 trap handler | 先证明 trap 机制本身能用，再谈策略 |
+| 3. 全寄存器陷阱帧 | 288 字节帧，`_Static_assert` 锁定布局 | U-mode 进内核必须保存全部寄存器，否则返回值会丢 |
+| 4. 一条指令换栈 | `csrrw sp, sscratch, sp` + 分支判来源 | 从 U 进入时 `sp` 还是用户栈，必须先换到内核栈才能压帧 |
+| 5. 上下文切换分离 | `context.S` 只保存 callee-saved（14 字） | caller-saved 已由 trap 入口保存；重复保存浪费且易错 |
+| 6. PLIC 接入 | `plic.c` 实现 `irq_port`；`plic_hw_init` 清优先级与阈值 | 需要真实外部中断，而 `interrupt` 模块只定义端口 |
+| 7. timer 特判 | `port_complete` / `port_mask` 对 `IRQ_TIMER` 走 `sbi_set_timer` | timer 不在 PLIC 里，它的「complete」等价于重装比较器 |
+| 8. `sbi.c` 收窄用途 | 只保留 putchar / set_timer / SRST | MMIO 可用后 SBI 输出应退出主路径；panic 仍需要它 |
+| 9. `platform.h` 常量化 | QEMU virt 的地址写成常量而非解析 DTB | 教学模型不做通用 FDT 解析；换板子要改这里 |
+| 10. 自检镜像与正式镜像分家 | `kernel/arch/riscv/Makefile` 的 `ARCH_SELFTEST` 只属于本目录；正式镜像用 `shared/demo.c` 的 glue + `resident_trap` | 早期 `trap.c` 曾与 `shared/demo.c` 争 `trap_handler`；分开后两边都能独立验收 |
+
 ---
 
 ## 一、寄存器分类（本模块的作用域）
@@ -367,7 +410,7 @@ kernel/arch/riscv/
 `cpu_switch()`；U 态 `ecall` 继续分发给模块 trap（`kernel/syscall/closure.c`
 再进入 `syscall_dispatch()`）。运行命令和串口证据见
 [`kernel/syscall/README.md`](../../syscall/README.md) 与
-[`qemu-unified.log`](../../syscall/qemu-unified.log)。
+[`docs/evidence/qemu-unified-legacy.log`](../../docs/evidence/qemu-unified-legacy.log)。
 
 ---
 

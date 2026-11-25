@@ -88,6 +88,8 @@ struct thread {
 
     struct thread_msg msg;
     int ipc_status;
+    /* M6 pager：缺页阻塞期间由 VM 服务写入完成状态；ABI_OK 表示补页成功。 */
+    int64_t fault_status;
 
     struct waitq *waitq;
     struct thread *wait_next;
@@ -96,11 +98,29 @@ struct thread {
     bool in_ready;
     bool used;
     bool reaped;
+    /*
+     * 延迟终止请求：线程已进入 RUNNING 或阻塞在异步 syscall 上、无法当场
+     * 摘除时置位。它在 syscall_wait_park / trap 返回点自行退出，期间不再
+     * 执行新的用户代码。见 sched_thread_terminate()。
+     */
+    bool kill_pending;
+    /*
+     * 该线程当前停在 syscall_wait_park 里：trap 帧被在途 reply 引用，
+     * 不能直接 discard。异步调用被放弃（user_syscall_abandon_async）后清零。
+     */
+    bool async_parked;
 
     void (*entry)(void *);
     void *arg;
     const char *name;
+    uint8_t cap_sid;
+    struct waitq syscall_wq;
+    /* 对齐 struct syscall_call；由 resident_trap 做 static_assert。 */
+    uint64_t ucall_words[24];
 };
+
+void sched_thread_set_cap_sid(struct thread *t, uint8_t sid);
+uint8_t sched_thread_cap_sid(const struct thread *t);
 
 void sched_init(void);
 
@@ -110,6 +130,35 @@ struct thread *thread_create(struct as *as, void (*entry)(void *), void *arg,
 
 void thread_exit(void) __attribute__((noreturn));
 void thread_yield(void);
+
+/*
+ * 撤回尚未运行用户入口的 spawn（从就绪队列摘下并释放 AS/对象表项）。
+ * 不可用于 current/idle/正在 RUNNING 的线程，也不可用于阻塞在
+ * 异步 syscall 上的线程（其 trap 帧仍被在途 reply 引用）。
+ */
+int sched_thread_discard(struct thread *t);
+
+/*
+ * 请求终止一个已经跑起来的子线程。与 discard 的区别：
+ *   - READY/BLOCKED 且不在 syscall_wq：立即走 discard 路径；
+ *   - 阻塞在异步 syscall：置 kill_pending 并唤醒，线程在 trap 返回点退出
+ *     （调用者必须先取消它的在途 reply，见 user_syscall_cancel_thread_async）；
+ *   - RUNNING：置 kill_pending，待其下次陷入内核时退出。
+ * 返回 0 表示已丢弃或已登记延迟退出；-1 表示目标不可终止（current/idle）。
+ */
+int sched_thread_terminate(struct thread *t);
+
+/* 该线程是否已被请求终止。 */
+bool sched_thread_kill_pending(const struct thread *t);
+
+/* 撤销延迟终止请求（spawn 回滚后重启同一线程时用）。 */
+void sched_thread_clear_kill(struct thread *t);
+
+/*
+ * 按 object id 在 TCB 池里查线程，不增加对象引用。
+ * 调用者必须持 sched_lock()；返回指针只能在同一个临界区内使用。
+ */
+struct thread *sched_thread_by_id_locked(uint32_t id);
 
 /*
  * 单调时间睡眠：deadline 是 clock 模块的绝对 ns 时间轴。

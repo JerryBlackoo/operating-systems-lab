@@ -29,6 +29,25 @@ static struct as *active_as;
 
 static bool need_resched;
 
+/*
+ * loader 的 launch 槽回收钩子（弱符号）。
+ *
+ * launch 里含该线程的内核栈，必须等线程真正销毁才释放；但 sched 不能
+ * 反过来依赖 loader。loader 在 loader_spawn_user 成功后设置这个钩子；
+ * 主机自测没有 loader，符号为 NULL 时直接跳过。
+ */
+void loader_release_launch_for_thread(struct thread *t) __attribute__((weak));
+static void (*const loader_release_launch)(struct thread *) =
+    loader_release_launch_for_thread;
+
+/*
+ * IPC 的线程销毁钩子（弱符号）：把该线程从 endpoint 的 sendq/recvq 和
+ * reply 的所有者记录里清掉。阻塞在 sendq 上的线程把消息体存在自己 TCB
+ * 里，接收者会直接读它；线程销毁后必须先撤销这些引用。
+ */
+void ipc_release_thread(struct thread *t) __attribute__((weak));
+static void (*const ipc_forget_thread)(struct thread *) = ipc_release_thread;
+
 /* 观测计数：只增不减，供真实 QEMU 验收核对。 */
 static uint64_t tick_count;
 static uint64_t switch_count;
@@ -39,9 +58,13 @@ static void thread_bootstrap(void);
 static void memzero(void *dst, size_t len)
 {
     uint8_t *p = (uint8_t *)dst;
+    size_t i = 0;
 
-    while (len-- > 0) {
-        *p++ = 0;
+    for (; i + sizeof(uint64_t) <= len; i += sizeof(uint64_t)) {
+        *(uint64_t *)(p + i) = 0;
+    }
+    for (; i < len; i++) {
+        p[i] = 0;
     }
 }
 
@@ -184,6 +207,24 @@ static void thread_destroy(struct object *obj)
 {
     struct thread *t = (struct thread *)obj;
 
+    /*
+     * 线程真正销毁时才归还 loader 的 launch 槽（含它的内核栈）。
+     * 不能在请求终止的那一刻归还：RUNNING 线程还在用自己的 kstack，
+     * 提前释放会让下一次 spawn 复用同一块内存并踩坏它。
+     */
+    if (loader_release_launch != 0) {
+        loader_release_launch(t);
+    }
+    /*
+     * 线程已不在任何队列里（discard/terminate 摘除时做过 waitq_remove），
+     * 但阻塞在 ep_sendq 上的线程还把自己的 ipc_message 存在 TCB 里：
+     * 接收者会从这个 TCB 读消息体。因此必须先清掉载荷并让 ipc 侧知道
+     * 该线程已死，否则接收者可能读到已回收线程的垃圾。
+     * 见 ipc_forget_thread()。
+     */
+    if (ipc_forget_thread != 0) {
+        ipc_forget_thread(t);
+    }
     t->used = false;
     t->state = THREAD_DEAD;
     t->as = 0;
@@ -300,6 +341,8 @@ struct thread *thread_create(struct as *as, void (*entry)(void *), void *arg,
     t->entry = entry;
     t->arg = arg;
     t->name = name;
+    t->cap_sid = (uint8_t)255;
+    waitq_init(&t->syscall_wq);
 
     stack_top = (uintptr_t)stack_base + stack_size;
     stack_top &= ~(uintptr_t)15;
@@ -356,19 +399,24 @@ void sched(void)
     flags = sched_lock();
     prev = current_thread;
 
-    if (prev != 0 && prev->state == THREAD_RUNNING) {
+    if (prev != 0 && prev->state == THREAD_RUNNING && prev != idle_thread) {
+        /*
+         * idle 是兜底线程：不参与 FIFO，也不要在让出时降成 READY，
+         * 否则观测上会像「可抢占的就绪线程」而实际只在无他事时运行。
+         */
         prev->state = THREAD_READY;
-        if (prev != idle_thread) {
-            /*
-             * idle 是兜底线程，不参与 FIFO：只要还有普通线程可跑，
-             * 就不应把 idle 插到队尾。
-             */
-            ready_enqueue(prev);
-        }
+        ready_enqueue(prev);
     }
 
     next = ready_dequeue();
     if (next == 0) {
+        next = idle_thread;
+    } else if (next == prev && prev != idle_thread && idle_thread != 0) {
+        /*
+         * 只有让出者自己可运行：把它放回就绪队列，再把 CPU 交给 idle；
+         * timer 或其它线程唤醒后它仍能被重新调度。
+         */
+        ready_enqueue(next);
         next = idle_thread;
     }
     if (next == 0) {
@@ -486,6 +534,12 @@ void thread_exit(void)
     uint64_t flags = sched_lock();
 
     if (current_thread != 0) {
+        /*
+         * 主动退出等同于接受了终止请求；清掉标记，避免 stale 状态影响
+         * 该槽位后续复用（thread_create 会 memzero，这里只是显式收尾）。
+         */
+        current_thread->kill_pending = false;
+        current_thread->async_parked = false;
         current_thread->state = THREAD_DEAD;
     }
     sched();
@@ -497,6 +551,123 @@ void thread_exit(void)
         __asm__ volatile("wfi");
 #endif
     }
+}
+
+int sched_thread_discard(struct thread *t)
+{
+    struct as *as;
+    uint64_t flags;
+
+    if (t == 0) {
+        return -1;
+    }
+    flags = sched_lock();
+    if (!t->used || t == current_thread || t == idle_thread) {
+        sched_unlock(flags);
+        return -1;
+    }
+    if (t->state == THREAD_RUNNING) {
+        sched_unlock(flags);
+        return -1;
+    }
+    /*
+     * 阻塞在异步 syscall 上的线程不能摘：它的 trap 帧仍被在途 reply
+     * 引用，ep_reply 之后会 syscall_resume 写回该帧。这类线程必须由
+     * reply/endpoint 销毁路径先续完或取消，再走正常 reap。
+     * sched_thread_terminate() 会先调 user_syscall_abandon_async() 清掉
+     * async_parked，因此强制终止路径不受此限制。
+     */
+    if (t->async_parked) {
+        sched_unlock(flags);
+        return -1;
+    }
+    ready_remove(t);
+    if (t->waitq != 0) {
+        waitq_remove(t->waitq, t);
+    }
+    as = t->as;
+    t->as = 0;
+    t->state = THREAD_DEAD;
+    t->reaped = true;
+    sched_unlock(flags);
+
+    if (as != 0 && as == active_as &&
+        (current_thread == 0 || current_thread->as != active_as)) {
+        as_activate(0);
+        active_as = 0;
+    }
+    if (as != 0) {
+        as_unref(as);
+    }
+    object_unref(&t->obj);
+    return 0;
+}
+
+bool sched_thread_kill_pending(const struct thread *t)
+{
+    return t != 0 && t->kill_pending;
+}
+
+/*
+ * 由 syscall 后端提供的弱钩子：放弃该线程在途的异步 reply。
+ * 不实现时（主机自测）忽略，此时只能靠 discard 的常规拒绝。
+ */
+void user_syscall_abandon_async(struct thread *t) __attribute__((weak));
+
+int sched_thread_terminate(struct thread *t)
+{
+    uint64_t flags;
+
+    if (t == 0) {
+        return -1;
+    }
+    flags = sched_lock();
+    if (!t->used || t == current_thread || t == idle_thread) {
+        sched_unlock(flags);
+        return -1;
+    }
+    if (t->state == THREAD_READY) {
+        sched_unlock(flags);
+        return sched_thread_discard(t);
+    }
+    if (t->state == THREAD_BLOCKED) {
+        bool on_syscall = t->async_parked;
+
+        /*
+         * 跑起来的子进程可能正阻塞在 ep_send/ep_recv/pager 上：直接摘除。
+         * 阻塞在异步 syscall 上时，trap 帧仍被在途 reply 引用；必须先撤销
+         * 那次 reply（否则稍后的 ep_reply 会写进已释放的栈），再摘除。
+         */
+        if (on_syscall && user_syscall_abandon_async != 0) {
+            sched_unlock(flags);
+            user_syscall_abandon_async(t);
+            return sched_thread_discard(t);
+        }
+        sched_unlock(flags);
+        return sched_thread_discard(t);
+    }
+    if (t->state == THREAD_RUNNING) {
+        /*
+         * 运行中的线程不能当场释放（它可能正用着自己的栈和 AS）。置位后
+         * 由 resident_trap 在下次进入内核时兑现退出。本模型里所有 U-mode
+         * 代码都是「请求—应答」循环，必然会再次 ecall。
+         */
+        t->kill_pending = true;
+        sched_unlock(flags);
+        return 0;
+    }
+    sched_unlock(flags);
+    return -1;
+}
+
+void sched_thread_clear_kill(struct thread *t)
+{
+    uint64_t flags = sched_lock();
+
+    if (t != 0) {
+        t->kill_pending = false;
+    }
+    sched_unlock(flags);
 }
 
 void sched_tick(void)
@@ -664,6 +835,25 @@ struct thread *sched_current(void)
     return current_thread;
 }
 
+/*
+ * 按 object id 在 TCB 池里查线程（不增加对象引用）。
+ *
+ * 供内核侧「手上有 tid 但不在 syscall 返回路径」的模块使用，例如 pager
+ * 的超时看门狗需要在定时器中断里定位缺页线程。调用者必须持 sched_lock，
+ * 且只在同一个临界区内使用返回指针。
+ */
+struct thread *sched_thread_by_id_locked(uint32_t id)
+{
+    for (int i = 0; i < SCHED_MAX_THREADS; i++) {
+        struct thread *t = &threads[i];
+
+        if (t->used && object_get_id(&t->obj) == id) {
+            return t;
+        }
+    }
+    return 0;
+}
+
 struct thread *sched_idle(void)
 {
     return idle_thread;
@@ -747,7 +937,14 @@ void thread_sleep_until(uint64_t deadline)
     clock_timer_init(&waiter.timer, sleep_timeout, &waiter);
 
     flags = sched_lock();
-    clock_timer_arm(&waiter.timer, deadline);
+    if (!clock_timer_arm(&waiter.timer, deadline)) {
+        /*
+         * 定时器池满时不能阻塞：没有 deadline 中断，线程可能永远
+         * 睡在 idle 之外。直接返回，让调用者继续跑。
+         */
+        sched_unlock(flags);
+        return;
+    }
     thread_block_locked(&waiter.queue);
 
     for (;;) {
@@ -789,3 +986,18 @@ void thread_sleep_ns(uint64_t ns)
     thread_sleep_until(clock_deadline_after(clock_now(), ns));
 }
 #endif
+
+void sched_thread_set_cap_sid(struct thread *t, uint8_t sid)
+{
+    if (t != NULL) {
+        t->cap_sid = sid;
+    }
+}
+
+uint8_t sched_thread_cap_sid(const struct thread *t)
+{
+    if (t == NULL) {
+        return (uint8_t)255;
+    }
+    return t->cap_sid;
+}
