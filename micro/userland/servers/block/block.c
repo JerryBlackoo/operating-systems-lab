@@ -56,20 +56,28 @@ enum block_status block_dispatch(struct block_service *service, unsigned dev)
         return BLOCK_EMPTY;
 
     struct block_request request = device->pending[device->head];
+
+    /*
+     * 先置 in_flight 再 submit；成功后再出队。virtio 常在 notify 同栈完成，
+     * 若在 submit 前出队会破坏 in_flight 与 virtio_complete 匹配（M5 实测）。
+     */
+    request.state = BLOCK_IN_FLIGHT;
+    device->in_flight = request;
+
     enum block_status status = service->port->submit(service->port->ctx, &request);
-    if (status == BLOCK_BUSY)
+    if (status == BLOCK_BUSY) {
+        device->in_flight = (struct block_request){0};
         return BLOCK_BUSY;
+    }
 
     device->pending[device->head] = (struct block_request){0};
     device->head = (device->head + 1) % BLOCK_PENDING;
     device->len--;
 
-    if (status == BLOCK_OK) {
-        request.state = BLOCK_IN_FLIGHT;
-        device->in_flight = request;
+    if (status == BLOCK_OK)
         return BLOCK_OK;
-    }
 
+    device->in_flight = (struct block_request){0};
     request.state = BLOCK_DONE;
     finish(service, &request, status);
     return status;

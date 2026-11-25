@@ -3,7 +3,7 @@
 
 enum { CALLER = 10, SECTOR = 512, SECTORS = 8, PAGE = 4096, PAGES = 2 };
 
-struct fixture {
+struct harness {
     uint8_t data[BLOCK_DEVICES][PAGES * PAGE];
     struct block_request command[BLOCK_DEVICES];
     enum block_status accept[BLOCK_DEVICES];
@@ -12,18 +12,22 @@ struct fixture {
     enum block_status last_status[BLOCK_DEVICES];
     enum block_state last_state[BLOCK_DEVICES];
     size_t last_bytes[BLOCK_DEVICES];
+    struct block_service *service;
 };
 
-static struct fixture disk;
+static struct harness disk;
 static uint8_t source[PAGE], target[PAGE];
 
 static enum block_status submit(void *ctx, const struct block_request *request)
 {
-    struct fixture *f = ctx;
+    struct harness *f = ctx;
     unsigned dev = request->dev;
 
     CHECK(dev < BLOCK_DEVICES);
-    CHECK(request->state == BLOCK_QUEUED && request->buffer->borrowed);
+    CHECK(request->state == BLOCK_IN_FLIGHT && request->buffer->borrowed);
+    CHECK(f->service);
+    CHECK(f->service->devices[dev].in_flight.id == request->id);
+    CHECK(f->service->devices[dev].in_flight.state == BLOCK_IN_FLIGHT);
     CHECK(!f->command[dev].id);
     if (f->accept[dev] != BLOCK_OK)
         return f->accept[dev];
@@ -35,7 +39,7 @@ static enum block_status submit(void *ctx, const struct block_request *request)
 static void done(void *ctx, const struct block_request *request, enum block_status status,
                  size_t bytes)
 {
-    struct fixture *f = ctx;
+    struct harness *f = ctx;
     unsigned dev = request->dev;
 
     CHECK(dev < BLOCK_DEVICES);
@@ -99,6 +103,7 @@ static void run(void)
     uint64_t ids[BLOCK_PENDING], id;
 
     memset(&disk, 0, sizeof(disk));
+    disk.service = &service;
     struct block_buffer reader = {.data = target, .size = sizeof(target), .writable = true};
     struct block_buffer writer = {.data = source, .size = sizeof(source), .readable = true};
     struct block_buffer both = {.data = target, .size = sizeof(target), .readable = true,

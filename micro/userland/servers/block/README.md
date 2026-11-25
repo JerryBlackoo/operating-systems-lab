@@ -2,6 +2,44 @@
 
 块设备**共用**的请求策略：任何块设备（NVMe / virtio-blk / SD）都走这里，本目录不得出现任何具体硬件寄存器或协议细节。
 
+**A1 之后**本模块仍在内核里（与 `virtio_blk` 一起），ext4/vfs 已迁到 U-mode。
+
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct block_service` | `block.h` | 服务实例：`port`（驱动缝）、`last_id`、`devices[BLOCK_DEVICES=2]` |
+| `struct block_device` | `block.h` | 单设备状态：`capacity`（逻辑块数）、`logical_bytes`、`pending[BLOCK_PENDING=4]` 环形队列、`in_flight`、`head`/`len` |
+| `struct block_request` | `block.h` | 一次请求：`id`、`caller`、`dev`、`op`、`state`、`lba`/`blocks`、`bytes`、`buffer` |
+| `struct block_buffer` | `block.h` | 数据缓冲描述：`data`、`size`、`readable`/`writable`/`borrowed` |
+| `struct block_port` | `block.h` | **唯一的驱动缝**：`submit`（复制请求后立即返回）+ `done`（完成回调） |
+| `enum block_state` | `block.h` | `BLOCK_QUEUED` / `BLOCK_IN_FLIGHT` / `BLOCK_DONE` |
+| `enum block_status` | `block.h` | `BLOCK_OK` / `BLOCK_BAD_ARG` / `BLOCK_BUSY`（队首原地保留）/ `BLOCK_IO_ERROR` / `BLOCK_EMPTY` |
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 | 具体接口 |
+| --- | --- | --- |
+| `drivers/storage/virtio_blk` | resident 的唯一驱动 | `virtio_blk_init` 设 `svc->port`；`driver_submit` / `driver_done` 在 `kernel/storage/storage_bringup.c` |
+| `drivers/storage/nvme` | 另一个驱动（模型） | 两者都实现同一个 `block_port`；`block` 不知道区别 |
+| `kernel/storage/storage_bringup` | 宿主与调用方 | `block_submit` / `block_dispatch` / `virtio_blk_poll` 的轮询循环；DMA 帧的分配与回收 |
+| `ext4` | **曾经的直接调用方** | A1 前 ext4 在内核里直接 `block_submit`；现在 ext4 在 U-mode，经 `ABI_BLOCK_READ` 回到这里 |
+| `kernel/syscall/user_backend` | ABI 落地 | `ABI_BLOCK_READ` → `kernel_storage_block_read_user` → `storage_read_block` → `block_submit`/`dispatch` |
+| 单模块 demo | 内存盘替身 | `block` host demo 用合成驱动器验证 FIFO、BUSY、完成匹配、容量边界 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 单设备无队列 | 一次只有一个请求 | 先证明 submit → dispatch → complete 三步能对上 |
+| 2. 有界 FIFO | `pending[4]` 环形队列 + `in_flight` 单槽 | 需要排队；容量必须有界，第 5 个请求返回 `BLOCK_BUSY` |
+| 3. `BLOCK_BUSY` 的语义 | 驱动返回 BUSY 时队首**原地保留**，不移入在途槽 | 驱动可能暂时无法接收；丢掉队首会让上层看到「请求消失」 |
+| 4. 完成按 id 匹配 | `block_complete(dev, id, status)` 只接受在途请求的 id | 乱序完成或重复完成必须被拒绝，否则缓冲会被写两次 |
+| 5. 端口抽象 | `struct block_port` 的 `submit`/`done` | 让 NVMe 与 virtio-blk 共用同一套排队逻辑；`block` 里没有任何 MMIO |
+| 6. 缓冲区不拷贝 | `block_buffer` 只存指针；调用者保证生命周期 | 4 KiB 块拷贝开销大；代价是请求在队列里时缓冲不能是栈变量（`storage_bringup.c` 里的 `g_io_buffer` 等静态描述符就是为此） |
+| 7. 诊断用例 | `storage_busy_discriminate()`：填满队列再提交一个，断言 `BLOCK_BUSY` | 需要一个能证明「队列真的会拒绝」的可观测证据 |
+| 8. 内核侧保留（A1） | ext4/vfs 迁走后 `block` 仍在内核 | 它是驱动策略而非文件系统策略；把它也迁到 U-mode 需要把 virtio MMIO 与中断/轮询一起搬，属下一步 |
+
 ## 最小模型
 
 每个设备有一条有界 FIFO 和一个在途请求槽。块服务按顺序把读写请求交给驱动替身，再把完成结果交还原调用者。
@@ -25,7 +63,7 @@ QUEUED ──驱动接收──> IN_FLIGHT ──匹配完成──> DONE
 ## 不变量
 
 1. 请求满足 `0 <= lba < capacity_blocks` 和 `0 < nblocks <= capacity_blocks - lba`。字节数乘积可表示，且落在缓冲区容量内。
-2. 每个待完成请求只占一个位置。派发和完成事件串行处理，完成事件在派发状态登记之后处理。
+2. 每个待完成请求只占一个位置。派发和完成事件串行处理：`dispatch` 在调用驱动 `submit` 之前先把队首请求置为 `IN_FLIGHT` 并登记到设备的在途槽，因此 submit 回调在 IN_FLIGHT 登记之后调用，驱动可以在同一次 submit 内完成该请求；完成事件必须在这次在途登记之后处理。驱动返回 `BUSY` 时必须回滚该登记，并保留队首和缓冲区借用。
 3. 请求从入队到结束一直借用缓冲区并持有有效引用。请求 ID 唯一，只有匹配当前在途 ID 的完成事件可以交付结果。成功返回请求字节数，失败返回错误状态和零字节。
 
 ## 独立验证
@@ -85,7 +123,9 @@ make -C micro/userland/servers/block run
 
 ## 本轮接线状态（勿过声称）
 
-本轮**没有**接通真实块设备。QEMU demo 使用内存盘替身和合成的完成项，
-`[block] PASS` 只证明 FIFO、在途槽、完成匹配和失败投递模型；不代表 NVMe
-队列、真实 DMA、IRQ 或 U-mode block 服务已经工作。剩余差距：真实队列/
-中断接线、DMA 生命周期、设备复位与错误恢复。
+| 路径 | 块设备后端 | 说明 |
+| --- | --- | --- |
+| `BOOT_MODULES=capability`（默认） | **virtio-blk** + `storage_bringup` | 内核内 `block_dispatch` + PLIC；`tools/m5_discriminate.sh` 含队列满 `BLOCK_BUSY` 判别 |
+| 单模块 `block` demo | 内存盘替身 | `[block] PASS` 只证明 FIFO/在途槽/完成匹配模型 |
+
+未做：独立 U-mode block 服务、NVMe 真 MMIO、写路径、多设备热插拔。
