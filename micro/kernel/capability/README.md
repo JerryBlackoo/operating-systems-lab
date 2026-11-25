@@ -14,6 +14,51 @@
 > 新表项只能由旧表项按权限子集派生或转移；对象寿命 = 表项引用计数；
 > 撤销 = 删除派生子树。
 
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct cap_object` | `capability.h` | 被命名的对象：`type`（`cap_type` 指针）、`payload`（类型模块的负载）、`cap_refs`（指向它的 cap 数）、`pins`（在途 invoke 数）、`alive` |
+| `struct cap_type` | `capability.h` | 类型描述：`rights_mask`（该类型允许的最大权限）、`supported`（支持的操作位图）、`required[op]`（每个操作要求的最小权限）、`ops` |
+| `struct cap_object_ops` | `capability.h` | 类型注入的两个回调：`invoke`（执行操作）、`finalize`（最后一个引用消失时释放负载） |
+| `struct cap_entry` | `capability.c` | CSpace 的一格：`oid`、`rights`、`badge`、`node`（CDT 节点） |
+| `struct cap_cspace` | `capability.c` | 一个主体的私有表：`slot[64]`、`used`（位图）、`gen[64]`（每槽代际） |
+| CDT 节点 `g_nodes[]` | `capability.c` | 派生树的平表：`parent`、`first_child`、`next_sibling`；`revoke` 沿这棵树删后代 |
+| `cap_handle_t` | `capability.h` | 用户可见句柄：`(slot, generation)` 编码的 32 位整数 |
+| `enum cap_op` / `enum cap_error` | `capability.h` | 操作位（`READ/WRITE/MAP/SEND/RECV/PING`）与错误码 |
+
+三个常量决定了容量：`CAP_MAX_TASKS = 16`（SID 0..15）、`CAP_MAX_SLOTS = 64`、
+`CAP_MAX_OBJECTS = 64`、`CAP_MAX_NODES = 16 * 64 = 1024`。
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 | 具体接口 |
+| --- | --- | --- |
+| `objects` | **不直接耦合** | capability 用 `cap_oid_t` 自己编号，与 `object id` 是两套标识；装配时由 `service_boot.c` 让二者指向同一个 payload |
+| `memory`（`cap_as.c`） | AS 的 cap 类型 | `CAP_TYPE_AS`，`rights_mask = MAP｜GRANT`；`cap_as_bind` / `cap_pm_install_as_grant` / `cap_pm_mint_vm_map` / `cap_vm_can_map_as` / `cap_as_release` |
+| `ipc`（`cap_endpoint.c`） | endpoint 的 cap 类型 | `CAP_TYPE_ENDPOINT`，`rights_mask = READ｜WRITE｜GRANT`；`finalize` 里 `ep_unref` |
+| `syscall/user_backend` | 句柄解析与权限检查 | `cap_acquire` / `cap_release` 构成 acquire/release 缝；`cap_error_to_abi` 把 `CAP_E_*` 转成 `ABI_*` |
+| `boot/service_boot` | 初始 CSpace 装配 | `cap_root_install(sid, slot, oid, rights, badge, &h)` 把根 cap 装进各服务；`SLOT_*` 常量决定布局 |
+| `boot/kernel_spawn` | spawn 时的 cap 组合 | `cap_pm_install_as_grant` → `ABI_PM_SPAWN words[2]` → PM 用 `ABI_VM_GRANT_AS` 减权 mint 给 VM |
+| `sm`（U-mode） | 名称服务派生 | SM 用 `ABI_CAP_MINT_TO`（→ `kernel_cap_mint_to` → `cap_mint_to`）给客户端派生发送权 |
+| `cap_arch_riscv.c` | 平台层 | `cap_arch_intr_save` / `cap_arch_intr_restore` 只做 `sstatus.SIE` 的保存/清/恢复 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 只有句柄表 | 每主体一张 `(slot → 对象)` 表，无权限、无派生 | 先证明「对象只能经表项被命名」这一点 |
+| 2. 加入 rights 位图 | `cap_entry.rights` + 类型的 `rights_mask` + `required[op]` | 需要表达「只读」「不可转交」；`mint` 只能减权 |
+| 3. badge | `cap_entry.badge` 参与派生；改 badge 需要源 cap 带 `GRANT` | 一个 cap 派生多份、每份可区分来源（例如同一 endpoint 的多个客户端） |
+| 4. CDT 与 revoke | 派生树 + `cap_revoke_locked` 遍历所有主体的所有槽删后代 | `delete` 只删自己不够——派生出去的子 cap 必须一起失效 |
+| 5. 每槽代际 | `cspace.gen[slot]` 在槽位释放时 +1；`cap_lookup_locked` 比对代际 | 槽位复用后旧句柄必须失效，否则用户能拿旧 handle 操作新对象 |
+| 6. pins 与借用 | `cap_object.pins`；`cap_acquire` 只做「解析 + 权限检查 + pin」，不执行语义 | 复合操作（`AS_MAP` 同时需要 AS cap 与 frame cap）要先钉住两个对象再执行，避免 check-use 之间被 finalize |
+| 7. 锁序：调对象前放锁 | `cap_invoke` / `cap_acquire` 在调 `ops->invoke` 前 `cap_arch_intr_restore` | 对象原语可能阻塞（IPC），持能力表锁阻塞会锁死整个系统 |
+| 8. `rights_mask` 补 GRANT（A2 根因） | `cap_as_type.rights_mask` 从只有 `MAP` 改为 `MAP｜GRANT` | PM 装 `MAP｜GRANT` 源 cap 时被 `cap_root_install` 以 `CAP_E_RIGHTS` 拒绝，对外表现为 `ABI_NO_MEMORY (-5)`，init 无法 spawn fs |
+| 9. `cap_rc_to_abi` | `CAP_E_RIGHTS` → `ABI_DENIED`，不再一律 `-5` | 一律返回 `NO_MEMORY` 掩盖了真实原因，排查时误以为是内存耗尽 |
+| 10. mint 失败回滚（A9） | `cap_pm_mint_vm_map` / `cap_vm_ensure_as_map` 安装后复核，失败则 `cap_delete` | 否则每次失败都在 VM 的 CSpace 留一个不可用 cap，最终耗尽 64 槽 |
+| 11. 主体扩到 16（M7） | `CAP_MAX_TASKS` 从 8 到 16，SID 1..9 分配给 resident 服务 | 需要同时容纳 init/sm/pm/fs/console/shell + vm/heaptest/heaptest2 |
+
 ## 文件
 
 | 文件 | 职责 |
@@ -36,6 +81,13 @@
 | 统一 `invoke` 入口与错误码 | 调度、超时、优先级 | `kernel/sched`、`kernel/clock` |
 | 根能力的初始安装 | 路径解析、服务发现 | `userland` name server |
 | — | 谁应该拿到哪个 cap（策略） | `init` / policy server |
+
+容量（M7 常驻服务链）：`CAP_MAX_TASKS = 16`（SID 0..15），
+`CAP_MAX_SLOTS = 64`，`CAP_MAX_OBJECTS = 64`，
+`CAP_MAX_NODES = CAP_MAX_TASKS * CAP_MAX_SLOTS = 1024`。
+init/sm/pm/fs/console/shell 使用 SID 1..6，vm/heaptest/heaptest2 用 7..9；
+扩大到 16 个主体的代价是每个 CSpace 仍为 64 槽，但 CDT 平表由 512 项
+增至 1024 项。
 
 判据有两句：
 
@@ -210,7 +262,7 @@ P3 成立的前提是 `MOVE` 保留 node。若把 `MOVE` 实现成 `DELETE + MIN
 | 对象 | `cap_type` | `rights_mask` | 单对象操作 | 语义归属 |
 | --- | --- | --- | --- | --- |
 | endpoint | `CAP_TYPE_ENDPOINT` | R / W / Grant | `SEND`、`RECV` | `kernel/ipc` |
-| address space | `CAP_TYPE_AS` | `MAP` | 复合 map/unmap | `kernel/memory` |
+| address space | `CAP_TYPE_AS`（`cap_as.c`） | `MAP` | 复合 map/unmap | `kernel/memory` |
 | frame | `CAP_TYPE_FRAME` | R / W / X / `MAP` | 复合 map | `kernel/memory` |
 | reply | `CAP_TYPE_REPLY` | W | `SEND`（单次） | `kernel/ipc` |
 
@@ -248,6 +300,12 @@ trap frame (scause=8)
   -> cap_backend.invoke        ipc / memory 原语（CALL 会阻塞到 reply）
   -> cap_backend.release      unpin；最后一个 cap 已删除时在此 finalize
 ```
+
+**常驻镜像（M6）**：`loader` 只为新 AS 做 `cap_as_bind`。**Boot 直 spawn**
+（sm/pm/vm/heaptest/init）在 `kernel_init` 里 `cap_vm_ensure_as_map`。
+**PM spawn** 走 `cap_pm_install_as_grant`（`MAP|GRANT`，类型 `rights_mask`
+含 `GRANT`）→ `ABI_PM_SPAWN words[2]` → PM 调 `ABI_VM_GRANT_AS`
+`cap_pm_mint_vm_map` 减权给 VM。`ABI_VM_MAP` 另需 `cap_vm_can_map_as`。
 
 这条链在 QEMU 中由两个内核线程跑通：客户端 `IPC_CALL`，服务端 `RECV` 后
 用 reply cap 应答；客户端随后 `AS_MAP` / `AS_UNMAP`。它验证了锁序：
@@ -397,8 +455,9 @@ capability: caps gate IPC call/reply, AS map and cross-CSpace revoke
   用户页表，属于后续镜像。
 - **IPC 语义仍由 ipc 模块实现**：能力层只决定“谁可以把消息交给哪个
   endpoint”；消息缓冲、阻塞队列、reply 对象寿命仍在 `kernel/ipc`。
-- **未验证**：SMP、U-mode 隔离、MMU 开启后的表保护、并发 `invoke`/`revoke`、
-  `cap_acquire` 期间被 `revoke` 的语义（当前实现下已借出的 pin 仍然有效）。
+- **未验证**：SMP、并发 `invoke`/`revoke`、`cap_acquire` 期间被 `revoke` 的语义。
+- **resident 已用**：默认镜像多 SID CSpace、`cap_mint_to`（SM lookup）、
+  endpoint 句柄上的 IPC send/recv；U-mode 隔离由独立用户 satp + `as_share_kernel` 承担。
 
 ## 参考
 

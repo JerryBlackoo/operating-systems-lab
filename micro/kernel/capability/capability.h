@@ -15,9 +15,10 @@
 #ifndef MICRO_KERNEL_CAPABILITY_H
 #define MICRO_KERNEL_CAPABILITY_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
-#define CAP_MAX_TASKS       8
+#define CAP_MAX_TASKS       16
 #define CAP_MAX_SLOTS       64
 #define CAP_MAX_OBJECTS     64
 #define CAP_MAX_NODES       (CAP_MAX_TASKS * CAP_MAX_SLOTS)
@@ -126,6 +127,9 @@ int cap_root_install(cap_sid_t sid, cap_slot_t slot, cap_oid_t oid,
 /* 派生：mint 允许减权/改 badge；copy 是同权复制。 */
 int cap_mint(cap_sid_t sid, cap_handle_t src, cap_slot_t dst,
              cap_rights_t rights, cap_badge_t badge, cap_handle_t *out);
+int cap_mint_to(cap_sid_t from_sid, cap_handle_t src, cap_sid_t to_sid,
+                cap_slot_t dst, cap_rights_t rights, cap_badge_t badge,
+                cap_handle_t *out);
 int cap_copy(cap_sid_t sid, cap_handle_t src, cap_slot_t dst,
              cap_handle_t *out);
 
@@ -136,6 +140,8 @@ int cap_move(cap_sid_t from_sid, cap_handle_t src, cap_sid_t to_sid,
 /* 撤销：delete = revoke(后代) + 删除自己。 */
 int cap_delete(cap_sid_t sid, cap_handle_t h);
 int cap_revoke(cap_sid_t sid, cap_handle_t h);
+/* 若 slot 已占用则 delete；空槽返回 CAP_OK（bootstrap/PM discard 用）。 */
+int cap_delete_slot_if_present(cap_sid_t sid, cap_slot_t slot);
 
 /* 唯一调用入口：查表 → 查类型 → required ⊆ rights → 对象 ops。 */
 int cap_invoke(cap_sid_t sid, cap_handle_t h, uint32_t op, void *args);
@@ -153,6 +159,12 @@ int cap_acquire(cap_sid_t sid, cap_handle_t h, cap_rights_t rights,
 void cap_release(struct cap_object *obj);
 
 int cap_info(cap_sid_t sid, cap_handle_t h, struct cap_info *out);
+
+/*
+ * 扫描主体 CSpace：是否仍持有指向 oid 且权限包含 need 的 cap。
+ * 用于内核策略检查（例如 VM 补页前验证 MAP 权），不是用户 ABI。
+ */
+bool cap_holder_has_oid(cap_sid_t sid, cap_oid_t oid, cap_rights_t need);
 
 /* 自检/观测接口；不是用户 ABI。 */
 uint32_t cap_live_caps(void);

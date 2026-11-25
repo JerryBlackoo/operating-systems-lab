@@ -516,6 +516,64 @@ int cap_mint(cap_sid_t sid, cap_handle_t src, cap_slot_t dst,
     return rc;
 }
 
+int cap_mint_to(cap_sid_t from_sid, cap_handle_t src, cap_sid_t to_sid,
+                cap_slot_t dst, cap_rights_t rights, cap_badge_t badge,
+                cap_handle_t *out)
+{
+    struct cap_entry se;
+    struct cap_entry ne;
+    struct cap_object *obj;
+    uint64_t flags;
+    int node;
+    int rc;
+
+    flags = cap_arch_intr_save();
+    rc = cap_lookup_locked(from_sid, src, &se);
+    if (rc != CAP_OK) {
+        goto out;
+    }
+    if (!out || !cap_sid_ok(to_sid)) {
+        rc = CAP_E_BAD_ARG;
+        goto out;
+    }
+    if (from_sid != to_sid && !(se.rights & CAP_RIGHT_GRANT)) {
+        rc = CAP_E_RIGHTS;
+        goto out;
+    }
+    rc = cap_target_slot_locked(to_sid, &dst);
+    if (rc != CAP_OK) {
+        goto out;
+    }
+    if (cap_slot_used_locked(to_sid, dst)) {
+        rc = CAP_E_OCCUPIED;
+        goto out;
+    }
+    obj = cap_object_get(se.oid);
+    if (!obj) {
+        rc = CAP_E_BAD_OBJECT;
+        goto out;
+    }
+    if ((rights & ~se.rights) || (rights & ~obj->type->rights_mask) ||
+        (badge != se.badge && !(se.rights & CAP_RIGHT_GRANT))) {
+        rc = CAP_E_RIGHTS;
+        goto out;
+    }
+    node = cap_node_alloc_locked(se.node);
+    if (node < 0) {
+        rc = CAP_E_NOMEM;
+        goto out;
+    }
+    ne = (struct cap_entry){.oid = se.oid, .rights = rights,
+                            .badge = badge, .node = node};
+    cap_slot_install_locked(to_sid, dst, &ne);
+    obj->cap_refs++;
+    *out = cap_make_handle_locked(to_sid, dst);
+    rc = CAP_OK;
+out:
+    cap_arch_intr_restore(flags);
+    return rc;
+}
+
 int cap_copy(cap_sid_t sid, cap_handle_t src, cap_slot_t dst,
              cap_handle_t *out)
 {
@@ -538,6 +596,26 @@ int cap_delete(cap_sid_t sid, cap_handle_t h)
 {
     uint64_t flags = cap_arch_intr_save();
     int rc = cap_delete_locked(sid, h);
+    cap_arch_intr_restore(flags);
+    return rc;
+}
+
+int cap_delete_slot_if_present(cap_sid_t sid, cap_slot_t slot)
+{
+    cap_handle_t h;
+    uint64_t flags;
+    int rc;
+
+    if (!cap_sid_ok(sid) || slot >= CAP_MAX_SLOTS) {
+        return CAP_E_BAD_ARG;
+    }
+    flags = cap_arch_intr_save();
+    if (!cap_slot_used_locked(sid, slot)) {
+        cap_arch_intr_restore(flags);
+        return CAP_OK;
+    }
+    h = cap_make_handle_locked(sid, slot);
+    rc = cap_delete_locked(sid, h);
     cap_arch_intr_restore(flags);
     return rc;
 }
@@ -641,6 +719,31 @@ void cap_release(struct cap_object *obj)
         obj->pins--;
     cap_object_maybe_finalize_locked(obj);
     cap_arch_intr_restore(flags);
+}
+
+bool cap_holder_has_oid(cap_sid_t sid, cap_oid_t oid, cap_rights_t need)
+{
+    uint64_t flags;
+    unsigned i;
+    bool found = false;
+
+    if (!cap_sid_ok(sid) || !cap_oid_ok(oid) || need == 0) {
+        return false;
+    }
+
+    flags = cap_arch_intr_save();
+    for (i = 0; i < CAP_MAX_SLOTS; i++) {
+        if (!cap_slot_used_locked(sid, (cap_slot_t)i)) {
+            continue;
+        }
+        if (g_cspaces[sid].slot[i].oid == oid &&
+            (g_cspaces[sid].slot[i].rights & need) == need) {
+            found = true;
+            break;
+        }
+    }
+    cap_arch_intr_restore(flags);
+    return found;
 }
 
 int cap_info(cap_sid_t sid, cap_handle_t h, struct cap_info *out)

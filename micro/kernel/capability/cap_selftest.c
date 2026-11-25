@@ -108,7 +108,7 @@ int cap_selftest(void)
     uint32_t p1 = 0, p2 = 0, p3 = 0, p4 = 0;
     cap_oid_t o1 = 0, o2 = 0, o3 = 0, o4 = 0;
     cap_handle_t root = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
-    cap_handle_t lim = 0, tmp = 0;
+    cap_handle_t lim = 0, tmp = 0, delegated = 0, chain = 0;
     struct cap_info info;
     int rc;
 
@@ -146,12 +146,34 @@ int cap_selftest(void)
     rc = cap_info(0, c2, &info);
     check("moved source handle stale", rc == CAP_E_BAD_HANDLE);
 
+    rc = cap_mint_to(0, c1, 2, 0, CAP_RIGHT_READ, 0, &delegated);
+    check("cross-task mint needs grant", rc == CAP_E_RIGHTS);
+    rc = cap_mint_to(0, root, 2, 0, CAP_RIGHT_READ, 0, &delegated);
+    check("cross-task mint with grant", rc == CAP_OK);
+    rc = cap_mint_to(0, root, CAP_MAX_TASKS, 0, CAP_RIGHT_READ, 0, &delegated);
+    check("mint_to rejects bad target sid", rc == CAP_E_BAD_ARG);
+    rc = cap_mint_to(0, root, 2, 0, CAP_RIGHT_READ, 0, 0);
+    check("mint_to rejects null out", rc == CAP_E_BAD_ARG);
+
+    /* 深链：验证 revoke 沿 CDT 递归回收，而不是只看直接子节点。 */
+    chain = root;
+    for (unsigned i = 0; i < 4; i++) {
+        cap_handle_t next = 0;
+
+        rc = cap_mint(0, chain, (cap_slot_t)(20 + i),
+                      CAP_RIGHT_READ | CAP_RIGHT_GRANT, 0, &next);
+        check("deep mint", rc == CAP_OK);
+        chain = next;
+    }
+
     rc = cap_revoke(0, root);
     check("revoke root", rc == CAP_OK);
     check("root survives revoke", cap_info(0, root, &info) == CAP_OK);
     check("mint child gone", cap_info(0, c1, &info) == CAP_E_BAD_HANDLE);
     check("copy child gone", cap_info(0, c3, &info) == CAP_E_BAD_HANDLE);
     check("cross-task child gone", cap_info(1, tmp, &info) == CAP_E_BAD_HANDLE);
+    check("cross-task mint child gone", cap_info(2, delegated, &info) == CAP_E_BAD_HANDLE);
+    check("deep chain gone", cap_info(0, chain, &info) == CAP_E_BAD_HANDLE);
     check("refs back to root", cap_object_refs(o1) == 1);
 
     rc = cap_delete(0, root);
