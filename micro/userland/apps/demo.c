@@ -5,7 +5,7 @@
 
 enum { ECHO_ENDPOINT = 7, ECHO_VALUE = 42 };
 
-struct echo_fixture { unsigned calls, reports, refs; enum echo_state result; };
+struct echo_harness { unsigned calls, reports, refs; enum echo_state result; };
 
 /* 回显替身：每次 U-mode 调用后由陷阱处理器给出应答。 */
 enum stand_in_mode {
@@ -21,11 +21,11 @@ static struct { enum stand_in_mode mode; unsigned calls; } stand_in;
 static int64_t call(void *ctx, uint32_t endpoint, const struct abi_message *msg,
                     struct abi_message *reply)
 {
-    struct echo_fixture *fixture = ctx;
-    CHECK(endpoint == ECHO_ENDPOINT && fixture->refs == 1);
+    struct echo_harness *harness = ctx;
+    CHECK(endpoint == ECHO_ENDPOINT && harness->refs == 1);
     CHECK(msg->tag == ECHO_REQUEST && msg->reply == 0 && msg->words[0] == ECHO_VALUE);
     CHECK((msg->words[1] | msg->words[2] | msg->words[3]) == 0);
-    fixture->calls++;
+    harness->calls++;
 
     struct abi_regs out = abi_ecall(ABI_IPC_CALL, abi_message_args(endpoint, msg));
     int64_t status = abi_decode_status(out);
@@ -36,16 +36,16 @@ static int64_t call(void *ctx, uint32_t endpoint, const struct abi_message *msg,
 
 static void report(void *ctx, enum echo_state result)
 {
-    struct echo_fixture *fixture = ctx;
-    fixture->reports++;
-    fixture->result = result;
+    struct echo_harness *harness = ctx;
+    harness->reports++;
+    harness->result = result;
 }
 
 static void release(void *ctx, uint32_t endpoint)
 {
-    struct echo_fixture *fixture = ctx;
-    CHECK(endpoint == ECHO_ENDPOINT && fixture->refs == 1);
-    fixture->refs--;
+    struct echo_harness *harness = ctx;
+    CHECK(endpoint == ECHO_ENDPOINT && harness->refs == 1);
+    harness->refs--;
 }
 
 static struct trap_frame *handle_trap(struct trap_frame *frame)
@@ -89,15 +89,15 @@ static struct trap_frame *handle_trap(struct trap_frame *frame)
 
 static void run_case(enum stand_in_mode mode, enum echo_state expected)
 {
-    struct echo_fixture fixture = {.refs = 1};
-    const struct echo_port port = {.ctx = &fixture, .call = call, .report = report, .release = release};
+    struct echo_harness harness = {.refs = 1};
+    const struct echo_port port = {.ctx = &harness, .call = call, .report = report, .release = release};
     struct echo_app app = {.port = &port, .endpoint = ECHO_ENDPOINT, .value = ECHO_VALUE};
 
     stand_in.mode = mode;
     stand_in.calls = 0;
     CHECK(echo_start(&app) && stand_in.calls == 1);
-    CHECK(app.state == expected && fixture.result == expected);
-    CHECK(fixture.calls == 1 && fixture.reports == 1 && fixture.refs == 0);
+    CHECK(app.state == expected && harness.result == expected);
+    CHECK(harness.calls == 1 && harness.reports == 1 && harness.refs == 0);
     CHECK(!app.endpoint);
     CHECK(!echo_start(&app));
     CHECK(!echo_on_reply(&app, ABI_OK, NULL));

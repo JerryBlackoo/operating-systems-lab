@@ -2,6 +2,37 @@
 
 最小网络服务在一个静态 IPv4 地址上提供 UDP 数据报收发。链路替身交付和接收完整 IP 包，服务维护本地端口绑定和接收队列。
 
+> **定位**：本模块是**链路替身**，不属于 M0–M7 主线。它的 `[net] PASS` 只证明
+> 「端口绑定 + 接收队列 + 校验」这套语义，**不**证明真实网卡收发包。
+
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct net` | `udp.h` | 服务状态：`local_ip`、`mtu`、`ports[]`、绑定的 `net_port` |
+| `struct net_port` | `udp.h` | **唯一的链路缝**：`deliver`（把完整 IP 包交给链路）/ `poll`（取下一个入站包） |
+| `struct net_address` | `udp.h` | `ip` + `port` |
+| `struct net_datagram` | `udp.h` | 一个数据报：`source`（`net_address`）、`payload`、`len` |
+| `enum net_result` | `udp.h` | `NET_OK` / `NET_BAD_ARG` / `NET_EXISTS` / `NET_NO_SPACE` / `NET_NOT_FOUND` / `NET_DENIED` / `NET_TOO_LARGE` / `NET_EMPTY` / `NET_BAD_PACKET` / `NET_LINK_ERROR` |
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 |
+| --- | --- |
+| 无（独立） | 不依赖任何内核模块；`net_port` 全由 demo 的内存替身实现 |
+| 与 `block`/`nvme` 的关系 | 结构上同构：都是「策略 + 端口」两层，端口后面可以是替身也可以是真驱动 |
+| 内核 | 无。它既不进内核镜像，也不在 initrd 的默认 9 个成员里 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 端口表 + 绑定 | `bind(port, owner)` / `unbind`，拒绝重复绑定与越界端口 | 先把「谁是某个端口的接收者」这件事件清楚 |
+| 2. 接收 FIFO | 每个端口一条有界队列，满时返回 `NET_NO_SPACE` | 数据报可能成串到达；队列必须有界才不耗尽内存 |
+| 3. MTU 校验 | `send` 时检查 `payload + 头 ≤ mtu` | 超长包在链路层会被丢弃，应在服务层就拒绝并回明确错误 |
+| 4. 端口端口化 | `net_port` 的 `deliver`/`poll` | 让链路可以是内存替身（现在）或真网卡（将来） |
+| 5. 校验和与解析（未做） | — | 当前把链路交付的包当作「已校验的完整 IP 包」 |
+
 ## 最小模型
 
 ```text

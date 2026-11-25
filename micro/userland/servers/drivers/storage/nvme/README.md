@@ -2,6 +2,42 @@
 
 驱动把一个逻辑块请求编码成 NVMe 命令，并根据完成队列交付结果。最小模型使用预置的单个 namespace 和一对 I/O 队列，至多保留一个在途请求。队列、doorbell 和 DMA 缓冲区由控制器替身提供。
 
+> **定位**：**控制器替身**，不属于 M0–M7 主线。resident 的真实存储链是
+> `virtio_blk` + `block` + U-mode `fs`（ext4/vfs）。本模块的 `[nvme] PASS` 只
+> 证明 NVMe 命令编码与完成匹配这套语义，**不**碰真实 PCIe 设备。
+
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct nvme_namespace` | `nvme.h` | 一个 namespace：`nsid`、`lba_count`、`lba_bytes` |
+| `struct nvme_sqe` / `struct nvme_cqe` | `nvme.h` | 提交队列项 / 完成队列项（64 B / 16 B，字段顺序与规范一致） |
+| `struct nvme_dma` | `nvme.h` | 一块 DMA 缓冲区描述：地址 + 长度 |
+| `struct nvme_port` | `nvme.h` | **唯一的控制器缝**：doorbell 写、队列内存访问、完成中断/轮询 |
+| `struct nvme_request` | `nvme.h` | 在途请求：`cid`、`op`、`lba`、`blocks`、DMA 缓冲 |
+| `struct nvme_done` | `nvme.h` | 完成结果：`cid`、`device_status`、`bytes`、`protocol_error` |
+| `enum nvme_state` | `nvme.h` | `NVME_IDLE` / `NVME_IN_FLIGHT` / `NVME_FAULTED` |
+| `enum nvme_result` | `nvme.h` | `NVME_OK` / `NVME_BAD_ARG` / `NVME_BUSY` / `NVME_EMPTY` / `NVME_PROTOCOL_ERROR` |
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 |
+| --- | --- |
+| `block` | **结构上的同类**：`nvme` 是一个可能的 `block_port` 实现；当前 resident 用的是 `virtio_blk` |
+| 内核 | 无。不进内核镜像，不在 initrd 默认成员里 |
+| `ext4` / `vfs` | 无直接关系；它们面对的是 `block` 的抽象 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 命令编码 | 把 `(op, lba, blocks, dma)` 填进 64 B SQE，`cid` 唯一 | 先把「一个请求对应一条命令」做对 |
+| 2. 单在途槽 | `in_flight` 至多一个；第二个请求返回 `NVME_BUSY` | 队列深度 1 足以验证协议；多于一个才需要真正的环管理 |
+| 3. 完成匹配 | 只接受 `cid` 与 `phase` 都匹配的 CQE | 乱序或不匹配的完成必须被拒绝，否则会把别人的数据当自己的 |
+| 4. `FAULTED` 状态 | 完成项标识错误时进入 `FAULTED`，需显式复位确认才回 `IDLE` | 协议错误不能静默忽略，也不能让驱动继续用坏状态发命令 |
+| 5. 端口抽象 | `struct nvme_port` | 让控制器可以是内存替身（现在）或真 PCIe（将来） |
+| 6. 未做 | 多队列、中断合并、`identify` 之外的 admin 命令、namespace 热插拔 | 超出教学模型范围 |
+
 ## 最小模型
 
 ```text

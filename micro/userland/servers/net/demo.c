@@ -3,11 +3,11 @@
 
 enum { IPV4_UDP_HEADERS = 28, EXACT_PAYLOAD = 128 - IPV4_UDP_HEADERS };
 
-static struct link_fixture { uint8_t packet[NET_PACKET]; size_t len; bool busy; } link;
+static struct link_harness { uint8_t packet[NET_PACKET]; size_t len; bool busy; } link;
 
 static bool capture(void *ctx, const uint8_t *packet, size_t len)
 {
-    struct link_fixture *wire = ctx;
+    struct link_harness *wire = ctx;
     if (wire->busy)
         return false;
     CHECK(len <= sizeof(wire->packet));

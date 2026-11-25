@@ -2,6 +2,36 @@
 
 一个独立的回显客户端就能描述应用的最小状态。客户端持有预置端点句柄，通过端口发出一条请求，核对结果后结束。
 
+> **定位**：本目录是**单模块 demo**（`BOOT_MODULES=apps`）。真实的交互 shell
+> 在 `userland/shell/`，它比这里的 echo 复杂得多（SM lookup、四个内建命令、
+> 分块协议）。
+
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `echo_call` | `echo.c` / `echo.h` | 与 `user_ipc_call` 同构的端口函数：提交请求，成功时填写应答 |
+| `struct abi_message` 请求/应答 | 通过 `echo.h` 约定 | `TAG_ECHO` + 一个值进，`TAG_ECHO_REPLY` + 一个值出 |
+| demo 的测试陷阱处理器 | `demo.c` | 扮演回显替身，逐轮返回五种结果（成功、闭包、错误等） |
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 |
+| --- | --- |
+| `libs` | `echo.c` 只依赖 `user_ipc_call`；demo 用真实 `ecall(ABI_IPC_CALL)` |
+| `kernel/ipc` | 单模块 demo 里由测试陷阱处理器模拟服务端；resident 下对应真实 `ep_call` |
+| `userland/shell` | 概念上的后继：shell 是「四个命令的真应用」，apps 是最小的「一个请求的应用」 |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 一个请求一个应答 | echo 只发 `TAG_ECHO`，核对返回值 | 先把「应用是纯客户端」这件事表达清楚 |
+| 2. 服务端用陷阱处理器扮演 | `demo.c` 拦截 `ABI_IPC_CALL` 并直接构造应答 | 不需要真的起一个服务进程就能验证客户端逻辑 |
+| 3. 五种结果覆盖 | 成功、`ABI_CLOSED`、应答 tag 不符、值不符、IPC 错误 | 客户端的错误分支必须都被走到 |
+| 4. 真实 ecall | demo 走真的 `ABI_IPC_CALL`，不是函数桩 | 让寄存器编解码也被验证 |
+| 5. 被 shell 取代（resident） | 真实交互在 `userland/shell/`；本目录保留为最小示例 | 教学上「最小应用」比「完整 shell」更适合作为起点 |
+
 ## 最小模型
 
 ```text

@@ -4,7 +4,7 @@
 enum { DEPTH = 2, SQ_ID = 3, LBA_BYTES = 512 };
 
 static _Alignas(NVME_PAGE) uint8_t buffer[NVME_PAGE];
-static struct controller_fixture {
+static struct controller_harness {
     struct nvme_sqe sq[DEPTH], last;
     struct nvme_cqe cq[DEPTH];
     unsigned sq_tail, cq_tail, cq_head;
@@ -14,7 +14,7 @@ static struct controller_fixture {
 
 static void ring_sq(void *ctx, uint16_t tail)
 {
-    struct controller_fixture *c = ctx;
+    struct controller_harness *c = ctx;
     CHECK(!c->has_command && tail == (c->sq_tail + 1) % DEPTH);
     c->last = c->sq[c->sq_tail];
     c->sq_tail = tail;
@@ -24,7 +24,7 @@ static void ring_sq(void *ctx, uint16_t tail)
 
 static void ring_cq(void *ctx, uint16_t head)
 {
-    struct controller_fixture *c = ctx;
+    struct controller_harness *c = ctx;
     CHECK(head == (c->cq_head + 1) % DEPTH && head == c->cq_tail);
     c->cq_head = head;
     c->cq_rings++;
@@ -41,7 +41,7 @@ static void rearm_controller(void)
 
 static void post_completion(uint16_t status, bool wrong_cid, bool wrong_sq_id)
 {
-    struct controller_fixture *c = &controller;
+    struct controller_harness *c = &controller;
     CHECK(c->has_command && c->cq_head == c->cq_tail);
     void *data = (void *)(uintptr_t)c->last.prp1;
     size_t bytes = (c->last.cdw12 + 1) * LBA_BYTES;
@@ -64,7 +64,7 @@ static void post_completion(uint16_t status, bool wrong_cid, bool wrong_sq_id)
 /* 没有在途请求时由控制器注入的伪完成项。 */
 static void post_unexpected(void)
 {
-    struct controller_fixture *c = &controller;
+    struct controller_harness *c = &controller;
     CHECK(!c->has_command && c->cq_head == c->cq_tail);
     c->cq[c->cq_tail] = (struct nvme_cqe){
         .sq_head = c->sq_tail, .sq_id = SQ_ID, .cid = UINT16_MAX, .status = c->phase,
