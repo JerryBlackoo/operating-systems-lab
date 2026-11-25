@@ -25,7 +25,7 @@ struct child {
     uint32_t as, caps, thread;
 };
 
-struct task_fixture {
+struct task_harness {
     struct pm *pm;
     struct provider as, caps, thread;
     struct child children[MAX_CHILDREN];
@@ -68,14 +68,14 @@ static void provider_drop(struct provider *provider, uint32_t handle)
 
 static uint32_t create_as(void *ctx, uint32_t image)
 {
-    struct task_fixture *task = ctx;
+    struct task_harness *task = ctx;
     CHECK(image == 7);
     return provider_issue(&task->as, AS_BASE);
 }
 
 static uint32_t create_caps(void *ctx, uint32_t grants)
 {
-    struct task_fixture *task = ctx;
+    struct task_harness *task = ctx;
     CHECK(grants == 3);
     if (task->fail_caps)
         return 0;
@@ -84,7 +84,7 @@ static uint32_t create_caps(void *ctx, uint32_t grants)
 
 static uint32_t create_thread(void *ctx, uint32_t as, uint32_t caps)
 {
-    struct task_fixture *task = ctx;
+    struct task_harness *task = ctx;
     CHECK(as == AS_BASE + task->as.issued && caps == CAPS_BASE + task->caps.issued);
     if (task->fail_thread)
         return 0;
@@ -94,7 +94,7 @@ static uint32_t create_thread(void *ctx, uint32_t as, uint32_t caps)
 
 static void start(void *ctx, uint32_t thread)
 {
-    struct task_fixture *task = ctx;
+    struct task_harness *task = ctx;
     int status = 0;
     bool published = false;
 
@@ -126,7 +126,7 @@ static void start(void *ctx, uint32_t thread)
 
 static void release(void *ctx, enum task_resource kind, uint32_t handle)
 {
-    struct task_fixture *task = ctx;
+    struct task_harness *task = ctx;
     CHECK(task->releases < MAX_EVENTS);
     switch (kind) {
     case TASK_AS:
@@ -146,7 +146,7 @@ static void release(void *ctx, enum task_resource kind, uint32_t handle)
     task->releases++;
 }
 
-static const struct child *child_of(const struct task_fixture *task, uint64_t pid)
+static const struct child *child_of(const struct task_harness *task, uint64_t pid)
 {
     for (unsigned i = 0; i < task->child_count; i++) {
         if (task->children[i].pid == pid)
@@ -166,10 +166,10 @@ static const struct pm_process *zombie_of(const struct pm *pm, uint64_t pid)
     return NULL;
 }
 
-static void fixture_cases(void)
+static void harness_cases(void)
 {
     struct pm pm;
-    struct task_fixture task = {.pm = &pm, .parent = 100};
+    struct task_harness task = {.pm = &pm, .parent = 100};
     const struct pm_port port = {&task, create_as, create_caps, create_thread, start, release};
     uint64_t pid1 = 0, pid2 = 0, pid3 = 0, pid4 = 0, pid5 = 0, spare = 0;
     int status = 99;
@@ -291,7 +291,7 @@ static void fixture_cases(void)
 static _Alignas(16) uint8_t kernel_stacks[PM_CAPACITY][4096];
 static _Alignas(PAGE_SIZE) uint8_t kernel_frames[8 * PAGE_SIZE];
 
-struct kernel_fixture {
+struct kernel_harness {
     struct as *spaces[PM_CAPACITY];
     struct thread *threads[PM_CAPACITY];
     uint32_t as_handles[PM_CAPACITY];
@@ -331,13 +331,13 @@ static const struct cap_type kernel_cap_type = {
 
 static void kernel_child(void *argument)
 {
-    struct kernel_fixture *task = argument;
+    struct kernel_harness *task = argument;
     task->entered++;
 }
 
 static uint32_t kernel_as_create(void *ctx, uint32_t image)
 {
-    struct kernel_fixture *task = ctx;
+    struct kernel_harness *task = ctx;
     CHECK(image != 0 && task->spawns < PM_CAPACITY);
     unsigned slot = task->spawns++;
     task->pending = slot;
@@ -352,7 +352,7 @@ static uint32_t kernel_as_create(void *ctx, uint32_t image)
 
 static uint32_t kernel_caps_create(void *ctx, uint32_t grants)
 {
-    struct kernel_fixture *task = ctx;
+    struct kernel_harness *task = ctx;
     unsigned slot = task->pending;
     cap_rights_t rights = (cap_rights_t)(grants & CAP_RIGHT_ALL);
     CHECK(rights != 0);
@@ -374,7 +374,7 @@ static uint32_t kernel_caps_create(void *ctx, uint32_t grants)
 
 static uint32_t kernel_thread_create(void *ctx, uint32_t as, uint32_t caps)
 {
-    struct kernel_fixture *task = ctx;
+    struct kernel_harness *task = ctx;
     unsigned slot = task->pending;
     CHECK(as == task->as_handles[slot] && caps == task->caps_handles[slot]);
 
@@ -389,7 +389,7 @@ static uint32_t kernel_thread_create(void *ctx, uint32_t as, uint32_t caps)
 
 static void kernel_start(void *ctx, uint32_t thread)
 {
-    struct kernel_fixture *task = ctx;
+    struct kernel_harness *task = ctx;
     unsigned slot = task->pending;
     unsigned entered = task->entered;
 
@@ -403,7 +403,7 @@ static void kernel_start(void *ctx, uint32_t thread)
 
 static void kernel_release(void *ctx, enum task_resource kind, uint32_t handle)
 {
-    struct kernel_fixture *task = ctx;
+    struct kernel_harness *task = ctx;
 
     for (unsigned slot = 0; slot < PM_CAPACITY; slot++) {
         if (kind == TASK_AS && task->as_handles[slot] == handle) {
@@ -445,7 +445,7 @@ static void kernel_cases(void)
     sched_bootstrap(&runner);
 
     struct pm pm;
-    struct kernel_fixture task = {0};
+    struct kernel_harness task = {0};
     const struct pm_port port = {
         &task, kernel_as_create, kernel_caps_create, kernel_thread_create,
         kernel_start, kernel_release,
@@ -490,7 +490,7 @@ static void kernel_cases(void)
 
 static void run(void)
 {
-    fixture_cases();
+    harness_cases();
     kernel_cases();
 }
 
