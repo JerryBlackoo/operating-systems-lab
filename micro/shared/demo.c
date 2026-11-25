@@ -6,6 +6,16 @@
 #include "sbi.h"
 #include "trap.h"
 
+#ifdef MICRO_POST_BOOT_RESIDENT
+#include "console/console.h"
+#include "interrupt/irq.h"
+#include "kernel_init.h"
+#include "pager/pager.h"
+
+extern void console_note_timer_tick(void);
+extern void thread_exit(void) __attribute__((noreturn));
+#endif
+
 enum { DEMO_PRINT = 0x10000, DEMO_FAIL, DEMO_PASS };
 
 static _Alignas(16) uint8_t user_stack[16384];
@@ -27,6 +37,8 @@ static bool reported_first_umode_ecall;
  */
 extern void clock_handle_interrupt(void) __attribute__((weak));
 extern void sched_check(void) __attribute__((weak));
+struct trap_frame *resident_user_trap(struct trap_frame *frame)
+    __attribute__((weak));
 
 static void (*const clock_irq_hook)(void) = clock_handle_interrupt;
 static void (*const sched_check_hook)(void) = sched_check;
@@ -64,8 +76,15 @@ int memcmp(const void *left, const void *right, size_t n)
 
 static void console_write(const char *line)
 {
-    while (*line)
+#ifdef MICRO_POST_BOOT_RESIDENT
+    if (console_mmio_active()) {
+        console_puts(line);
+        return;
+    }
+#endif
+    while (*line) {
         sbi_putchar(*line++);
+    }
 }
 
 static void console_hex(uint64_t value)
@@ -101,12 +120,24 @@ static _Noreturn void stop(uint32_t code)
 
 void demo_log(const char *line)
 {
+#if defined(MICRO_POST_BOOT_RESIDENT)
+    /*
+     * 常驻镜像里 running_user 表示当前正在替 U-mode 线程处理 syscall。
+     * 此时再发 S-mode DEMO_PRINT ecall 会落回 resident_user_trap 且不推进
+     * sepc，导致静默死循环；内核日志必须直接走 console（MMIO 优先，未
+     * 初始化时回退 SBI）。
+     */
+    (void)running_user;
+    console_write(line);
+    console_write("\n");
+#else
     if (running_user)
         user_control(DEMO_PRINT, (uintptr_t)line, 0);
     else {
         console_write(line);
         console_write("\n");
     }
+#endif
 }
 
 _Noreturn void demo_pass(void)
@@ -178,15 +209,46 @@ struct trap_frame *trap_handler(struct trap_frame *frame)
             running_user = !(next->sstatus & SSTATUS_SPP);
             return next;
         }
-        if (clock_irq_hook)
+        if (clock_irq_hook) {
             clock_irq_hook();
+#ifdef MICRO_POST_BOOT_RESIDENT
+            console_note_timer_tick();
+#endif
+        }
         if (sched_check_hook)
             sched_check_hook();
         running_user = !(frame->sstatus & SSTATUS_SPP);
         return frame;
     }
 
+#ifdef MICRO_POST_BOOT_RESIDENT
+    if ((frame->scause & SCAUSE_IRQ) &&
+        (frame->scause & ~SCAUSE_IRQ) == IRQ_S_EXT) {
+        struct trap_frame *next = NULL;
+
+        if (active_module && active_module->trap) {
+            next = active_module->trap(frame);
+        }
+        if (next) {
+            running_user = !(next->sstatus & SSTATUS_SPP);
+            return next;
+        }
+        kernel_irq_enter_devices();
+        (void)irq_dispatch();
+        kernel_irq_leave_devices();
+        if (sched_check_hook) {
+            sched_check_hook();
+        }
+        running_user = !(frame->sstatus & SSTATUS_SPP);
+        return frame;
+    }
+#endif
+
     if (frame->scause == EXC_ECALL_U && !(frame->sstatus & SSTATUS_SPP)) {
+        if (!active_module && resident_user_trap != NULL) {
+            running_user = true;
+            return resident_user_trap(frame);
+        }
         if (!reported_first_umode_ecall) {
             reported_first_umode_ecall = true;
             console_write("[umode] first ecall: scause=");
@@ -196,6 +258,10 @@ struct trap_frame *trap_handler(struct trap_frame *frame)
             console_write(" sepc=");
             console_hex(frame->sepc);
             console_write("\n");
+        }
+        if (resident_user_trap != NULL) {
+            running_user = true;
+            return resident_user_trap(frame);
         }
         switch (frame->a7) {
         case DEMO_PRINT:
@@ -209,6 +275,27 @@ struct trap_frame *trap_handler(struct trap_frame *frame)
             demo_pass();
         }
     }
+
+#ifdef MICRO_POST_BOOT_RESIDENT
+    if (!(frame->sstatus & SSTATUS_SPP) &&
+        (frame->scause == EXC_LOAD_PAGEFAULT ||
+         frame->scause == EXC_STORE_PAGEFAULT ||
+         frame->scause == EXC_INST_PAGEFAULT)) {
+        if (pager_handle_user_fault(frame)) {
+            running_user = true;
+            return frame;
+        }
+    }
+    if (!(frame->sstatus & SSTATUS_SPP)) {
+        /*
+         * 走到这里的 U-mode 异常没有内核策略可处理（illegal instruction、
+         * ebreak、misaligned、access fault…）。终止该线程即可，不能把
+         * 一个用户进程的非法指令升级成整机 panic。
+         */
+        demo_log("[trap] killing user thread: unhandled exception");
+        thread_exit();
+    }
+#endif
 
     struct trap_frame *next = NULL;
     if (active_module && active_module->trap)

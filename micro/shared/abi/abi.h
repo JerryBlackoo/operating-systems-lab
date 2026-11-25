@@ -29,7 +29,74 @@ enum abi_number {
     ABI_IPC_REPLY = 6,
     ABI_AS_MAP = 7,
     ABI_AS_UNMAP = 8,
+    /* M3：仅 SM/PM 服务进程可用的内核协助调用。 */
+    ABI_CAP_MINT_TO = 9,
+    ABI_PM_SPAWN = 10,
+    ABI_CAP_DELETE = 11,
+
+    /*
+     * 编号 13 曾是 ABI_VFS_READ_AT（内核解析路径后读文件）。
+     *
+     * A1 之后 ext4/vfs 已迁到 U-mode `fs` 服务，内核不再解释路径，
+     * 该调用被删除并留下空洞（与 12/18 一样，表里为 NULL handler）。
+     * 现在的等价能力是 ABI_BLOCK_READ（原始块读）。
+     */
+    /* M7：仅 console 服务可访问 UART 行队列/输出。 */
+    ABI_CONSOLE_READ = 14,
+    ABI_CONSOLE_WRITE = 15,
+    /* M7：仅 shell 可请求整机下电。 */
+    ABI_POWEROFF = 16,
+    /* M7：返回当前线程 object id。 */
+    ABI_PID_SELF = 17,
+    /* M6：仅 VM 服务可代表目标进程补页 / 唤醒缺页线程。 */
+    ABI_VM_MAP = 19,
+    ABI_PAGER_DONE = 20,
+    /* M6：返回调用线程所在 AS 的根页帧；任意 U-mode 线程可读自己。 */
+    ABI_AS_SELF = 21,
+    /* M6：仅 VM 服务可拒绝一次缺页，缺页线程收到明确错误并退出。 */
+    ABI_PAGER_FAIL = 22,
+    /* M6：VM 服务进入缺页循环前宣告 pager 可用（早于 SM 注册之外的服务启动）。 */
+    ABI_PAGER_READY = 23,
+    /*
+     * 查询某次 in-flight call 的真实发起者 sid（由内核在 ep_call 时从 TCB
+     * 记录，不读任何消息字段）。仅 SM 可用。
+     *
+     * 存在理由：ipc_message 里没有发送者身份字段，SM 原先只能相信消息里
+     * 自称的 sid，于是任意 U-mode 进程都能冒充别的 sid，让 SM 把能力
+     * mint 进受害者 CSpace 或冒名注册服务名。SM 改为用本调用取真实身份。
+     */
+    ABI_REPLY_CALLER_SID = 24,
+    /*
+     * PM 在 spawn 后把新进程的 AS MAP 权交给 VM（cap_vm_ensure_as_map）。
+     * 仅 SERVICE_SID_PM；a0=线程 object id。与 loader/pager 启动路径互补。
+     */
+    ABI_VM_GRANT_AS = 25,
+    /*
+     * PM 在 spawn 后续步骤（如 VM grant）失败时撤回子线程与固定 SID 上的
+     * spawn cap（子线程须尚未 RUNNING）。仅 SERVICE_SID_PM。
+     */
+    ABI_PM_DISCARD = 26,
+    /*
+     * 原始块读（策略层在 U-mode）。
+     *
+     * ext4/vfs 已迁到 U-mode `fs` 服务，内核只保留块设备驱动。本调用把
+     * 一个逻辑块读进调用者的用户缓冲区：
+     *   a0 = lba, a1 = 用户目标地址, a2 = 块数（1..N）
+     * 成功时 words[0] = 实际读到的字节数。
+     *
+     * 仅 SERVICE_SID_FS。语义是「读原始扇区」：内核不做任何文件系统解释，
+     * 因此路径解析、目录遍历、权限判断全都留在用户态。
+     */
+    ABI_BLOCK_READ = 27,
+    /*
+     * 块设备信息：words[0]=容量（块数）words[1]=块大小（字节）。
+     * 仅 SERVICE_SID_FS。U-mode `fs` 挂 ext4 时需要容量来校验超级块与
+     * extent 边界；内核不解释这些值，只是如实上报驱动探测结果。
+     */
+    ABI_BLOCK_INFO = 28,
 };
+
+#define MICRO_ABI_MAX_NR ABI_BLOCK_INFO
 
 enum abi_status {
     ABI_OK = 0,
@@ -42,6 +109,9 @@ enum abi_status {
     ABI_ALREADY_MAPPED = -7,
     ABI_NOT_MAPPED = -8,
     ABI_BUSY = -9,
+    ABI_NOT_FOUND = -10,
+    /* 服务端在限定时间内没有应答（pager 缺页超时等）。 */
+    ABI_TIMED_OUT = -11,
 };
 
 enum {
@@ -179,11 +249,12 @@ static inline bool abi_page_aligned(uint64_t va)
     return (va & (ABI_PAGE_SIZE - 1)) == 0;
 }
 
-/* 低三位是 R/W/X；至少一位，且可写映射必须同时可读。 */
+/* 低三位是 R/W/X；至少一位，可写映射必须可读且不得可执行（W^X）。 */
 static inline bool abi_rights_valid(uint64_t rights)
 {
     return rights != 0 && rights <= ABI_RIGHTS_MASK &&
-           (!(rights & ABI_WRITE) || (rights & ABI_READ));
+           (!(rights & ABI_WRITE) ||
+            ((rights & ABI_READ) && !(rights & ABI_EXEC)));
 }
 
 #if defined(__riscv)

@@ -149,6 +149,7 @@ static void check_status_and_shapes(void)
     CHECK(abi_rights_valid(ABI_READ | ABI_EXEC));
     CHECK(!abi_rights_valid(0));
     CHECK(!abi_rights_valid(ABI_WRITE)); /* 可写必须可读 */
+    CHECK(!abi_rights_valid(ABI_WRITE | ABI_EXEC)); /* W^X */
     CHECK(!abi_rights_valid(ABI_RIGHTS_MASK + 1));
 }
 
