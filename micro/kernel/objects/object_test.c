@@ -159,8 +159,9 @@ static void test_lock_hook(void)
     assert(object_ref(&a->obj));
     assert(lock_calls == 2 && unlock_calls == 2);
 
-    object_unref(found);
-    object_unref(&a->obj);
+    object_unref(found);   /* 归还 object_lookup 额外引用 */
+    object_unref(&a->obj); /* 归还上面的 object_ref */
+    object_unref(&a->obj); /* 归还 object_register 的初始引用 */
     assert(destroyed_total == 1);
     assert(lock_calls == 3 && unlock_calls == 3);
 
@@ -222,7 +223,8 @@ static void test_init_generation(void)
 
     found = object_lookup(object_get_id(&a->obj), OBJ_THREAD);
     assert(found == &a->obj);
-    object_unref(found);
+    object_unref(found);   /* object_lookup 额外引用 */
+    object_unref(&a->obj); /* object_register 初始引用 */
     assert(destroyed_total == 2 && object_live_count() == 0);
 
     printf("objects: generation across reset ok\n");
