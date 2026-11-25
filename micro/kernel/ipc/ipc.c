@@ -6,6 +6,26 @@
 #include "object.h"
 #include "sched.h"
 
+enum {
+    IPC_ASYNC_ABI_OK = 0,
+    IPC_ASYNC_ABI_CLOSED = -6,
+};
+
+void user_syscall_complete_async_ipc(struct thread *t, uint32_t reply_id,
+                                     int64_t status,
+                                     const struct thread_msg *reply)
+    __attribute__((weak));
+
+void user_syscall_complete_async_ipc(struct thread *t, uint32_t reply_id,
+                                     int64_t status,
+                                     const struct thread_msg *reply)
+{
+    (void)t;
+    (void)reply_id;
+    (void)status;
+    (void)reply;
+}
+
 static struct endpoint endpoints[IPC_MAX_ENDPOINTS];
 static struct reply replies[IPC_MAX_REPLIES];
 
@@ -43,6 +63,41 @@ static void ep_update_state(struct endpoint *ep)
     }
 }
 
+/* 在 replies[] 里按对象 id 找在途 reply；调用者持 sched_lock。 */
+static struct reply *reply_find_locked(uint32_t reply_id)
+{
+    if (reply_id == 0) {
+        return 0;
+    }
+    for (int i = 0; i < IPC_MAX_REPLIES; i++) {
+        if (replies[i].used && object_get_id(&replies[i].obj) == reply_id) {
+            return &replies[i];
+        }
+    }
+    return 0;
+}
+
+/*
+ * 请求交付给接收者的瞬间记下 owner。
+ *
+ * reply_id 只是一个整数值，任何进程都能猜/伪造；因此"谁有权回复"不能
+ * 由令牌本身决定，必须绑定到真正从 endpoint 取走这条消息的线程。
+ * ep_reply_from() 据此拒绝冒名回复。
+ */
+static void bind_reply_owner_locked(const ipc_message *msg,
+                                    const struct thread *receiver)
+{
+    struct reply *rep;
+
+    if (msg == 0 || receiver == 0 || msg->reply_id == 0) {
+        return;
+    }
+    rep = reply_find_locked(msg->reply_id);
+    if (rep != 0 && !rep->done && !rep->aborted) {
+        rep->owner_sid = receiver->cap_sid;
+    }
+}
+
 static void ep_destroy(struct object *obj)
 {
     struct endpoint *ep = (struct endpoint *)obj;
@@ -67,8 +122,20 @@ static void ep_destroy(struct object *obj)
         struct reply *rep = &replies[i];
 
         if (rep->used && rep->ep == ep && !rep->done && !rep->aborted) {
+            struct thread *async = rep->async_caller;
+
             rep->aborted = true;
+            rep->async_caller = 0;
             wake_all_locked(&rep->waitq, IPC_EDEAD);
+            if (async != 0) {
+                uint32_t rid = object_get_id(&rep->obj);
+
+                sched_unlock(flags);
+                user_syscall_complete_async_ipc(async, rid,
+                                                IPC_ASYNC_ABI_CLOSED, 0);
+                object_unref(&rep->obj); /* 归还异步 call 的创建引用 */
+                flags = sched_lock();
+            }
         }
     }
 
@@ -76,9 +143,50 @@ static void ep_destroy(struct object *obj)
     sched_unlock(flags);
 }
 
-void ipc_init(void)
+/*
+ * 线程销毁钩子（由 sched 在线程真正释放时调用）。
+ *
+ * 阻塞在 ep_send 的线程把自己的消息体放在 TCB 里，接收者会直接读那块
+ * 内存；阻塞在 ep_recv 的线程则挂在 recvq 上。线程被强制终止时这两处
+ * 都必须清掉，否则：
+ *   - 接收者会读到已回收线程的 msg（垃圾数据）；
+ *   - recvq 里残留悬空指针，下一次 ep_send 会踩坏内存。
+ *
+ * 这里在 sched_lock 下完成，与 ep_send/ep_recv 的临界区互斥。
+ */
+void ipc_release_thread(struct thread *t)
 {
-    memzero(endpoints, sizeof(endpoints));
+    uint64_t flags;
+
+    if (t == 0) {
+        return;
+    }
+    flags = sched_lock();
+    for (int i = 0; i < IPC_MAX_ENDPOINTS; i++) {
+        struct endpoint *ep = &endpoints[i];
+
+        if (!ep->used) {
+            continue;
+        }
+        if (t->waitq == &ep->sendq) {
+            waitq_remove(&ep->sendq, t);
+        }
+        if (t->waitq == &ep->recvq) {
+            waitq_remove(&ep->recvq, t);
+        }
+        ep_update_state(ep);
+    }
+    for (int i = 0; i < IPC_MAX_REPLIES; i++) {
+        if (replies[i].used && replies[i].async_caller == t) {
+            replies[i].async_caller = 0;
+        }
+    }
+    memzero(&t->msg, sizeof(t->msg));
+    sched_unlock(flags);
+}
+
+void ipc_init(void)
+{    memzero(endpoints, sizeof(endpoints));
     memzero(replies, sizeof(replies));
 }
 
@@ -158,6 +266,7 @@ int ep_send(struct endpoint *ep, const ipc_message *msg)
     if (receiver != 0) {
         receiver->msg = *msg;
         receiver->ipc_status = IPC_OK;
+        bind_reply_owner_locked(msg, receiver);
         thread_wake_locked(receiver);
         ep_update_state(ep);
         sched_unlock(flags);
@@ -198,7 +307,19 @@ int ep_recv(struct endpoint *ep, ipc_message *msg)
     if (sender != 0) {
         *msg = sender->msg;
         sender->ipc_status = IPC_OK;
+        bind_reply_owner_locked(msg, self);
         thread_wake_locked(sender);
+        ep_update_state(ep);
+        sched_unlock(flags);
+        return IPC_OK;
+    }
+
+    /* 内核排队投递优先于阻塞：VM/FS 等接收者回来时先取走已入队的请求。 */
+    if (ep->post_count != 0) {
+        *msg = ep->posts[ep->post_head];
+        bind_reply_owner_locked(msg, self);
+        ep->post_head = (uint8_t)((ep->post_head + 1) % IPC_MAX_POSTS);
+        ep->post_count--;
         ep_update_state(ep);
         sched_unlock(flags);
         return IPC_OK;
@@ -215,6 +336,42 @@ int ep_recv(struct endpoint *ep, ipc_message *msg)
         return self->ipc_status;
     }
     *msg = self->msg;
+    return IPC_OK;
+}
+
+int ep_post(struct endpoint *ep, const ipc_message *msg)
+{
+    struct thread *receiver;
+    uint64_t flags;
+
+    if (ep == 0 || msg == 0) {
+        return IPC_EINVAL;
+    }
+
+    flags = sched_lock();
+    if (ep->state == EP_DYING) {
+        sched_unlock(flags);
+        return IPC_EDEAD;
+    }
+
+    receiver = waitq_pop(&ep->recvq);
+    if (receiver != 0) {
+        receiver->msg = *msg;
+        receiver->ipc_status = IPC_OK;
+        thread_wake_locked(receiver);
+        ep_update_state(ep);
+        sched_unlock(flags);
+        return IPC_OK;
+    }
+
+    if (ep->post_count >= IPC_MAX_POSTS) {
+        sched_unlock(flags);
+        return IPC_ENOMEM;
+    }
+    ep->posts[ep->post_tail] = *msg;
+    ep->post_tail = (uint8_t)((ep->post_tail + 1) % IPC_MAX_POSTS);
+    ep->post_count++;
+    sched_unlock(flags);
     return IPC_OK;
 }
 
@@ -242,6 +399,22 @@ static struct reply *reply_alloc(struct endpoint *ep)
     rep->done = false;
     rep->aborted = false;
     rep->ep = ep;
+    /*
+     * owner_sid 先留 0：此刻请求还没交给任何接收者，无从判断谁有权回复。
+     * ep_send/ep_recv/ep_post 把消息真正移交时会调用
+     * bind_reply_owner_locked() 写入接收者的 sid。
+     */
+    rep->owner_sid = 0;
+    /*
+     * 抄下调用者的真实身份。这一步是服务端身份校验的唯一可信来源：
+     * ipc_message 里没有发送者字段，用户态自报的 sid 一律不可信。
+     * 若当前没有线程（内核直调），留 0 表示"无身份"。
+     */
+    {
+        struct thread *self = sched_current();
+
+        rep->caller_sid = (self != 0) ? self->cap_sid : (uint8_t)0;
+    }
     waitq_init(&rep->waitq);
 
     if (object_register(&rep->obj, OBJ_REPLY, reply_destroy) < 0) {
@@ -263,6 +436,95 @@ static void reply_destroy(struct object *obj)
     rep->ep = 0;
     rep->used = false;
     sched_unlock(flags);
+}
+
+int ep_call_open(struct endpoint *ep, uint32_t *reply_id_out)
+{
+    struct reply *rep;
+
+    if (ep == 0 || reply_id_out == 0) {
+        return IPC_EINVAL;
+    }
+
+    rep = reply_alloc(ep);
+    if (rep == 0) {
+        return IPC_ENOMEM;
+    }
+
+    rep->async_caller = sched_current();
+    *reply_id_out = object_get_id(&rep->obj);
+    return IPC_OK;
+}
+
+void ep_call_cancel_async(uint32_t reply_id)
+{
+    struct object *obj;
+    struct reply *rep;
+    uint64_t flags;
+
+    obj = object_lookup(reply_id, OBJ_REPLY);
+    if (obj == 0) {
+        return;
+    }
+    rep = (struct reply *)obj;
+    flags = sched_lock();
+    rep->async_caller = 0;
+    rep->aborted = true;
+    sched_unlock(flags);
+    object_unref(obj);           /* lookup 引用 */
+    object_unref(&rep->obj);     /* ep_call_open 的创建引用：归还 reply 槽位 */
+}
+
+int ep_call_deliver(struct endpoint *ep, uint32_t reply_id,
+                    const ipc_message *msg)
+{
+    struct object *obj;
+    struct reply *rep;
+    ipc_message request;
+    int rc;
+
+    if (ep == 0 || msg == 0 || reply_id == 0) {
+        return IPC_EINVAL;
+    }
+
+    obj = object_lookup(reply_id, OBJ_REPLY);
+    if (obj == 0) {
+        return IPC_EINVAL;
+    }
+    rep = (struct reply *)obj;
+    if (rep->async_caller != sched_current()) {
+        object_unref(obj);
+        return IPC_EINVAL;
+    }
+
+    request = *msg;
+    request.reply_id = reply_id;
+    rc = ep_send(ep, &request);
+    if (rc != IPC_OK) {
+        rep->async_caller = 0;
+        object_unref(obj);
+        return rc;
+    }
+    object_unref(obj);
+    return IPC_OK;
+}
+
+int ep_call_submit(struct endpoint *ep, const ipc_message *msg,
+                   uint32_t *reply_id_out)
+{
+    uint32_t rid;
+    int rc;
+
+    rc = ep_call_open(ep, &rid);
+    if (rc != IPC_OK) {
+        return rc;
+    }
+    rc = ep_call_deliver(ep, rid, msg);
+    if (rc != IPC_OK) {
+        return rc;
+    }
+    *reply_id_out = rid;
+    return IPC_OK;
 }
 
 int ep_call(struct endpoint *ep, const ipc_message *msg, ipc_message *reply)
@@ -314,6 +576,11 @@ int ep_call(struct endpoint *ep, const ipc_message *msg, ipc_message *reply)
 
 int ep_reply(uint32_t reply_id, const ipc_message *msg)
 {
+    return ep_reply_from(0, reply_id, msg);
+}
+
+int ep_reply_from(uint8_t sid, uint32_t reply_id, const ipc_message *msg)
+{
     struct object *obj;
     struct reply *rep;
     struct thread *t;
@@ -340,6 +607,16 @@ int ep_reply(uint32_t reply_id, const ipc_message *msg)
         object_unref(obj);
         return IPC_EBUSY;
     }
+    /*
+     * 归属校验：sid != 0 表示调用者来自用户态，必须与当初接收该请求的
+     * 线程一致。reply token 只是 bearer 整数，若不做这一步，任何进程都能
+     * 用猜到的 id 抢答别人的请求、伪造应答内容。
+     */
+    if (sid != 0 && rep->owner_sid != 0 && rep->owner_sid != sid) {
+        sched_unlock(flags);
+        object_unref(obj);
+        return IPC_EINVAL;
+    }
 
     /*
      * 回复内容、单次标记和调用者状态在同一临界区内完成：
@@ -348,6 +625,16 @@ int ep_reply(uint32_t reply_id, const ipc_message *msg)
      */
     rep->msg = *msg;
     rep->done = true;
+    t = rep->async_caller;
+    if (t != 0) {
+        rep->async_caller = 0;
+        sched_unlock(flags);
+        user_syscall_complete_async_ipc(t, reply_id, IPC_ASYNC_ABI_OK,
+                                        &rep->msg);
+        object_unref(obj);       /* lookup 引用 */
+        object_unref(obj);       /* ep_call_open 的创建引用：归还 reply 槽位 */
+        return IPC_OK;
+    }
     t = waitq_pop(&rep->waitq);
     if (t != 0) {
         t->ipc_status = IPC_OK;
@@ -357,4 +644,34 @@ int ep_reply(uint32_t reply_id, const ipc_message *msg)
 
     object_unref(obj);
     return IPC_OK;
+}
+
+int ipc_reply_caller_sid(uint32_t reply_id, uint8_t *sid)
+{
+    struct object *obj;
+    struct reply *rep;
+    int rc = IPC_EINVAL;
+
+    if (sid == 0) {
+        return IPC_EINVAL;
+    }
+
+    obj = object_lookup(reply_id, OBJ_REPLY);
+    if (obj == 0) {
+        return IPC_EINVAL;
+    }
+    rep = (struct reply *)obj;
+
+    {
+        uint64_t flags = sched_lock();
+
+        if (!rep->aborted) {
+            *sid = rep->caller_sid;
+            rc = IPC_OK;
+        }
+        sched_unlock(flags);
+    }
+
+    object_unref(obj);
+    return rc;
 }

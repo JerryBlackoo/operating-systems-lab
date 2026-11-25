@@ -1,9 +1,50 @@
 # ipc：同步 rendezvous、endpoint 与 call/reply
 
-本目录实现微内核最小模型里的“关系层”：Endpoint、固定大小消息、同步交接、
-单次 reply。它是四个模块里唯一同时触碰“消息 + 两个线程状态”的原子操作。
+本目录实现微内核最小模型里的「关系层」：Endpoint、固定大小消息、同步交接、
+单次 reply。它是四个模块里唯一同时触碰「消息 + 两个线程状态」的原子操作。
 
 其他路径的代码没有修改；本目录可以独立编译和自测。
+
+## 本模块的对象
+
+| 对象 | 定义处 | 作用 |
+| --- | --- | --- |
+| `struct endpoint` | `ipc.h` | 一条连接的一端：`state`、`sendq`、`recvq`，以及内核侧排队投递的 `posts[IPC_MAX_POSTS]` 环形队列 |
+| `enum ep_state` | `ipc.h` | `EP_IDLE` / `EP_SEND_WAIT` / `EP_RECV_WAIT` / `EP_DYING` |
+| `ipc_message`（= `thread_msg`） | `ipc.h` | 固定的 40 字节消息：`tag` + `reply_id` + `words[4]`；**存放在 TCB 里**，不额外分配内核缓冲 |
+| `struct reply` | `ipc.h` | 一次 `ep_call` 的单次回复凭证：所属 `ep`、`waitq`、结果消息、`caller_sid`（发起者真实身份）、`owner_sid`（有权回复者）、`done`/`aborted`、`async_caller` |
+| `posts[]` 环形队列 | `ipc.h` | 内核侧非阻塞投递；接收者不在时消息落在这里，不丢也不阻塞发送者 |
+| 全局池 `endpoints[]` / `replies[]` | `ipc.c` | `IPC_MAX_ENDPOINTS = 16`、`IPC_MAX_REPLIES = 16` 的静态池 |
+| `IPC_ASYNC_ABI_*` | `ipc.c` | 异步 syscall 完成时回报给 `user_syscall_complete_async_ipc` 的 ABI 状态常量 |
+
+## 与其他模块的关联
+
+| 对方模块 | 关系 | 具体接口 |
+| --- | --- | --- |
+| `objects` | 注册 `OBJ_ENDPOINT` / `OBJ_REPLY` | `ep_create` / `reply_alloc`；`ep_destroy` / `reply_destroy` 是析构回调 |
+| `sched` | 阻塞/唤醒的原子基础 | 整个模块的临界区都在 `sched_lock()` 内；用 `thread_block_locked` / `thread_wake_locked` / `waitq_*` |
+| `capability` | endpoint 的 cap 类型 | `cap_endpoint.c` 定义 `CAP_TYPE_ENDPOINT`，`finalize` 里 `ep_unref`；`SYSCALL_ENDPOINT` 的 acquire 检查 `READ`/`WRITE` 权限 |
+| `syscall/user_backend` | ABI 落地 | `ABI_IPC_SEND`→`ep_send`、`ABI_IPC_CALL`→`ep_call_open`+`ep_call_deliver`（异步）或 `ep_call`（同步）、`ABI_IPC_REPLY`→`ep_reply_from` |
+| `syscall`（异步路径） | 早完成与续完 | `ep_reply` 调 `user_syscall_complete_async_ipc`；`syscall_resume` 写回 trap 帧并唤醒 |
+| `pager` | 内核侧投递 | `ep_post(vm_ep, TAG_VM_FAULT)` 把缺页请求排队给 U-mode VM，不阻塞缺页线程的对手方 |
+| `pm` / `sm` / `fs` / `console` / `vm` | 全部服务通信 | 服务之间的一切调用都走本模块；`TAG_SM_*` / `TAG_PM_*` 等只是 tag 约定 |
+| `console`（内核侧） | 行输入唤醒 | `flush_line` 里对 `line_waitq` 做 `thread_wake_locked`（不经过 endpoint） |
+
+## 演进历程
+
+| 阶段 | 状态 | 驱动它的需求 |
+| --- | --- | --- |
+| 1. 纯 rendezvous | 只有 `ep_send` / `ep_recv`，无 reply | 单模块 demo：发送者阻塞、接收者唤醒、消息内容完整 |
+| 2. 单次 reply 令牌 | `ep_call` = send + 等回复；服务端凭 `reply_id` 回一次 | 请求/应答必须能配对，且不能被回复两次 |
+| 3. reply 对象池 | `replies[16]`，`reply_alloc` / `reply_destroy`；`reply_id` 是 `OBJ_REPLY` 的 object id | 在途调用需要独立生命周期，不能塞进 endpoint |
+| 4. endpoint 销毁时取消在途 call | `ep_destroy` 扫 `replies[]`，标记 `aborted` 并唤醒等待者 | 服务端崩溃时调用者不能永远等下去 |
+| 5. 内核侧非阻塞投递 | `ep_post` + `posts[IPC_MAX_POSTS]` | pager 在缺页路径上不能阻塞；VM 恰好不在 `recv` 时消息也不能丢 |
+| 6. 身份记录 | `reply.caller_sid` 在 `reply_alloc` 时从 TCB 抄下 | 消息体里没有发送者字段，服务端原先只能相信用户自报的 sid（A3） |
+| 7. 回复者归属校验（A10） | `reply.owner_sid` 在消息交付接收者时绑定；`ep_reply_from(sid, ...)` 校验；U-mode 一律走带 sid 的入口 | `reply_id` 只是可猜的整数值，不是能力；不校验时任何进程都能抢答别人的请求、注入伪造应答 |
+| 8. 异步 syscall 的早完成缓存 | `async_ipc_done` / `async_ipc_status` / `async_ipc_result` | `ep_reply` 可能早于 `syscall_dispatch` 置 `WAITING`，此时先把结果缓存，park 时再 drain |
+| 9. reply 槽位回收（A5） | `ep_reply` / `ep_call_cancel_async` / `ep_destroy` 三条路径都归还 `ep_call_open` 的**创建引用** | 泄漏时 16 次 `IPC_CALL` 后槽位永久耗尽，`help` 之后所有命令静默无输出 |
+| 10. 线程销毁清理（A11） | `ipc_release_thread()` 由 `thread_destroy` 弱钩子调用：摘 sendq/recvq、清 TCB 载荷、清 `async_caller` | 阻塞在 `ep_send` 的线程把消息体存在自己 TCB 里，接收者直接读那块内存；线程被强制终止后不清就会读到已回收的内存 |
+| 11. 异步 IPC 成为默认 | `ABI_IPC_CALL` 默认走 `ep_call_open`/`deliver` + `syscall_wait_park` + `syscall_resume`，发起线程在 trap 里阻塞 | 让调用者不再占用内核栈同步等待；`make MICRO_SYSCALL_ASYNC_IPC=0` 保留同步回退 |
 
 ## 最小模型
 
@@ -104,6 +145,7 @@ make -C micro/kernel/ipc test
 ipc: message layout ok
 ipc: argument validation ok
 ipc: sender blocks, receiver receives ok
+ipc: kernel post queue FIFO/full/wake ok
 ipc: receiver blocks, sender delivers ok
 ipc: endpoint destroy wakes waiter ok
 ipc: endpoint destroy wakes receiver ok
@@ -111,6 +153,9 @@ ipc: endpoint slot generation ok
 ipc: endpoint pool exhaustion ok
 ipc: invalid reply ok
 ipc: reply delivery ok
+ipc: async reply slot reuse ok
+ipc: reply owner check ok
+ipc: thread release unlinks queues ok
 ipc: all tests passed
 ```
 
@@ -118,8 +163,36 @@ ipc: all tests passed
 
 - 被阻塞的 `ep_send/ep_recv` 在 `sched()` 返回后会以 `IPC_PENDING` 返回；
   测试随后手动切换到对端，验证状态机和消息内容。
-- 主机自测覆盖 `send/recv`、endpoint 销毁、槽位代际、非法 reply 和单次 reply 投递；
+- 主机自测覆盖 `send/recv`、endpoint 销毁、槽位代际、非法 reply、单次 reply 投递、
+  异步 call 的 reply 槽位回收、回复者归属校验，以及线程销毁时的队列清理；
   `ep_call` 需要真实栈切换，放在 QEMU demo 中验证。
+
+## 回复者归属（owner）
+
+`reply_id` 是 `ep_call` 签发的单次 bearer token，但它只是一个**整数值**，
+不是 capability：任何进程都能构造或猜到一个 id。因此"谁有权回复"不能由
+令牌本身决定。
+
+- 消息真正交给接收者时（`ep_send` 直达 / `ep_recv` 从 sendq 取 / `ep_post`
+  队列取），内核把接收者的 `cap_sid` 写进 `reply.owner_sid`；
+- `ep_reply_from(sid, reply_id, msg)` 校验 `sid` 与 `owner_sid` 一致，
+  不一致返回 `IPC_EINVAL` 且**不消耗**单次令牌（真正的 owner 仍可回复）；
+- `ABI_IPC_REPLY` 一律走 `ep_reply_from()`，用内核记录的 `request->caller`；
+- `ep_reply()` 是 `ep_reply_from(0, ...)`，供内核自有 reply（如 pager）使用，
+  不做归属校验。
+
+## 线程销毁与队列
+
+阻塞在 `ep_send` 的线程把消息体存在自己的 TCB（`thread.msg`）里，接收者
+直接读这块内存。线程被强制终止时 `thread_destroy` 会调用
+`ipc_release_thread()`：
+
+- 把它从所有 `sendq`/`recvq` 摘除（否则队列里留下悬空指针）；
+- 清空 TCB 载荷（否则接收者读到已回收线程的垃圾）；
+- 清掉 `reply.async_caller` 中指向它的记录。
+
+没有这一步，`ABI_PM_DISCARD` 终止一个正在 `ep_send` 上阻塞的子进程就会
+破坏 IPC 队列。`ipc_test` 的 `thread release unlinks queues` 用例覆盖它。
 
 ## QEMU 接线
 
@@ -157,7 +230,8 @@ ep_call(ep, &request, &reply);
 
 ## 已知边界
 
-- 只有同步 rendezvous；没有异步缓冲队列、没有消息大小上限策略。
+- 用户态发送仍是同步 rendezvous；没有用户侧异步缓冲队列。内核生产者
+  可用 `ep_post` 的 8 条 posts 队列（pager 缺页通知），不阻塞发送者。
 - 不做 capability 转移；`reply_id` 是内核签发的 bearer token，真正的权限控制
   需要 capability 模块（发送者只能回复自己持有的 reply cap）。当前内核只校验
   它确实是一个存活的一次性 reply 对象，不校验调用者身份。
@@ -166,7 +240,9 @@ ep_call(ep, &request, &reply);
 - `ep_unref` 只有在最后一个引用释放时才销毁 endpoint；关闭语义需要额外的
   `ep_close`（标记 DYING 并唤醒等待者）。当前销毁会取消在途 `ep_call`，
   但没有“服务端仍可能回复”的软关闭状态。
-- 消息固定 4 个 word（32 字节载荷）；大消息应走共享内存/内存 capability，
-  而不是扩大 TCB。
+- 消息固定 4 个 word（32 字节载荷）。大消息的正规做法是共享内存/内存
+  capability；当前 resident 没有共享页，只用 24 B 分块绕过。
 - endpoint/reply 池是静态上限（各 16 个）；分配与槽位复用由 `sched_lock()`
   保护，但不支持动态扩容。
+- resident 下 SM/PM/FS/console/shell/vm 经 capability 句柄 `user_ipc_*` 交换
+  4-word 消息；文件内容/输出按 24 B、路径按 16 B 分块，没有共享页，也不扩容消息体。
