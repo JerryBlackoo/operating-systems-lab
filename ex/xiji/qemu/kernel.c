@@ -24,6 +24,8 @@ static _Noreturn void finish(unsigned int code)
         __asm__ volatile("hlt");
 }
 
+_Noreturn void kmain(void);
+
 _Noreturn void kmain(void)
 {
     xiji_puts("xiji-qemu: real devices (CMOS PIT PIC #PF IDE)\n");

@@ -1,23 +1,32 @@
 #!/usr/bin/env python3
-"""本机算法 + QEMU 硬件路径一键验收。"""
+"""ex/xiji 一键验收：宿主算法 + QEMU 真实硬件轨。
+
+检查三类证据：
+  1. host：七个实验的算法断言（gcc）；
+  2. qemu：BIOS 引导 -> 保护模式 -> 真实设备自检 + 同一套算法；
+  3. 回归：输出里必须出现的硬件证据行（缺一即失败）。
+"""
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 QEMU_DIR = ROOT / "qemu"
+TRACE = ROOT / "build" / "traces" / "qemu.stdout"
 
+# QEMU 硬件轨必须出现的证据（对应 hw_verify.c 的每一项）
 REQUIRED_HW = [
-    "hw-lab1:",
-    "PASS hw-exp01-02-pit-pic",
-    "PASS hw-exp03-physical-ram",
-    "PASS hw-exp04-identity-map",
-    "PASS hw-exp05-cr0-pagefault",
-    "PASS hw-exp06-ide-status",
-    "PASS hw-exp07-ide-lba",
+    "hw-lab1: CMOS+debugcon+isa-debug-exit",
+    "hw-exp01-02: 8254+PIC ticks=",
+    "hw-exp03: physical partitions a/b/c non-overlapping",
+    "hw-exp04: segment-relative physical addressing",
+    "hw-exp05: #PF faults=",
+    "hw-exp06: IDE identify model=",
+    "hw-exp07: tree persisted to LBA",
     "PASS hw-all-qemu-devices",
 ]
 
@@ -32,61 +41,75 @@ REQUIRED_ALGO = [
     "ALL PASS (qemu+hw+algo)",
 ]
 
+REQUIRED_BOOT = [
+    "stage1: hello from MBR",
+    "xiji-qemu: real devices",
+]
 
-def run(cmd: list[str], cwd: Path | None = None, capture: bool = False) -> subprocess.CompletedProcess:
+
+def run(cmd: list[str], cwd: Path, timeout: int) -> subprocess.CompletedProcess:
     return subprocess.run(
-        cmd,
-        cwd=cwd or ROOT,
-        capture_output=capture,
-        text=True,
-        check=False,
+        cmd, cwd=cwd, capture_output=True, text=True, check=False, timeout=timeout
     )
 
 
 def main() -> int:
-    print("== xiji verify: host algorithms ==")
-    host = run(["make", "test"], capture=True)
+    if not shutil.which("qemu-system-i386"):
+        print("SKIP: qemu-system-i386 不在 PATH 中", file=sys.stderr)
+        return 2
+
+    print("== 1/2 host algorithms ==")
+    host = run(["make", "test"], ROOT, 120)
     sys.stdout.write(host.stdout)
     sys.stderr.write(host.stderr)
     if host.returncode != 0:
         print("FAIL: make test", file=sys.stderr)
         return 1
 
-    print("== xiji verify: QEMU (TCG) ==")
-    build = run(["make", "-C", str(QEMU_DIR), "all"], capture=True)
+    print("== 2/2 QEMU hardware track (TCG) ==")
+    build = run(["make", "-C", str(QEMU_DIR), "all"], ROOT, 300)
     if build.returncode != 0:
+        sys.stderr.write(build.stdout)
         sys.stderr.write(build.stderr)
+        print("FAIL: qemu build", file=sys.stderr)
         return 1
 
+    TRACE.parent.mkdir(parents=True, exist_ok=True)
     qemu = run(
-        [
-            "make",
-            "-C",
-            str(QEMU_DIR),
-            "run",
-            "QEMU_LOG=1",
-        ],
-        capture=True,
+        ["make", "-C", str(QEMU_DIR), "run", "QEMU_LOG=1"], ROOT, 300
     )
     out = qemu.stdout + qemu.stderr
     sys.stdout.write(out)
     if qemu.returncode != 0:
-        print("FAIL: make qemu run", file=sys.stderr)
+        print("FAIL: qemu run (expected exit 33)", file=sys.stderr)
         return 1
 
-    trace = ROOT / "build" / "traces" / "qemu.stdout"
-    if trace.is_file():
-        out = trace.read_text(encoding="utf-8", errors="replace")
+    if TRACE.is_file():
+        out = TRACE.read_text(encoding="utf-8", errors="replace")
 
-    missing = [s for s in REQUIRED_HW + REQUIRED_ALGO if s not in out]
+    missing = [s for s in REQUIRED_BOOT + REQUIRED_HW + REQUIRED_ALGO if s not in out]
     if missing:
-        print("FAIL: missing output lines:", file=sys.stderr)
+        print("FAIL: 缺少必需的输出行:", file=sys.stderr)
         for line in missing:
             print("  -", line, file=sys.stderr)
         return 1
 
-    if not re.search(r"stage1: hello from MBR", out):
-        print("FAIL: BIOS stage1 missing", file=sys.stderr)
+    # 任何 FAIL 行都不允许出现
+    for line in out.splitlines():
+        if line.startswith("FAIL") or line.startswith("FATAL"):
+            print(f"FAIL: 输出中出现失败行: {line}", file=sys.stderr)
+            return 1
+
+    # 缺页计数必须是 4（既不是 0 也不是重复计数）
+    m = re.search(r"hw-exp05: #PF faults=(\d+) frames=(\d+)", out)
+    if not m or int(m.group(1)) != 4 or int(m.group(2)) != 4:
+        print("FAIL: exp05 缺页/帧计数不符合预期", file=sys.stderr)
+        return 1
+
+    # 磁盘回读字节数必须大于 0
+    m = re.search(r"hw-exp07: tree persisted to LBA \d+, bytes=(\d+)", out)
+    if not m or int(m.group(1)) <= 0:
+        print("FAIL: exp07 目录树未写入扇区", file=sys.stderr)
         return 1
 
     print("PASS: verify.py (host + qemu hardware + algorithms)")
@@ -94,4 +117,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except subprocess.TimeoutExpired as exc:
+        print(f"FAIL: 超时 {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc

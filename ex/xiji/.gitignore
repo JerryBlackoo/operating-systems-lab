@@ -1,0 +1,9 @@
+# 内核 / 硬件轨的生成物
+../../../mono/build/xiji-qemu/
+
+# 宿主测试二进制
+host/xiji-host
+
+# QEMU 串口日志（每次 make verify 都会重写）
+build/traces/*.stdout
+build/traces/*.log

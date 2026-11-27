@@ -1,40 +1,34 @@
-.code16
+.code32
 .section .text.entry,"ax"
 .global _start
 
+/*
+ * 内核入口：由 stage2 在保护模式下以 32 位远跳进入（CS=0x08）。
+ * 这里已经是平坦 32 位环境，负责最后的 C 运行环境准备：
+ *   - 装载内核数据段选择子
+ *   - 建立引导栈（位于页表区之上、1 MiB 之下）
+ *   - 清零 .bss
+ *   - 调用 kmain
+ */
 _start:
-    cli
-    lgdt gdt_descriptor
-    movl %cr0, %eax
-    orl $1, %eax
-    movl %eax, %cr0
-    ljmpl $0x08, $protected_entry
-
-.code32
-protected_entry:
     movw $0x10, %ax
     movw %ax, %ds
     movw %ax, %es
     movw %ax, %fs
     movw %ax, %gs
     movw %ax, %ss
-    movl $0xfc00, %esp
+    movl $0x9f000, %esp
     cld
+
     movl $__bss_start, %edi
     movl $__bss_end, %ecx
     subl %edi, %ecx
     xorl %eax, %eax
     rep stosb
-    call kmain
 
-.balign 8
-gdt:
-    .quad 0
-    .quad 0x00cf9a000000ffff
-    .quad 0x00cf92000000ffff
-gdt_end:
-gdt_descriptor:
-    .word gdt_end - gdt - 1
-    .long gdt
+    call kmain
+1:  cli
+    hlt
+    jmp 1b
 
 .section .note.GNU-stack,"",@progbits

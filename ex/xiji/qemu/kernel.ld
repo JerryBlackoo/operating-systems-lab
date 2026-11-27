@@ -8,7 +8,9 @@ PHDRS
 
 SECTIONS
 {
-    . = 0x1000;
+    /* 64 KiB 对齐：避开低端引导区（0x7c00 stage1/stage2），
+     * 同时满足 INT 13h 一次传输不得跨越 64 KiB 边界。 */
+    . = 0x20000;
     .text : {
         KEEP(*(.text.entry))
         *(.text .text.*)
@@ -21,6 +23,7 @@ SECTIONS
         __bss_end = .;
     } :data
 
-    ASSERT(__bss_end <= 0x9000, "Kernel image must stay below page-table arena at 0xa000")
+    ASSERTSYM = __bss_end;
+    ASSERT(__bss_end <= 0x3f000, "Kernel image must stay below page tables at 0x40000")
     /DISCARD/ : { *(.comment) *(.note.GNU-stack) }
 }
