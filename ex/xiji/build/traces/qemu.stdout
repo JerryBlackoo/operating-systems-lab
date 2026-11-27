@@ -1,0 +1,18 @@
+stage1: hello from MBR (0x7C00)
+xiji-qemu: real devices (CMOS PIT PIC #PF IDE)
+hw-lab1: CMOS+debugcon+isa-debug-exit
+PASS hw-exp01-02-pit-pic
+PASS hw-exp03-physical-ram
+PASS hw-exp04-identity-map
+PASS hw-exp05-cr0-pagefault
+PASS hw-exp06-ide-status
+PASS hw-exp07-ide-lba
+PASS hw-all-qemu-devices
+PASS exp01-process-management
+PASS exp02-process-scheduling
+PASS exp03-partition-memory
+PASS exp04-segment-memory
+PASS exp05-demand-paging
+PASS exp06-device-management
+PASS exp07-file-management
+ALL PASS (qemu+hw+algo)

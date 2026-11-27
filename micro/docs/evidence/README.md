@@ -63,6 +63,8 @@
 | A29 | ~~`TAG_FS_READ` 每次都重新 `vfs_open`~~ → **已优化（2026-11-25）**：缓存上次成功的 fd，收到新 `TAG_FS_PATH` 时才关闭 | `userland/servers/fs/user/fs_main.c` | 读 200 KiB 要 ~8500 次 `TAG_FS_READ`，每次都重做完整路径解析（每层 `ext4_lookup` 读目录块）。复用 open 后同样次数的读只解析一次路径 |
 | A30 | ~~FS 服务在大文件读取上逐块往返 ext4~~ → **已优化（2026-11-25）**：服务层加 4 KiB 预取缓冲，命中时纯内存拷贝 | `userland/servers/fs/user/fs_main.c`（`fs_prefetch`） | `vfs_read_at` 的固定成本（`load_inode` + extent 解析 + 块映射）与读多少字节无关，而客户端每次只要 24 B。预取后 `cat /largefile` 从 40–60 秒降到约 12 秒。实现时踩过一个坑：缓冲剩余不足一个请求量时不能返回「短读」，否则客户端会当成 EOF，把文件截断在第一个窗口 |
 | A31 | ~~**U-mode `fs` 自检输出与 shell 输出交错**~~ → **已补（2026-11-25）**：`init` 改为分阶段 spawn —— 先拉 fs/console 并等它们 ready，再拉 shell | `userland/init/user/init_main.c` | 此前 shell 与 fs 并行启动，shell 一启动就打印 `micro>` 并响应命令，而 fs 的只读自检（读 /motd 与 /largefile 算 SHA-256）要花时间，其分块输出会插进 `commands: help cat ps echo poweroff` 中间把这行拆成两段。表现为 `make check`/stress **间歇性**失败（约 1/8 概率），用户看到的 help 输出也被破坏。修复后 10 次 `make check`、8 次 stress 全部通过 |
+| A32 | ~~**每条不同路径都要从根重解析**~~ → **已优化（2026-11-25）**：`vfs` 加目录项缓存（32 槽、LRU、含负缓存）。`(parent,name)→(inode,type)` 命中时不再调用 `port->lookup` | `userland/servers/vfs/vfs.{h,c}`、`bench_dcache.c` | A29 只缓存**一条**路径，读 N 条不同路径时解析仍是 N 次；每次冷 miss 要「读 inode 表块 + 扫目录块 + 再读 inode 表块」，而 `ext4.c` 的 `block()` 只有单槽，三块互相挤占。实测：24 个名字第二轮 lookup 25→**0**；但 **1000 个名字仍 1001→1000，几乎全 miss**——32 槽装不下大目录，这个上限必须写清，不能拿小目录的命中率外推 |
+| A33 | ~~**改 `vfs.h` 后 `fs_main.o` 不重编，链接出 ABI 不一致的 `fs.elf`**~~ → **已补（2026-11-25）**：`fs/user/Makefile` 显式声明头文件依赖，并给 `user-common.mk` 加 `-MD -MP` + `-include *.d` | `userland/servers/fs/user/Makefile`、`userland/user-common.mk` | `struct vfs` 增加 `dentries[]` 后，`fs_main.c` 的规则只依赖 `.c`，`fs_main.o` 停留在旧布局，`static struct vfs fs_vfs;` 被按新尺寸越界写。表现为自检通过、shell `cat /motd` 报 `cat: path read error`（`vfs_open` 返回非 OK）。这类错误只在「改结构体 + 增量构建」时出现，`make clean` 后消失，极易误判为逻辑 bug |
 
 ### 已知性能边界（2026-11-25 实测后更新）
 
@@ -77,13 +79,23 @@
 **已做的两级优化**：
 1. `A29` 缓存 fd（路径只解析一次）
 2. `A30` 服务层 4 KiB 预取（后续 ~170 次小读变成纯内存拷贝）
+3. `A32` 目录项缓存（**不同路径**之间共享解析结果，含负缓存）
 
 效果：`cat /largefile` 从 40–60 秒降到约 **12 秒**。
+
+**A32 的边界（勿外推）**：32 槽 dentry 对「少量重复路径」和「小目录」有效，
+但**装不下大目录**——实测 1000 个不同名字第二轮仍几乎全 miss。真实大目录
+负载需要：提高槽位 / 改哈希表 + LRU / 再叠 ext4 htree。`cat` 这种单文件
+顺序读主要靠 A29+A30，dentry 对它没有额外贡献。
 
 **尝试过并回退**：给 ext4 加按 ino 的 inode 缓存。它让 `ext4` 的 host demo
 失败——该 demo 故意用**同一个 `struct ext4` 实例**重新指向不同镜像内容来
 验证「extent 损坏必须被检测」，按 ino 命中的缓存会掩盖损坏。安全版本需要
 缓存 key 含镜像身份，成本高于收益。
+
+**与 A32 的区别（易混）**：A32 的 dentry 缓存的是「名字→inode 号」，
+不缓存 inode 内容，所以不会掩盖坏盘检测，可以安全落地。上面回退的是
+「按 ino 缓存 `struct inode` 内容」，那是另一件事，仍未做。
 
 **剩余可消除路径**（未做）：扩大消息载荷，或引入「fs 直接把数据写进
 调用者 AS」的新 ABI（类似 `ABI_BLOCK_READ`）。属架构改动。
@@ -96,4 +108,6 @@
 | `tools/demo.sh --expect-nonzero` | 负向：不存在的路径不得当成 motd 成功 |
 | `tools/shell_smoke.py` | **交互输出完整性**：逐条命令的完整输出，以及 help 整行未被其它服务日志交错（A31 的守护） |
 | `tools/shell_stress.py N` | 长会话：N 条命令后 IPC 资源不泄漏 |
+| `make -C micro/userland/servers/vfs run` | vfs 语义 + dentry 一致性（命中后 `port->lookup` 零调用、负缓存、flush、LRU 淘汰后结果仍正确）|
+| `make -C micro/userland/servers/vfs DEMO=vfs_dcache run` | dentry 调用次数对照（S1/S2a/S2b/S3），**只测次数不测耗时** |
 | — | **PM discard 收尾（2026-11-25）**：`loader_terminate_spawn` → `sched_thread_terminate`；RUNNING 登记延迟退出、异步 park 先撤销 reply | `ABI_PM_DISCARD=26` | 原先「子线程已 RUNNING → `ABI_BUSY`」的尾巴已消除；只有 current/idle 才拒绝 |

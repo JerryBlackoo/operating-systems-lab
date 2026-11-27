@@ -13,6 +13,12 @@ OBJS := $(BUILD)/fs.o $(BUILD)/fs_main.o \
 CFLAGS += -I$(MICRO_ROOT)/userland/servers/fs/ext4 \
           -I$(MICRO_ROOT)/userland/servers/vfs
 
+# 头文件依赖。这里必须显式列出：`struct vfs` / `struct ext4` 是跨编译单元的
+# 布局契约，只依赖 .c 会让「改了头文件但没重编 fs_main.o」的构建通过链接，
+# 两个目标文件对结构体大小的理解不一致，直接把静态实例写坏。
+VFS_HDRS := $(MICRO_ROOT)/userland/servers/vfs/vfs.h
+EXT4_HDRS := $(MICRO_ROOT)/userland/servers/fs/ext4/ext4.h
+
 .PHONY: all clean
 all: $(BUILD)/$(NAME).elf
 
@@ -20,15 +26,15 @@ $(BUILD)/fs.o: fs.S
 	@mkdir -p $(dir $@)
 	$(CLANG) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/fs_main.o: fs_main.c
+$(BUILD)/fs_main.o: fs_main.c $(VFS_HDRS) $(EXT4_HDRS)
 	@mkdir -p $(dir $@)
 	$(CLANG) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/fs_ext4.o: ../../fs/ext4/ext4.c
+$(BUILD)/fs_ext4.o: ../../fs/ext4/ext4.c $(EXT4_HDRS)
 	@mkdir -p $(dir $@)
 	$(CLANG) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/fs_vfs.o: ../../vfs/vfs.c
+$(BUILD)/fs_vfs.o: ../../vfs/vfs.c $(VFS_HDRS)
 	@mkdir -p $(dir $@)
 	$(CLANG) $(CFLAGS) -c $< -o $@
 
@@ -40,5 +46,8 @@ $(BUILD)/$(NAME).elf: $(OBJS) $(USER_LD_SCRIPT) $(USER_LINKER)
 	@mkdir -p $(dir $@)
 	"$(USER_LINKER)" -T $(USER_LD_SCRIPT) --no-relax -o $@ $(OBJS)
 
+# 编译器生成的 -MD 依赖（头文件改动会触发重编）。
+-include $(OBJS:.o=.d)
+
 clean:
-	rm -f $(OBJS) $(BUILD)/$(NAME).elf
+	rm -f $(OBJS) $(BUILD)/$(NAME).elf $(OBJS:.o=.d)

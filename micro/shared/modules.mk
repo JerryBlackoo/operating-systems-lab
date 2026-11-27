@@ -9,7 +9,7 @@
 # 内核模块由 micro/Makefile 选择后直接编译；STANDALONE_MODELS 里的模块
 # 另外用 demo.mk 各自链接单模块镜像。
 
-STANDALONE_MODELS := syscall abi init libs apps pm sm vm vfs block ext4 net nvme
+STANDALONE_MODELS := syscall abi init libs apps pm sm vm vfs vfs_dcache block ext4 net nvme
 BOOT_MODELS := capability clock interrupt objects memory sched ipc $(STANDALONE_MODELS)
 
 MODEL_DIR_capability := kernel/capability
@@ -69,6 +69,9 @@ MODEL_DIR_vm := userland/servers/vm
 MODEL_FILES_vm := vm.c demo.c
 MODEL_DIR_vfs := userland/servers/vfs
 MODEL_FILES_vfs := vfs.c demo.c
+# 目录项缓存的对照实验：独立模块，避免把「测量」混进语义 demo。
+MODEL_DIR_vfs_dcache := userland/servers/vfs
+MODEL_FILES_vfs_dcache := vfs.c bench_dcache.c
 MODEL_DIR_block := userland/servers/block
 MODEL_FILES_block := block.c demo.c
 MODEL_DIR_ext4 := userland/servers/fs/ext4

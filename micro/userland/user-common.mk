@@ -12,7 +12,7 @@ $(USER_LINKER):
 
 CFLAGS := --target=riscv64-unknown-elf -march=rv64imac_zicsr_zifencei -mabi=lp64 \
           -mcmodel=medany -msmall-data-limit=0 -ffreestanding -fno-builtin -nostdlib \
-          -O2 -g -Wall -Wextra -Werror \
+          -O2 -g -Wall -Wextra -Werror -MD -MP \
           -I$(MICRO_ROOT)/shared -I$(MICRO_ROOT)/userland/libs
 
 USER_LD_SCRIPT ?= $(MICRO_ROOT)/userland/init/user/user.ld

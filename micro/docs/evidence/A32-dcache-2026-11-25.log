@@ -1,0 +1,61 @@
+# A32/A33 目录项缓存与构建依赖修复 — 2026-11-25
+
+## 1. vfs 语义 demo（含 10 条 dentry 一致性用例）
+
+```
+$ make -C micro/userland/servers/vfs run
+[vfs] start
+vfs: per-client fd tables, independent offsets, short read, EOF and exhaustion
+vfs: dentry cache hits bypass port; negative entries, bypass and flush verified
+[vfs] PASS
+```
+
+## 2. 目录项缓存量化对照（vfs_dcache）
+
+```
+$ make -C micro/userland/servers/vfs DEMO=vfs_dcache run
+S1 same path x1000 cold=2 warm=0
+S2a 24 names x2 (fits cache) cold=25 warm=0
+S2b 1000 names x2 (thrash) cold=1001 warm=1000
+S3 overflow: distinct names cold=128 warm=32
+vfs-dcache: lookup counts measured; hits bypass port, negative entries cached
+[vfs_dcache] PASS
+```
+
+## 3. 端到端回归（A33 的判别：cat /motd 哈希必须与镜像一致）
+
+```
+$ PATH=/sbin:/usr/sbin:$PATH ./tools/demo.sh
+[demo] build kernel + user + initrd + fs-image
+[demo] expected motd sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18
+[demo] shell prompt ok
+[demo] help ok
+[demo] cat motd ok (sha256=74bf28d9c7030ae2deecf3cd87c9ba7580a5cc4b152070d3b1492671bc526e18)
+[demo] ps ok (total 6)
+[demo] echo ok
+[demo] poweroff ok
+[demo] log: /home/jerry/Projects/from-scratch/operating-systems-lab/micro/.artifacts/demo-20261125-224130.log
+[demo] PASS
+```
+
+## 4. A33 复现记录（增量构建陷阱）
+
+改 `vfs.h` 增加 `dentries[]` 后，若 `fs_main.o` 未重编，链接出的 `fs.elf` 里两个
+目标文件对 `struct vfs` 尺寸的理解不一致，`static struct vfs fs_vfs;` 被越界写。
+现象：`[fs]` 自检哈希正常，但 shell `cat /motd` 返回 `cat: path read error`。
+
+```
+----- cat /motd -----
+cat: path read error
+----- end cat -----
+```
+
+根因证据：改动后 `build/user/fs_main.o` 时间戳仍为 16:34，`build/user/fs_vfs.o` 为 22:37：
+
+```
+$ ls -la build/user/fs_main.o build/user/fs_vfs.o
+-rw-rw-r-- 1 jerry jerry 168032 Nov 25 16:34 build/user/fs_main.o   # 旧
+-rw-rw-r-- 1 jerry jerry  55568 Nov 25 22:37 build/user/fs_vfs.o    # 新
+```
+
+修复后两者同为 22:39，端到端恢复 PASS。
